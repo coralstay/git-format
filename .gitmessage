@@ -1,0 +1,34 @@
+
+# <type>[(scope)][!]: <description>
+#   ↳ 50자 이내 권장, 명령형 현재형으로 작성 ("추가한다" / "add", not "추가함")
+#
+# [optional body]
+#   ↳ 무엇을 왜 바꿨는지 설명 (어떻게가 아니라). 한 줄 72자 정도에서 줄바꿈 권장.
+#
+# [optional footer(s)]
+#   ↳ git trailer 형식(Token: value). 예: Task-Id: GF-3, BREAKING CHANGE: ...
+#
+# ── type 목록 (Conventional Commits v1.0.0, https://www.conventionalcommits.org/ko/v1.0.0/) ──
+#   feat      새 기능 추가                        (SemVer MINOR)
+#   fix       버그 수정                           (SemVer PATCH)
+#   docs      문서 변경
+#   style     코드 의미에 영향 없는 스타일 변경(포맷팅, 세미콜론 등)
+#   refactor  기능 변경 없는 코드 구조 개선
+#   perf      성능 개선
+#   test      테스트 추가/수정
+#   build     빌드 시스템 또는 외부 의존성 변경
+#   ci        CI 설정/스크립트 변경
+#   chore     위 항목에 속하지 않는 기타 변경사항
+#   revert    이전 커밋 되돌리기
+#
+# ── scope (선택) ──
+#   type 뒤에 괄호로 영향 범위를 명사로 표기.  예: fix(parser): 빈 입력 처리
+#
+# ── BREAKING CHANGE (SemVer MAJOR) ──
+#   호환성을 깨는 변경은 둘 중 하나로 표시:
+#     1) type/scope 뒤에 `!` 추가        예: feat(api)!: 응답 형식 변경
+#     2) footer에 `BREAKING CHANGE: <설명>` 추가
+#
+# ── 이 템플릿 사용법 ──
+#   git config commit.template .gitmessage
+#   (git-format install.sh를 사용하면 자동으로 설정됩니다 — GF-8 참고)
