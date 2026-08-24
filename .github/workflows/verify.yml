@@ -1,0 +1,42 @@
+name: git-format verify (reusable)
+
+# opt-in 서버사이드 백스톱(decision-3). 로컬 git hook은 --no-verify나 core.hooksPath
+# 해제로 우회 가능하므로, PR에 대해 브랜치 보호 필수 status check로 이 워크플로를
+# 걸어두면 push 단계 우회까지 실질적으로 막을 수 있다. 사용법은
+# docs/examples/github-actions-caller.yml 참고.
+on:
+  workflow_call: {}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout git-format hooks
+        uses: actions/checkout@v4
+        with:
+          repository: amosQP/git-format
+          path: .git-format
+
+      - name: Conventional Commits 형식 검증 (PR 커밋 전체)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -eu
+          for sha in $(git rev-list "${BASE_SHA}..${HEAD_SHA}"); do
+            git log -1 --pretty=%B "$sha" > /tmp/msg.txt
+            echo "checking $sha"
+            sh .git-format/hooks/commit-msg /tmp/msg.txt commit
+          done
+
+      - name: 언어별 lint/컴파일 체크 (pre-commit과 동일 로직)
+        run: sh .git-format/hooks/pre-commit
+
+      - name: 언어별 빌드/테스트 (pre-push와 동일 로직)
+        run: sh .git-format/hooks/pre-push
