@@ -1,25 +1,40 @@
 # git-format
 
-TS, C/C++, Java, Python 등 언어가 달라도 동일한 git 커밋 규칙과 커밋/푸시 전 검사를
-쓸 수 있게 하는 저장소다. 별도 런타임(Node/Python 등) 의존성 없이 **git 자체 기능**
-(`core.hooksPath`, `init.templateDir`, `commit.template`, git hooks, `git interpret-trailers`)
-만으로 동작한다.
+## 의도
 
-설계 배경과 각 결정의 이유는 `backlog/decisions/`(decision-1~5)에, 작업 단위는
-`backlog/tasks/`(GF-1~GF-12)에 기록돼 있다. `backlog board`로 진행 상황을 볼 수 있다.
+여러 언어(TS, C/C++, Java, Python, SQL 등)로 나뉜 프로젝트들에서 커밋 규칙과
+커밋/푸시 전 검사가 저장소마다 제각각이거나 아예 없는 문제, 그리고 `--no-verify`로
+검사를 우회해도 아무 흔적이 안 남는 문제를 해결하려고 만들었다. 언어별로 다른 린터를
+설치하게 하거나 팀마다 커밋 컨벤션 문서를 따로 유지하는 대신, **git 자체 기능**만으로
+하나의 저장소를 여러 프로젝트가 공유해서 쓸 수 있게 하는 것이 의도다.
 
-## 설치
+## 목적
+
+- [Conventional Commits](https://www.conventionalcommits.org/ko/v1.0.0/)를 언어와
+  무관하게 동일하게 강제한다.
+- 별도 런타임(Node/Python 등) 의존성 없이 `core.hooksPath`, `init.templateDir`,
+  `commit.template`, git hooks, `git interpret-trailers` 같은 **git 자체 기능**만으로
+  동작한다 — 언어별 lint 도구(npm/ruff/clang-format/mvn/sqlfluff 등)는 있으면
+  쓰고 없으면 조용히 건너뛴다.
+- `git commit --no-verify`로 검사를 우회해도 커밋 이력 자체에 프로그래밍적으로
+  흔적(`Verify-Bypassed: true`)이 남게 한다.
+- AI 코딩 에이전트가 만든 커밋에 어떤 도구/모델이 관여했는지, 신뢰 수준을 구분해서
+  footer에 남긴다.
+
+설계 배경과 각 결정의 이유는 `backlog/decisions/`에, 작업 단위는 `backlog/tasks/`에
+기록돼 있다. `backlog board`로 진행 상황을 볼 수 있다.
+
+## 사용법
 
 ### 기존 저장소에 적용
 
 ```sh
-git clone <이 저장소 URL> ~/git-format   # 원하는 위치에 한 번만 클론
+git clone https://github.com/amosQP/git-format.git ~/git-format   # 원하는 위치에 한 번만 클론
 cd ~/my-project
 ~/git-format/install.sh
 ```
 
-`core.hooksPath`와 `commit.template`이 대상 저장소에 설정된다. 대상 디렉터리를 인자로
-줘도 된다: `~/git-format/install.sh ~/my-project`.
+대상 디렉터리를 인자로 줘도 된다: `~/git-format/install.sh ~/my-project`.
 
 ### 앞으로 만들 모든 새 저장소에 자동 적용
 
@@ -28,10 +43,33 @@ cd ~/my-project
 ```
 
 `git init`/`git clone`을 실행할 때마다 훅과 커밋 템플릿이 자동으로 심어진다
-(`init.templateDir`). 대화형 터미널에서 인자 없이 실행하면 이 적용 여부를 물어본다.
+(`init.templateDir`). 대화형 터미널에서 인자 없이 실행하면 이 적용 여부를 물어보고,
+`--global`/`--no-global`로 비대화형 지정도 가능하다.
 
-> `core.hooksPath`가 설정된 저장소는 `.git/hooks/`의 로컬 훅을 완전히 무시한다.
-> 기존에 다른 훅을 쓰고 있었다면 충돌 여부를 확인할 것.
+## 이 저장소가 만들거나 바꾸는 것
+
+**설치 시 컨슈머 저장소에서 바뀌는 것** — 파일이 아니라 git 설정뿐이다. 어떤 소스
+파일도 건드리지 않는다.
+
+| 대상 | 명령 | 효과 |
+|---|---|---|
+| 로컬(대상 저장소) | `git config core.hooksPath <git-format>/hooks` | `.git/hooks/`의 기존 로컬 훅을 완전히 대체 |
+| 로컬(대상 저장소) | `git config commit.template <git-format>/.gitmessage` | 커밋 에디터에 스켈레톤 표시 |
+| 전역(`--global`) | `git config --global init.templateDir <git-format>/template` | 이후 모든 신규 저장소에 자동 적용 |
+| 전역(`--global`) | `git config --global commit.template <git-format>/.gitmessage` | 위와 동일, 전역 기본값 |
+
+**실행 중 새로 생기는 파일**
+
+| 파일/디렉터리 | 위치 | 언제 | 비고 |
+|---|---|---|---|
+| `.gitformat-verified` | `<대상 저장소>/.git/` | `pre-commit` 통과 시 생성, `post-commit`이 곧 삭제 | 커밋 사이에 남지 않는 임시 마커 |
+| `.gitformat-build/` | 컨슈머 저장소 루트 | C/C++ `pre-push`가 cmake 빌드 시 | 커밋 대상 아님, `.gitignore`에 추가 권장 |
+| `template/hooks/*` | 이 git-format 클론 자신의 `template/` 안 | `install.sh --global` 실행 시 | 클론 위치를 가리키는 심볼릭 링크, 커밋 안 됨(`.gitignore`) |
+
+**커밋 자체가 바뀌는 경우**: `post-commit`이 조건에 따라 `git commit --amend`로
+방금 만든 커밋의 footer에 트레일러를 추가한다(아래 "`--no-verify` 우회 탐지",
+"AI 귀속 footer" 참고) — 이 경우 커밋 해시가 한 번 더 바뀐다. 기존 소스 파일
+내용은 건드리지 않는다.
 
 ## 커밋 메시지 규칙
 
@@ -65,14 +103,7 @@ cd ~/my-project
 SQL(decision-6): `.sqlfluff` 설정 파일이 있거나 `.sql` 파일이 추적돼 있으면
 [sqlfluff](https://sqlfluff.com/)로 lint한다. `pre-commit`은 스테이징된 `.sql`만,
 `pre-push`는 저장소 전체를 검사한다. dialect 설정은 프로젝트의 `.sqlfluff`에 맡기고
-git-format은 강제하지 않는다.
-
-C/C++ 프로젝트의 `pre-push`는 `.gitformat-build/`에 빌드한다. 커밋 대상이 아니므로
-컨슈머 프로젝트의 `.gitignore`에 다음을 추가할 것을 권장한다:
-
-```
-.gitformat-build/
-```
+git-format은 강제하지 않는다(`.sqlfluff`가 없으면 범용 기본값 `ansi`로 대체).
 
 ## Task-Id 브랜치 강제 (decision-4)
 
@@ -90,12 +121,6 @@ C/C++ 프로젝트의 `pre-push`는 `.gitformat-build/`에 빌드한다. 커밋 
 `Verify-Bypassed: true` footer를 **프로그래밍적으로** 삽입한다. 텍스트 안내가 아니라
 커밋 이력 자체에 남는 사실이라 `git log`만으로 우회 여부를 확인할 수 있다.
 
-**한계**: `git push --no-verify`는 `pre-push`만 건너뛰고, git에는 push 이후 무조건
-실행되는 로컬 훅이 없어서 이 트릭을 push 단계에는 쓸 수 없다. 로컬 훅은 애초에
-`rm -rf .git/hooks` 같은 방법으로도 완전히 우회 가능하므로, 이건 "우회 불가능"이
-아니라 "정상적인 사용에서 흔적을 남긴다"는 보장이다. push 단계까지 막고 싶으면
-GitHub 브랜치 보호 + 필수 status check(GF-12, opt-in)를 함께 쓸 것.
-
 ### opt-in: GitHub Actions 백스톱 설정
 
 `docs/examples/github-actions-caller.yml`을 컨슈머 저장소의
@@ -104,7 +129,7 @@ GitHub 브랜치 보호 + 필수 status check(GF-12, opt-in)를 함께 쓸 것.
 언어별 lint/빌드/테스트를 다시 실행한다. 그다음 저장소 설정의
 Branch protection rules에서 이 워크플로를 **필수 status check**로
 지정해야 실제로 병합을 막는 효과가 생긴다(단순히 워크플로만 추가하면
-결과가 표시만 되고 강제되지는 않는다).
+결과가 표시만 되고 강제되지는 않는다) — "주의점" 참고.
 
 ## AI 귀속 footer (decision-5)
 
@@ -117,9 +142,6 @@ AI 코딩 에이전트가 커밋했다면 아래 트레일러가 자동으로 �
 | `AI-Model` | **Claude Code**: 세션 트랜스크립트(`~/.claude/projects/<slug>/<session>.jsonl`)의 `message.model` — Anthropic API 응답을 그대로 기록한 값. **그 외 도구**: `git config gitformat.aiModel`(commit-msg가 존재/화이트리스트를 강제) | Claude Code는 서버 발급 사실 / 그 외는 존재+형식만 강제, 진실성은 검증 불가 |
 | `Co-Authored-By` | `AI-Tool`이 `claude-code`일 때만 자동 삽입 | 자동 |
 | `Hooks-Commit` | 이 git-format 클론 자체의 `git rev-parse --short HEAD` | 완전 자동, 모든 커밋에 적용(AI 여부 무관) |
-
-비-Claude-Code AI 도구를 쓰면서 `gitformat.aiModel`을 설정하지 않으면 `commit-msg`가
-커밋을 거부한다. 모델 ID는 `hooks/checks/known-models.txt` 화이트리스트에 있어야 한다.
 
 `CLAUDE_CODE_SESSION_ID`는 `AI-Model` 조회를 위해 트랜스크립트 파일 경로를 찾는 데만
 내부적으로 쓰이고, 값 자체가 커밋 footer에 남지는 않는다 — 세션 식별자를 공개 저장소
@@ -148,10 +170,32 @@ git-format/
 ├── template/                # init.templateDir용 (hooks/*는 install.sh --global이 생성)
 ├── .gitmessage               # commit.template
 ├── install.sh
-├── docs/references/          # 외부 스펙 vendoring
+├── tests/                    # bats-core 테스트(dev 전용, decision-7)
+├── docs/references/          # 외부 스펙 vendoring(conventional-commits, Pro Git)
 └── backlog/                  # 이 저장소 자체 개발 관리(decision, task)
 ```
 
+## 주의점
+
+- **`core.hooksPath`는 로컬 훅을 완전히 대체한다.** 기존에 `.git/hooks/`에 다른 훅을
+  쓰고 있었다면 install.sh 실행 전에 충돌 여부를 확인할 것.
+- **`git push --no-verify`는 탐지할 수 없다.** git에는 push 이후 무조건 실행되는
+  로컬 훅이 없어서(`commit`과 다름) `--no-verify` 트릭을 push 단계엔 못 쓴다. 로컬
+  훅은 애초에 `rm -rf .git/hooks`로도 완전히 우회 가능하므로, 이건 "우회 불가능"이
+  아니라 "정상적인 사용에서 흔적을 남긴다"는 보장이다. push까지 막고 싶으면 위
+  opt-in GitHub Actions 백스톱을 브랜치 보호 필수 status check로 걸어야 한다.
+- **`post-commit`이 커밋 해시를 amend로 바꿀 수 있다.** Verify-Bypassed나 AI 귀속
+  트레일러가 붙을 때마다 커밋이 한 번 더 amend된다 — 커밋 해시를 미리 캐싱하는
+  외부 도구가 있다면 이 점을 인지해야 한다.
+- **비-Claude-Code AI 도구는 설정 없이 커밋이 막힐 수 있다.** `AI_AGENT` 환경변수가
+  감지되는데 `gitformat.aiModel`을 안 정했다면 `commit-msg`가 거부한다("커스터마이즈"
+  참고).
+- **라이선스가 두 가지다.** git-format 자체는 MIT지만, `docs/references/pro-git/`에
+  vendoring한 Pro Git 원문은 **CC BY-NC-SA 3.0(비영리)**이라 상업적으로 재배포하면
+  안 된다 — `docs/references/pro-git/VENDORING.md` 참고.
+- **`.gitformat-build/`는 커밋하지 말 것.** C/C++ 프로젝트라면 컨슈머 저장소의
+  `.gitignore`에 `.gitformat-build/`를 추가한다.
+
 ## 라이선스
 
-[MIT](LICENSE)
+MIT — 전문: https://github.com/amosQP/git-format/blob/main/LICENSE
