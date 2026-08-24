@@ -18,4 +18,9 @@ if [ -f package.json ] && command -v npm >/dev/null 2>&1; then
   fi
 fi
 
+if { [ -f pyproject.toml ] || [ -f requirements.txt ]; } && command -v pytest >/dev/null 2>&1; then
+  echo "[git-format] pre-push python: pytest"
+  pytest -q
+fi
+
 exit 0
