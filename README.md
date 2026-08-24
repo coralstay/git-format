@@ -139,3 +139,7 @@ git-format/
 ├── docs/references/          # 외부 스펙 vendoring
 └── backlog/                  # 이 저장소 자체 개발 관리(decision, task)
 ```
+
+## 라이선스
+
+[MIT](LICENSE)
