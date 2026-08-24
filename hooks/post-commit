@@ -34,8 +34,10 @@ fi
 # 검증했으므로(없으면 예외 브랜치가 아닌 한 커밋 자체가 거부됨), 여기서는 같은 패턴을
 # 다시 찾아 Task-Id 트레일러로 남기기만 한다.
 TASK_PREFIX="$(git config --get gitformat.taskPrefix 2>/dev/null || printf '%s' GF)"
+[ -n "$TASK_PREFIX" ] || TASK_PREFIX=GF
 BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || printf '%s' HEAD)"
-TASK_NUM="$(printf '%s' "$BRANCH" | grep -oiE "${TASK_PREFIX}-[0-9]+" | grep -oE '[0-9]+' | head -n 1 || printf '%s' '')"
+# commit-msg와 동일하게 앵커링해서 부분 문자열 오매치를 피한다(GF-34).
+TASK_NUM="$(printf '%s' "$BRANCH" | grep -oiE "(^|[^a-zA-Z0-9])${TASK_PREFIX}-[0-9]+" | grep -oE '[0-9]+' | head -n 1 || printf '%s' '')"
 
 if [ -n "$TASK_NUM" ]; then
   set -- "$@" --trailer "Task-Id: ${TASK_PREFIX}-${TASK_NUM}"
