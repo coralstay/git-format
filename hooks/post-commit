@@ -38,6 +38,11 @@ AI_TOOL_VERSION="$(printf '%s' "${AI_AGENT:-}" | cut -d_ -f2 | tr '-' '.')"
 if [ -n "$AI_TOOL_ID" ]; then
   set -- "$@" --trailer "AI-Tool: ${AI_TOOL_ID}"
   set -- "$@" --trailer "AI-Tool-Version: ${AI_TOOL_VERSION}"
+fi
+
+# Co-Authored-By는 실제로 Claude가 작업했다고 확신할 수 있는 경우(claude-code)에만 붙인다.
+# 다른 AI 도구까지 "Claude"로 공동저자 표기하면 잘못된 귀속이 된다.
+if [ "$AI_TOOL_ID" = "claude-code" ]; then
   set -- "$@" --trailer "Co-Authored-By: Claude <noreply@anthropic.com>"
 fi
 
@@ -45,8 +50,33 @@ if [ -n "${CLAUDE_CODE_SESSION_ID:-}" ]; then
   set -- "$@" --trailer "AI-Session-Id: ${CLAUDE_CODE_SESSION_ID}"
 fi
 
+# AI-Model(decision-5): Claude Code는 세션 트랜스크립트(~/.claude/projects/<slug>/<session>.jsonl)의
+# message.model 필드를 읽는다 — 이는 Anthropic API 응답을 애플리케이션이 그대로 기록한 값이라
+# 자가신고가 아니다. 그 외 도구는 commit-msg 게이트가 이미 검증한 gitformat.aiModel을 쓴다.
+# 어떤 이유로든 조회에 실패하면 커밋을 막지 않고 조용히 생략한다.
+AI_MODEL=""
+
+if [ "$AI_TOOL_ID" = "claude-code" ] && [ -n "${CLAUDE_CODE_SESSION_ID:-}" ] && command -v jq >/dev/null 2>&1; then
+  PROJECT_SLUG="$(printf '%s' "$PWD" | tr '/' '-')"
+  TRANSCRIPT="${HOME}/.claude/projects/${PROJECT_SLUG}/${CLAUDE_CODE_SESSION_ID}.jsonl"
+  if [ -f "$TRANSCRIPT" ]; then
+    AI_MODEL="$(tail -n 200 "$TRANSCRIPT" 2>/dev/null \
+      | jq -r 'select(.type=="assistant") | .message.model // empty' 2>/dev/null \
+      | tail -n 1 || printf '%s' '')"
+  fi
+elif [ -n "$AI_TOOL_ID" ]; then
+  AI_MODEL="$(git config --get gitformat.aiModel 2>/dev/null || printf '%s' '')"
+fi
+
+if [ -n "$AI_MODEL" ]; then
+  set -- "$@" --trailer "AI-Model: ${AI_MODEL}"
+fi
+
 if [ "$#" -gt 0 ]; then
-  NEW_MSG="$(git log -1 --pretty=%B | git interpret-trailers --if-exists doNothing "$@")"
+  # addIfDifferent: 같은 키의 마지막 트레일러 값이 동일하면 중복 추가하지 않는다.
+  # doNothing은 "AI-Tool"이 "AI-Tool-Version"의 접두어로 매칭되어 후자가 통째로
+  # 사라지는 git의 트레일러 키 부분일치 동작 때문에 쓸 수 없다.
+  NEW_MSG="$(git log -1 --pretty=%B | git interpret-trailers --if-exists addIfDifferent "$@")"
   _GITFORMAT_AMEND_GUARD=1 git commit --amend --no-verify -m "$NEW_MSG" >/dev/null
 fi
 
