@@ -1,0 +1,38 @@
+#!/bin/sh
+# post-commit 훅: --no-verify 우회를 탐지해 Verify-Bypassed 트레일러를 프로그래밍적으로
+# 삽입한다(decision-3). post-commit은 --no-verify를 쓰든 --amend를 하든 git이 항상
+# 실행을 보장하는 훅이라는 점을 이용한다.
+#
+# 판단 근거: pre-commit은 실행될 때 시작 시점에 마커를 지우고, 통과하면 끝에 다시 쓴다.
+# 이 훅은 그 마커의 존재 여부만 보고, 확인 후에는 항상(존재하든 안 하든) 지운다 —
+# 그래야 다음 커밋으로 스테일 마커가 새지 않는다.
+#
+# 트레일러 삽입은 `git commit --amend`로 이뤄지는데, amend 자체도 post-commit을
+# 재발동시키므로 재귀 가드가 필요하다.
+set -eu
+
+if [ "${_GITFORMAT_AMEND_GUARD:-}" = "1" ]; then
+  exit 0
+fi
+
+GIT_DIR="$(git rev-parse --git-dir)"
+MARKER="${GIT_DIR}/.gitformat-verified"
+
+verified=false
+if [ -f "$MARKER" ]; then
+  verified=true
+fi
+rm -f "$MARKER"
+
+set --
+
+if [ "$verified" = false ]; then
+  set -- "$@" --trailer "Verify-Bypassed: true"
+fi
+
+if [ "$#" -gt 0 ]; then
+  NEW_MSG="$(git log -1 --pretty=%B | git interpret-trailers --if-exists doNothing "$@")"
+  _GITFORMAT_AMEND_GUARD=1 git commit --amend --no-verify -m "$NEW_MSG" >/dev/null
+fi
+
+exit 0
