@@ -46,6 +46,6 @@ EOF
   mkdir -p migrations
   echo "SELECT 1;" > migrations/001.sql
   git add migrations/001.sql
-  PATH="/usr/bin:/bin" run git commit -m "feat(db): no sqlfluff on PATH"
+  PATH="$(path_without sqlfluff)" run git commit -m "feat(db): no sqlfluff on PATH"
   [ "$status" -eq 0 ]
 }

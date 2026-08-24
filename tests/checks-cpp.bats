@@ -49,6 +49,6 @@ teardown() {
 @test "clang-format이 없으면 조용히 건너뛴다" {
   printf 'int main(){\nreturn 0;\n      }\n' > messy.cpp
   git add CMakeLists.txt messy.cpp
-  PATH="/usr/bin:/bin" run git commit -m "feat(cpp): no clang-format on PATH"
+  PATH="$(path_without clang-format)" run git commit -m "feat(cpp): no clang-format on PATH"
   [ "$status" -eq 0 ]
 }
