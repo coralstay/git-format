@@ -24,9 +24,21 @@ if [ -f "$MARKER" ]; then
 fi
 rm -f "$MARKER"
 
+# git interpret-trailers의 --if-exists(doNothing/addIfDifferent 등)는 키를
+# "접두어"로 매칭한다 — 예: "AI-Tool"이 이미 있으면 "AI-Tool-Version"도 같은
+# 트레일러로 오인해 값이 우연히 같으면 통째로 누락시킨다(GF-33). 이 모호한
+# 판단에 기대는 대신, 기존 트레일러를 직접 파싱해 "키:값"이 정확히 일치할
+# 때만 건너뛰고, 그 외엔 항상 --if-exists add로 강제 추가한다.
+CURRENT_MSG="$(git log -1 --pretty=%B)"
+EXISTING_TRAILERS="$(printf '%s\n' "$CURRENT_MSG" | git interpret-trailers --parse 2>/dev/null || true)"
+
+trailer_exists() {
+  printf '%s\n' "$EXISTING_TRAILERS" | grep -qxF "$1: $2"
+}
+
 set --
 
-if [ "$verified" = false ]; then
+if [ "$verified" = false ] && ! trailer_exists "Verify-Bypassed" "true"; then
   set -- "$@" --trailer "Verify-Bypassed: true"
 fi
 
@@ -39,23 +51,33 @@ BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || printf '%s' HEAD)"
 # commit-msg와 동일하게 앵커링해서 부분 문자열 오매치를 피한다(GF-34).
 TASK_NUM="$(printf '%s' "$BRANCH" | grep -oiE "(^|[^a-zA-Z0-9])${TASK_PREFIX}-[0-9]+" | grep -oE '[0-9]+' | head -n 1 || printf '%s' '')"
 
-if [ -n "$TASK_NUM" ]; then
+if [ -n "$TASK_NUM" ] && ! trailer_exists "Task-Id" "${TASK_PREFIX}-${TASK_NUM}"; then
   set -- "$@" --trailer "Task-Id: ${TASK_PREFIX}-${TASK_NUM}"
 fi
 
 # AI 귀속(decision-5): AI_AGENT는 Claude Code 프로세스가 하위 프로세스에 주입하는
 # 값이라 LLM이 스스로 만든 값이 아니다(예: claude-code_2-1-227_agent).
 AI_TOOL_ID="$(printf '%s' "${AI_AGENT:-}" | cut -d_ -f1)"
-AI_TOOL_VERSION="$(printf '%s' "${AI_AGENT:-}" | cut -d_ -f2 | tr '-' '.')"
 
-if [ -n "$AI_TOOL_ID" ]; then
+if [ -n "$AI_TOOL_ID" ] && ! trailer_exists "AI-Tool" "${AI_TOOL_ID}"; then
   set -- "$@" --trailer "AI-Tool: ${AI_TOOL_ID}"
-  set -- "$@" --trailer "AI-Tool-Version: ${AI_TOOL_VERSION}"
 fi
+
+# cut -d_ -f2는 구분자가 없으면 원문 전체를 그대로 돌려준다 — AI_AGENT에
+# 밑줄이 없으면 AI_TOOL_VERSION이 AI_TOOL_ID와 같아져버린다(GF-33). 밑줄이
+# 있을 때만 버전을 채운다.
+case "${AI_AGENT:-}" in
+  *_*)
+    AI_TOOL_VERSION="$(printf '%s' "${AI_AGENT:-}" | cut -d_ -f2 | tr '-' '.')"
+    if [ -n "$AI_TOOL_VERSION" ] && ! trailer_exists "AI-Tool-Version" "${AI_TOOL_VERSION}"; then
+      set -- "$@" --trailer "AI-Tool-Version: ${AI_TOOL_VERSION}"
+    fi
+    ;;
+esac
 
 # Co-Authored-By는 실제로 Claude가 작업했다고 확신할 수 있는 경우(claude-code)에만 붙인다.
 # 다른 AI 도구까지 "Claude"로 공동저자 표기하면 잘못된 귀속이 된다.
-if [ "$AI_TOOL_ID" = "claude-code" ]; then
+if [ "$AI_TOOL_ID" = "claude-code" ] && ! trailer_exists "Co-Authored-By" "Claude <noreply@anthropic.com>"; then
   set -- "$@" --trailer "Co-Authored-By: Claude <noreply@anthropic.com>"
 fi
 
@@ -79,7 +101,7 @@ elif [ -n "$AI_TOOL_ID" ]; then
   AI_MODEL="$(git config --get gitformat.aiModel 2>/dev/null || printf '%s' '')"
 fi
 
-if [ -n "$AI_MODEL" ]; then
+if [ -n "$AI_MODEL" ] && ! trailer_exists "AI-Model" "${AI_MODEL}"; then
   set -- "$@" --trailer "AI-Model: ${AI_MODEL}"
 fi
 
@@ -101,15 +123,14 @@ resolve_self() {
   printf '%s' "$p"
 }
 HOOK_DIR="$(cd "$(dirname "$(resolve_self "$0")")" && pwd)"
-if HOOKS_COMMIT="$(git -C "$HOOK_DIR" rev-parse --short HEAD 2>/dev/null)"; then
+if HOOKS_COMMIT="$(git -C "$HOOK_DIR" rev-parse --short HEAD 2>/dev/null)" && ! trailer_exists "Hooks-Commit" "${HOOKS_COMMIT}"; then
   set -- "$@" --trailer "Hooks-Commit: ${HOOKS_COMMIT}"
 fi
 
 if [ "$#" -gt 0 ]; then
-  # addIfDifferent: 같은 키의 마지막 트레일러 값이 동일하면 중복 추가하지 않는다.
-  # doNothing은 "AI-Tool"이 "AI-Tool-Version"의 접두어로 매칭되어 후자가 통째로
-  # 사라지는 git의 트레일러 키 부분일치 동작 때문에 쓸 수 없다.
-  NEW_MSG="$(git log -1 --pretty=%B | git interpret-trailers --if-exists addIfDifferent "$@")"
+  # 위에서 이미 정확히 일치하는 트레일러는 걸러냈으므로(trailer_exists), 여기서는
+  # git의 접두어 기반 --if-exists 판단에 기대지 않고 항상 추가한다(GF-33).
+  NEW_MSG="$(printf '%s\n' "$CURRENT_MSG" | git interpret-trailers --if-exists add "$@")"
   _GITFORMAT_AMEND_GUARD=1 git commit --amend --no-verify -m "$NEW_MSG" >/dev/null
 fi
 
