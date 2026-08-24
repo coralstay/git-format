@@ -69,5 +69,5 @@ body 다음 빈 줄 뒤에 위치하며 [git trailer 포맷](https://git-scm.com
 
 git-format은 이 표준 footer 문법을 그대로 재사용해 자체 트레일러를 추가한다
 (decision-3, decision-4, decision-5): `Task-Id`, `Verify-Bypassed`, `AI-Tool`,
-`AI-Tool-Version`, `AI-Session-Id`, `AI-Model`, `Co-Authored-By`, `Hooks-Commit`.
+`AI-Tool-Version`, `AI-Model`, `Co-Authored-By`, `Hooks-Commit`.
 전부 `git interpret-trailers`가 이해하는 표준 trailer 포맷이라 별도 파서가 필요 없다.

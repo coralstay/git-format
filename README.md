@@ -102,13 +102,16 @@ AI 코딩 에이전트가 커밋했다면 아래 트레일러가 자동으로 �
 | 트레일러 | 값 출처 | 신뢰 수준 |
 |---|---|---|
 | `AI-Tool`, `AI-Tool-Version` | `AI_AGENT` 환경변수(Claude Code 프로세스가 하위 프로세스에 주입) | 강제 — LLM이 스스로 만든 값이 아님 |
-| `AI-Session-Id` | `CLAUDE_CODE_SESSION_ID` 환경변수 | 강제 |
 | `AI-Model` | **Claude Code**: 세션 트랜스크립트(`~/.claude/projects/<slug>/<session>.jsonl`)의 `message.model` — Anthropic API 응답을 그대로 기록한 값. **그 외 도구**: `git config gitformat.aiModel`(commit-msg가 존재/화이트리스트를 강제) | Claude Code는 서버 발급 사실 / 그 외는 존재+형식만 강제, 진실성은 검증 불가 |
 | `Co-Authored-By` | `AI-Tool`이 `claude-code`일 때만 자동 삽입 | 자동 |
 | `Hooks-Commit` | 이 git-format 클론 자체의 `git rev-parse --short HEAD` | 완전 자동, 모든 커밋에 적용(AI 여부 무관) |
 
 비-Claude-Code AI 도구를 쓰면서 `gitformat.aiModel`을 설정하지 않으면 `commit-msg`가
 커밋을 거부한다. 모델 ID는 `hooks/checks/known-models.txt` 화이트리스트에 있어야 한다.
+
+`CLAUDE_CODE_SESSION_ID`는 `AI-Model` 조회를 위해 트랜스크립트 파일 경로를 찾는 데만
+내부적으로 쓰이고, 값 자체가 커밋 footer에 남지는 않는다 — 세션 식별자를 공개 저장소
+히스토리에 영구히 남기지 않기 위함이다.
 
 ## 커스터마이즈
 

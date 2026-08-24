@@ -28,7 +28,6 @@ amend 메커니즘 사용, `--no-verify` 재귀가드 공유):
 | 트레일러 | 값 출처 | 강제 수준 |
 |---|---|---|
 | `AI-Tool` / `AI-Tool-Version` | `AI_AGENT` 환경변수 파싱 | 강제 (프로세스 주입) |
-| `AI-Session-Id` | `CLAUDE_CODE_SESSION_ID` | 강제 (프로세스 주입) |
 | `AI-Model` | **Claude Code**: 세션 트랜스크립트 JSONL에서 `git commit`을 실행한 시점에 가장 가까운 assistant 턴의 `message.model` 추출. **그 외 AI 툴**: 트랜스크립트 채널이 없으므로 `git config gitformat.aiModel` 값 사용, 단 `CLAUDECODE`/`AI_AGENT` 감지 시 미설정이면 커밋 거부(존재 강제) + 알려진 모델 ID 화이트리스트 검증 + 도구-벤더 일관성 검사 | Claude Code: 강제급(서버 발급 사실) / 그 외: 존재+형식 강제, 진실성 검증 불가 |
 | `Co-Authored-By` | AI 환경 감지 시 `Claude <noreply@anthropic.com>` 형태로 자동 삽입 | 자동 |
 | `Hooks-Commit` | git-format 저장소 자체의 `git rev-parse --short HEAD` (수동 버전 문자열 대신) | 완전 자동 |
@@ -47,3 +46,10 @@ amend 메커니즘 사용, `--no-verify` 재귀가드 공유):
   가장 최근 항목을 찾는 방식으로 정밀도를 높인다.
 - Claude Code 외 툴 사용자는 상대적으로 약한 보장(존재 강제)만 받는다는 점을 README에
   명시해 기대치를 관리한다.
+
+## Amendment (2026-08-24, GF-13)
+
+`AI-Session-Id`(`CLAUDE_CODE_SESSION_ID`) 트레일러를 제거했다. 세션 식별자를 공개
+저장소의 커밋 이력에 영구히 남기는 게 프라이버시/추적 관점에서 바람직하지 않다는
+판단. `CLAUDE_CODE_SESSION_ID` 자체는 `AI-Model` 조회를 위해 세션 트랜스크립트 파일
+경로를 찾는 데 여전히 내부적으로만 쓰고, 그 값을 커밋에 남기지는 않는다.
