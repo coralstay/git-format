@@ -23,4 +23,12 @@ if { [ -f pyproject.toml ] || [ -f requirements.txt ]; } && command -v pytest >/
   pytest -q
 fi
 
+if [ -f pom.xml ] && command -v mvn >/dev/null 2>&1; then
+  echo "[git-format] pre-push java: mvn -q -o verify"
+  mvn -q -o verify
+elif ls build.gradle* >/dev/null 2>&1 && [ -x ./gradlew ]; then
+  echo "[git-format] pre-push java: ./gradlew -q check"
+  ./gradlew -q check
+fi
+
 exit 0
