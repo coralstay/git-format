@@ -37,12 +37,23 @@ echo "git-format: ${TARGET} 설정 완료"
 echo "  core.hooksPath  = ${HOOKS_DIR}"
 echo "  commit.template = ${GITMESSAGE}"
 
+sync_template() {
+  mkdir -p "${TEMPLATE_DIR}/hooks"
+  for h in "${HOOKS_DIR}"/*; do
+    [ -f "$h" ] || continue
+    ln -sf "$h" "${TEMPLATE_DIR}/hooks/$(basename "$h")"
+  done
+}
+
 # 전역 init.templateDir(decision-2): 앞으로 git init/clone하는 모든 새 저장소에
-# 자동으로 훅/.gitmessage가 심어지게 한다. --global/--no-global로 비대화형 지정 가능.
+# 자동으로 훅이 심어지게 한다. template/hooks/*는 이 클론 위치를 가리키는 절대경로
+# 심볼릭 링크로 그때그때 생성한다(GF-9). --global/--no-global로 비대화형 지정 가능.
 case "$GLOBAL_MODE" in
   yes)
+    sync_template
     git config --global init.templateDir "$TEMPLATE_DIR"
-    echo "git-format: 전역 init.templateDir 설정 완료 (앞으로 만드는 새 저장소에 자동 적용)"
+    git config --global commit.template "$GITMESSAGE"
+    echo "git-format: 전역 init.templateDir/commit.template 설정 완료 (앞으로 만드는 새 저장소에 자동 적용)"
     ;;
   no)
     echo "git-format: 전역 설정은 건너뜁니다."
@@ -53,11 +64,13 @@ case "$GLOBAL_MODE" in
       read -r answer
       case "$answer" in
         y|Y|yes|YES)
+          sync_template
           git config --global init.templateDir "$TEMPLATE_DIR"
-          echo "git-format: 전역 init.templateDir 설정 완료."
+          git config --global commit.template "$GITMESSAGE"
+          echo "git-format: 전역 init.templateDir/commit.template 설정 완료."
           ;;
         *)
-          echo "git-format: 전역 설정은 건너뜁니다. 나중에: git config --global init.templateDir ${TEMPLATE_DIR}"
+          echo "git-format: 전역 설정은 건너뜁니다. 나중에: ${SELF_DIR}/install.sh --global"
           ;;
       esac
     else
