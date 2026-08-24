@@ -24,8 +24,9 @@ if { [ -f pyproject.toml ] || [ -f requirements.txt ]; } && command -v pytest >/
 fi
 
 if [ -f pom.xml ] && command -v mvn >/dev/null 2>&1; then
-  echo "[git-format] pre-push java: mvn -q -o verify"
-  mvn -q -o verify
+  # -o(오프라인)는 캐시 없는 환경에서 플러그인 해석에 실패한다(GF-22).
+  echo "[git-format] pre-push java: mvn -q verify"
+  mvn -q verify
 elif ls build.gradle* >/dev/null 2>&1 && [ -x ./gradlew ]; then
   echo "[git-format] pre-push java: ./gradlew -q check"
   ./gradlew -q check
@@ -40,8 +41,15 @@ if [ -f CMakeLists.txt ] && command -v cmake >/dev/null 2>&1; then
 fi
 
 if { [ -f .sqlfluff ] || git ls-files -- '*.sql' | grep -q .; } && command -v sqlfluff >/dev/null 2>&1; then
-  echo "[git-format] pre-push sql: sqlfluff lint ."
-  sqlfluff lint .
+  # .sqlfluff가 없으면 dialect 미지정으로 sqlfluff가 사용법 에러를 내므로(GF-22)
+  # 기본값 ansi를 명시한다.
+  if [ -f .sqlfluff ]; then
+    echo "[git-format] pre-push sql: sqlfluff lint ."
+    sqlfluff lint .
+  else
+    echo "[git-format] pre-push sql: sqlfluff lint --dialect ansi ."
+    sqlfluff lint --dialect ansi .
+  fi
 fi
 
 exit 0

@@ -7,8 +7,10 @@ REPO_ROOT="$1"
 cd "$REPO_ROOT"
 
 if [ -f pom.xml ] && command -v mvn >/dev/null 2>&1; then
-  echo "[git-format] java: mvn -q -o compile"
-  mvn -q -o compile
+  # -o(오프라인)는 플러그인 캐시가 없는 첫 실행에서 "Plugin ... could not be
+  # resolved"로 실패한다(GF-22 실도구 재검증에서 발견). 온라인으로 실행한다.
+  echo "[git-format] java: mvn -q compile"
+  mvn -q compile
 elif ls build.gradle* >/dev/null 2>&1 && [ -x ./gradlew ]; then
   echo "[git-format] java: ./gradlew -q compileJava"
   ./gradlew -q compileJava
