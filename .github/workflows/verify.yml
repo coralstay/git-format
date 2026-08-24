@@ -35,6 +35,18 @@ jobs:
             sh .git-format/hooks/commit-msg /tmp/msg.txt commit
           done
 
+      - name: PR 변경분을 스테이징 상태로 노출
+        # cpp.sh/sql.sh는 `git diff --cached`(HEAD 대비 인덱스 변경분)만 본다. 이
+        # 워크플로는 체크아웃만 하고 아무 것도 커밋/스테이징하지 않으므로 두 체크가
+        # 항상 조용히 no-op이었다(GF-32). git add -A는 이미 커밋된 파일에는 아무
+        # 효과가 없어 통하지 않는다(index가 HEAD와 이미 동일하므로 diff가 안 생김) —
+        # 대신 HEAD만 base로 되돌리고(index/워킹트리는 그대로 둔다) `git diff --cached`가
+        # PR 전체 변경분을 "Added"로 보이게 만든다.
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: git reset --soft "$BASE_SHA"
+
       - name: 언어별 lint/컴파일 체크 (pre-commit과 동일 로직)
         run: sh .git-format/hooks/pre-commit
 
