@@ -41,6 +41,10 @@ if [ -n "$AI_TOOL_ID" ]; then
   set -- "$@" --trailer "Co-Authored-By: Claude <noreply@anthropic.com>"
 fi
 
+if [ -n "${CLAUDE_CODE_SESSION_ID:-}" ]; then
+  set -- "$@" --trailer "AI-Session-Id: ${CLAUDE_CODE_SESSION_ID}"
+fi
+
 if [ "$#" -gt 0 ]; then
   NEW_MSG="$(git log -1 --pretty=%B | git interpret-trailers --if-exists doNothing "$@")"
   _GITFORMAT_AMEND_GUARD=1 git commit --amend --no-verify -m "$NEW_MSG" >/dev/null
