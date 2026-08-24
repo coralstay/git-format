@@ -1,0 +1,12 @@
+# AI-Model 화이트리스트 (decision-5)
+# 한 줄에 모델 ID 하나. Claude Code는 세션 트랜스크립트에서 모델을 자동으로 얻으므로
+# 이 목록은 그 외 AI 도구에서 git config gitformat.aiModel로 설정한 값의 형식 검사에만 쓰인다.
+# 필요하면 조직 내부에서 이 파일에 자체 모델 ID를 추가해도 된다.
+claude-opus-5
+claude-sonnet-5
+claude-haiku-4-5-20251001
+claude-opus-4-7
+gpt-5
+gpt-5-mini
+gemini-2.5-pro
+gemini-2.5-flash

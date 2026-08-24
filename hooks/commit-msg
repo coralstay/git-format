@@ -46,4 +46,23 @@ if [ "$BRANCH" != "HEAD" ]; then
   fi
 fi
 
+# AI-Model 존재/화이트리스트 강제(decision-5). Claude Code는 post-commit이 세션
+# 트랜스크립트에서 자동으로 모델을 얻으므로 이 게이트에서 제외한다.
+AI_TOOL_GATE="$(printf '%s' "${AI_AGENT:-}" | cut -d_ -f1)"
+if [ -n "$AI_TOOL_GATE" ] && [ "$AI_TOOL_GATE" != "claude-code" ]; then
+  CONFIGURED_MODEL="$(git config --get gitformat.aiModel 2>/dev/null || printf '%s' '')"
+  if [ -z "$CONFIGURED_MODEL" ]; then
+    echo "commit-msg: AI 도구(${AI_TOOL_GATE})가 감지됐지만 gitformat.aiModel이 설정되지 않았습니다." >&2
+    echo "  git config gitformat.aiModel <model-id> 로 설정하세요." >&2
+    exit 1
+  fi
+
+  KNOWN_MODELS_FILE="$(cd "$(dirname "$0")" && pwd)/checks/known-models.txt"
+  if [ -f "$KNOWN_MODELS_FILE" ] && ! grep -qxF "$CONFIGURED_MODEL" "$KNOWN_MODELS_FILE"; then
+    echo "commit-msg: gitformat.aiModel 값 '${CONFIGURED_MODEL}'이 알려진 모델 목록에 없습니다." >&2
+    echo "  ${KNOWN_MODELS_FILE} 참고, 필요하면 목록에 추가하세요." >&2
+    exit 1
+  fi
+fi
+
 exit 0
