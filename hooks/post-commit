@@ -72,6 +72,15 @@ if [ -n "$AI_MODEL" ]; then
   set -- "$@" --trailer "AI-Model: ${AI_MODEL}"
 fi
 
+# Hooks-Commit(decision-5): 이 커밋을 검증한 git-format 훅 코드 자체의 커밋 해시.
+# 수동 버전 문자열 대신 훅 스크립트가 위치한 저장소의 HEAD를 그대로 읽으므로 항상
+# 정확하다. hooks/가 git-format 클론 안에 있지 않으면(예: 훅만 복사해 배포한 경우)
+# 조용히 생략한다.
+HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
+if HOOKS_COMMIT="$(git -C "$HOOK_DIR" rev-parse --short HEAD 2>/dev/null)"; then
+  set -- "$@" --trailer "Hooks-Commit: ${HOOKS_COMMIT}"
+fi
+
 if [ "$#" -gt 0 ]; then
   # addIfDifferent: 같은 키의 마지막 트레일러 값이 동일하면 중복 추가하지 않는다.
   # doNothing은 "AI-Tool"이 "AI-Tool-Version"의 접두어로 매칭되어 후자가 통째로
