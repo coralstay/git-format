@@ -39,4 +39,9 @@ if [ -f CMakeLists.txt ] && command -v cmake >/dev/null 2>&1; then
   (cd "$BUILD_DIR" && ctest --output-on-failure)
 fi
 
+if { [ -f .sqlfluff ] || git ls-files -- '*.sql' | grep -q .; } && command -v sqlfluff >/dev/null 2>&1; then
+  echo "[git-format] pre-push sql: sqlfluff lint ."
+  sqlfluff lint .
+fi
+
 exit 0
