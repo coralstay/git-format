@@ -10,11 +10,15 @@ set -eu
 SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 HOOKS_DIR="${SELF_DIR}/hooks"
 GITMESSAGE="${SELF_DIR}/.gitmessage"
+TEMPLATE_DIR="${SELF_DIR}/template"
 
+GLOBAL_MODE="ask"
 TARGET=""
 for arg in "$@"; do
   case "$arg" in
-    -*) ;;
+    --global) GLOBAL_MODE="yes" ;;
+    --no-global) GLOBAL_MODE="no" ;;
+    -*) echo "install.sh: 알 수 없는 옵션: $arg" >&2; exit 1 ;;
     *) TARGET="$arg" ;;
   esac
 done
@@ -32,3 +36,32 @@ git -C "$TARGET" config commit.template "$GITMESSAGE"
 echo "git-format: ${TARGET} 설정 완료"
 echo "  core.hooksPath  = ${HOOKS_DIR}"
 echo "  commit.template = ${GITMESSAGE}"
+
+# 전역 init.templateDir(decision-2): 앞으로 git init/clone하는 모든 새 저장소에
+# 자동으로 훅/.gitmessage가 심어지게 한다. --global/--no-global로 비대화형 지정 가능.
+case "$GLOBAL_MODE" in
+  yes)
+    git config --global init.templateDir "$TEMPLATE_DIR"
+    echo "git-format: 전역 init.templateDir 설정 완료 (앞으로 만드는 새 저장소에 자동 적용)"
+    ;;
+  no)
+    echo "git-format: 전역 설정은 건너뜁니다."
+    ;;
+  ask)
+    if [ -t 0 ]; then
+      printf '전역(init.templateDir)도 설정해 앞으로 만드는 모든 새 저장소에 자동 적용할까요? [y/N] '
+      read -r answer
+      case "$answer" in
+        y|Y|yes|YES)
+          git config --global init.templateDir "$TEMPLATE_DIR"
+          echo "git-format: 전역 init.templateDir 설정 완료."
+          ;;
+        *)
+          echo "git-format: 전역 설정은 건너뜁니다. 나중에: git config --global init.templateDir ${TEMPLATE_DIR}"
+          ;;
+      esac
+    else
+      echo "git-format: 비대화형 환경이라 전역 설정은 건너뜁니다. --global로 자동 적용 가능."
+    fi
+    ;;
+esac
