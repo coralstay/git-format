@@ -1,10 +1,10 @@
 ---
 id: GF-33
 title: AI-Tool-Version cut 버그 + interpret-trailers 접두어 충돌로 트레일러 소실
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-24 08:13'
-updated_date: '2026-08-24 08:18'
+updated_date: '2026-08-24 13:15'
 labels: []
 dependencies: []
 priority: high
