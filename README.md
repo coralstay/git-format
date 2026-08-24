@@ -84,6 +84,16 @@ cd ~/my-project
 아니라 "정상적인 사용에서 흔적을 남긴다"는 보장이다. push 단계까지 막고 싶으면
 GitHub 브랜치 보호 + 필수 status check(GF-12, opt-in)를 함께 쓸 것.
 
+### opt-in: GitHub Actions 백스톱 설정
+
+`docs/examples/github-actions-caller.yml`을 컨슈머 저장소의
+`.github/workflows/`로 복사하면 `git-format`의 재사용 워크플로
+(`.github/workflows/verify.yml`)가 PR마다 commit-msg 형식 검증 +
+언어별 lint/빌드/테스트를 다시 실행한다. 그다음 저장소 설정의
+Branch protection rules에서 이 워크플로를 **필수 status check**로
+지정해야 실제로 병합을 막는 효과가 생긴다(단순히 워크플로만 추가하면
+결과가 표시만 되고 강제되지는 않는다).
+
 ## AI 귀속 footer (decision-5)
 
 AI 코딩 에이전트가 커밋했다면 아래 트레일러가 자동으로 붙는다. 신뢰 수준이 트레일러마다
