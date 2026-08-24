@@ -7,12 +7,19 @@ set -eu
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
+# grep으로 "test"/"build": 문자열을 찾으면 scripts 밖(예: devDependencies의
+# "test"라는 실제 npm 패키지명)도 오탐해 없는 스크립트를 실행하려다 실패한다
+# (GF-39). node로 실제 scripts 객체를 확인한다.
+has_npm_script() {
+  node -e "process.exit((require('./package.json').scripts || {})['$1'] ? 0 : 1)" 2>/dev/null
+}
+
 if [ -f package.json ] && command -v npm >/dev/null 2>&1; then
-  if grep -q '"test"[[:space:]]*:' package.json 2>/dev/null; then
+  if has_npm_script test; then
     echo "[git-format] pre-push ts: npm test"
     npm test --silent
   fi
-  if grep -q '"build"[[:space:]]*:' package.json 2>/dev/null; then
+  if has_npm_script build; then
     echo "[git-format] pre-push ts: npm run build"
     npm run --silent build
   fi
@@ -38,6 +45,13 @@ if [ -f CMakeLists.txt ] && command -v cmake >/dev/null 2>&1; then
   cmake -S "$REPO_ROOT" -B "$BUILD_DIR" >/dev/null
   cmake --build "$BUILD_DIR"
   (cd "$BUILD_DIR" && ctest --output-on-failure)
+elif [ -f Makefile ] && command -v make >/dev/null 2>&1; then
+  # pre-commit의 cpp.sh는 CMakeLists.txt 또는 Makefile로 C/C++ 프로젝트를
+  # 감지하는데 pre-push는 CMakeLists.txt만 확인해, Makefile만 있는 프로젝트는
+  # push 전 빌드 검증이 전혀 없었다(GF-38). 임의 Makefile의 테스트 타겟 이름은
+  # 알 수 없으므로 기본 타겟 빌드까지만 확인한다.
+  echo "[git-format] pre-push cpp: make"
+  make
 fi
 
 if { [ -f .sqlfluff ] || git ls-files -- '*.sql' | grep -q .; } && command -v sqlfluff >/dev/null 2>&1; then

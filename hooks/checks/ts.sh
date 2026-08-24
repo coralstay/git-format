@@ -11,7 +11,14 @@ if ! command -v npm >/dev/null 2>&1; then
   exit 0
 fi
 
-if grep -q '"lint"[[:space:]]*:' package.json 2>/dev/null; then
+# grep으로 "lint": 문자열을 찾으면 scripts 밖(예: devDependencies의 "lint"라는
+# 패키지명)도 오탐한다(GF-39). package.json이 이미 npm이 이해하는 형식이므로
+# node로 실제 scripts 객체를 확인한다.
+has_npm_script() {
+  node -e "process.exit((require('./package.json').scripts || {})['$1'] ? 0 : 1)" 2>/dev/null
+}
+
+if has_npm_script lint; then
   echo "[git-format] ts: npm run lint"
   npm run --silent lint
 else
