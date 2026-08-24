@@ -18,7 +18,9 @@ GIT_DIR="$(git rev-parse --git-dir)"
 # 0이 아닌 상태로 끝나면(exit 1이든 set -e로 인한 비정상 종료든) 항상 마커를
 # 지우도록 trap으로 보장한다 — 정상 통과(exit 0)할 때는 post-commit이 마커를
 # 써야 하므로 지우지 않는다.
-# shellcheck disable=SC2329 # trap으로 간접 호출되는데 shellcheck이 이를 못 알아봄
+# shellcheck disable=SC2329,SC2317 # trap으로 간접 호출되는데 shellcheck이 이를 못
+# 알아봄(함수 자체는 SC2329, 본문 내용은 SC2317 — shellcheck 버전에 따라 둘 중
+# 하나만 나올 수도 있어 실제 CI(Ubuntu 러너)에서 SC2317만 걸리는 걸 확인해 함께 추가)
 cleanup_marker_on_reject() {
   status=$?
   if [ "$status" -ne 0 ]; then
