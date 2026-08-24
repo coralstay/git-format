@@ -24,5 +24,10 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/bats-core/bats-core.git /tmp/bats-core
           sudo /tmp/bats-core/install.sh /usr/local
+      - name: Install 언어별 체크 실도구 (sqlfluff/ruff)
+        # GF-22 실도구 재검증 테스트가 실제로 sqlfluff/ruff를 요구하는데 이 CI에
+        # 설치가 빠져있어 "차단돼야 할" 테스트가 도구 부재로 조용히 통과해버렸다
+        # (실제 PR에서 발견). clang-format/mvn은 ubuntu-latest 러너에 기본 포함.
+        run: pip install --quiet sqlfluff ruff
       - name: Run bats tests
         run: bats tests/

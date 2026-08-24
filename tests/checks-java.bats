@@ -58,6 +58,6 @@ public class Hello {
 }
 EOF
   git add pom.xml src
-  PATH="/usr/bin:/bin" run git commit -m "feat(java): no mvn on PATH"
+  PATH="$(path_without mvn)" run git commit -m "feat(java): no mvn on PATH"
   [ "$status" -eq 0 ]
 }

@@ -29,6 +29,6 @@ teardown() {
 @test "ruff가 없으면 조용히 건너뛴다" {
   echo "import os" > unused.py
   git add pyproject.toml unused.py
-  PATH="/usr/bin:/bin" run git commit -m "feat(py): no ruff on PATH"
+  PATH="$(path_without ruff)" run git commit -m "feat(py): no ruff on PATH"
   [ "$status" -eq 0 ]
 }
