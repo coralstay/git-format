@@ -30,6 +30,17 @@ if [ "$verified" = false ]; then
   set -- "$@" --trailer "Verify-Bypassed: true"
 fi
 
+# AI 귀속(decision-5): AI_AGENT는 Claude Code 프로세스가 하위 프로세스에 주입하는
+# 값이라 LLM이 스스로 만든 값이 아니다(예: claude-code_2-1-227_agent).
+AI_TOOL_ID="$(printf '%s' "${AI_AGENT:-}" | cut -d_ -f1)"
+AI_TOOL_VERSION="$(printf '%s' "${AI_AGENT:-}" | cut -d_ -f2 | tr '-' '.')"
+
+if [ -n "$AI_TOOL_ID" ]; then
+  set -- "$@" --trailer "AI-Tool: ${AI_TOOL_ID}"
+  set -- "$@" --trailer "AI-Tool-Version: ${AI_TOOL_VERSION}"
+  set -- "$@" --trailer "Co-Authored-By: Claude <noreply@anthropic.com>"
+fi
+
 if [ "$#" -gt 0 ]; then
   NEW_MSG="$(git log -1 --pretty=%B | git interpret-trailers --if-exists doNothing "$@")"
   _GITFORMAT_AMEND_GUARD=1 git commit --amend --no-verify -m "$NEW_MSG" >/dev/null
