@@ -1,0 +1,11 @@
+name: self-verify
+
+# git-format이 스스로도 verify.yml(재사용 워크플로)의 검증을 받도록 호출한다.
+# workflow_call 워크플로는 그 자체로는 실행되지 않고 반드시 이렇게 호출하는
+# caller가 있어야 하므로(GF-20), 이 저장소도 예외 없이 dogfooding한다.
+on:
+  pull_request:
+
+jobs:
+  verify:
+    uses: ./.github/workflows/verify.yml
