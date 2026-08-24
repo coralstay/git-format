@@ -2,3 +2,6 @@
 # 클론마다 경로가 다르므로 커밋하지 않는다(GF-9, decision-2).
 /template/hooks/
 .claude/
+
+# 로컬 개발 환경의 도구 버전 고정(asdf 등). 개발자마다 달라질 수 있어 커밋하지 않는다.
+.tool-versions
