@@ -31,6 +31,7 @@ EXEMPT="$(git config --get-all gitformat.branchExempt 2>/dev/null || printf '%s\
 if [ "$BRANCH" != "HEAD" ]; then
   exempt_match=false
   for pattern in $EXEMPT; do
+    # shellcheck disable=SC2254 # 의도적 글롭 매칭(예: release/*). 따옴표로 감싸면 리터럴 비교가 되어 깨진다.
     case "$BRANCH" in
       $pattern) exempt_match=true ;;
     esac

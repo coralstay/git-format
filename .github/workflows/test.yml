@@ -1,0 +1,28 @@
+name: test
+
+# git-format 자체의 개발용 CI(GF-21, decision-7). 컨슈머에 배포하는 verify.yml과
+# 달리 이건 이 저장소 자신의 훅 코드 품질만 검사한다 — bats-core는 dev 전용 도구라
+# 컨슈머에게 강제되지 않는다.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  static-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ShellCheck (ISO 29119 정적 테스트, decision-7)
+        run: shellcheck -s sh hooks/commit-msg hooks/pre-commit hooks/pre-push hooks/post-commit hooks/checks/*.sh install.sh
+
+  bats:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install bats-core
+        run: |
+          git clone --depth 1 https://github.com/bats-core/bats-core.git /tmp/bats-core
+          sudo /tmp/bats-core/install.sh /usr/local
+      - name: Run bats tests
+        run: bats tests/
