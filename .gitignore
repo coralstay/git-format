@@ -5,3 +5,18 @@
 
 # 로컬 개발 환경의 도구 버전 고정(asdf 등). 개발자마다 달라질 수 있어 커밋하지 않는다.
 .tool-versions
+.env
+.env.*
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+.directory
+.Trash-*
+
+# 에디터
+.vscode/
+.idea/
