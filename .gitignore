@@ -1,3 +1,4 @@
 # install.sh --global이 이 클론 위치를 가리키는 절대경로 심볼릭 링크로 생성한다.
 # 클론마다 경로가 다르므로 커밋하지 않는다(GF-9, decision-2).
 /template/hooks/
+.claude/
