@@ -53,6 +53,10 @@ if [ -f CMakeLists.txt ] || [ -f Makefile ]; then
   run_check "${CHECKS_DIR}/cpp.sh"
 fi
 
+if [ -f .sqlfluff ] || git ls-files -- '*.sql' | grep -q .; then
+  run_check "${CHECKS_DIR}/sql.sh"
+fi
+
 printf '%s %s\n' "$(date +%s)" "$$" > "$MARKER"
 
 exit 0
