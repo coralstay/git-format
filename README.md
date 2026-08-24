@@ -55,12 +55,17 @@ cd ~/my-project
 | 훅 | 하는 일 |
 |---|---|
 | `commit-msg` | Conventional Commits 형식 검증, 브랜치명 Task-Id 강제, (non-Claude-Code AI 도구의) AI-Model 존재/화이트리스트 검증 |
-| `pre-commit` | 언어 감지(`package.json`/`pyproject.toml`·`requirements.txt`/`pom.xml`·`build.gradle*`/`CMakeLists.txt`·`Makefile`) 후 `hooks/checks/<lang>.sh`로 lint/컴파일/포맷 검사 |
+| `pre-commit` | 언어 감지(`package.json`/`pyproject.toml`·`requirements.txt`/`pom.xml`·`build.gradle*`/`CMakeLists.txt`·`Makefile`/`.sqlfluff`·추적된 `*.sql`) 후 `hooks/checks/<lang>.sh`로 lint/컴파일/포맷 검사 |
 | `pre-push` | 같은 언어 감지로 테스트/전체 빌드(무거운 검사는 여기로 미룸) |
 | `post-commit` | `--no-verify` 우회 탐지 + AI 귀속/Task-Id footer 트레일러 자동 삽입 |
 
-언어별 체크에 필요한 도구(npm, ruff/flake8, mvn/gradle, clang-format, cmake 등)가 없으면
-해당 검사만 조용히 건너뛴다 — 프로젝트에 해당 언어가 없으면 아무 일도 하지 않는다.
+언어별 체크에 필요한 도구(npm, ruff/flake8, mvn/gradle, clang-format, cmake, sqlfluff 등)가
+없으면 해당 검사만 조용히 건너뛴다 — 프로젝트에 해당 언어가 없으면 아무 일도 하지 않는다.
+
+SQL(decision-6): `.sqlfluff` 설정 파일이 있거나 `.sql` 파일이 추적돼 있으면
+[sqlfluff](https://sqlfluff.com/)로 lint한다. `pre-commit`은 스테이징된 `.sql`만,
+`pre-push`는 저장소 전체를 검사한다. dialect 설정은 프로젝트의 `.sqlfluff`에 맡기고
+git-format은 강제하지 않는다.
 
 ## Task-Id 브랜치 강제 (decision-4)
 
@@ -132,7 +137,7 @@ git-format/
 │   ├── pre-commit
 │   ├── pre-push
 │   ├── post-commit
-│   └── checks/{ts,python,java,cpp}.sh, known-models.txt
+│   └── checks/{ts,python,java,cpp,sql}.sh, known-models.txt
 ├── template/                # init.templateDir용 (hooks/*는 install.sh --global이 생성)
 ├── .gitmessage               # commit.template
 ├── install.sh
