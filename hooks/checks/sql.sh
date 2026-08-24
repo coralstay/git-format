@@ -11,9 +11,14 @@ if ! command -v sqlfluff >/dev/null 2>&1; then
   exit 0
 fi
 
-files=$(git diff --cached --name-only --diff-filter=ACM -- '*.sql' || true)
+# NUL로 구분해 공백 포함 파일명도 안전하게 다룬다(GF-36, cpp.sh와 동일 이유로
+# 임시 파일 사용). --diff-filter에 R(rename)도 포함한다(GF-37).
+FILELIST="$(mktemp)"
+trap 'rm -f "$FILELIST"' EXIT
 
-if [ -z "$files" ]; then
+git diff --cached --name-only -z --diff-filter=ACMR -- '*.sql' > "$FILELIST" || true
+
+if [ ! -s "$FILELIST" ]; then
   echo "[git-format] sql: 스테이징된 .sql 파일 없음, 건너뜀"
   exit 0
 fi
@@ -27,4 +32,4 @@ if [ ! -f .sqlfluff ]; then
 fi
 
 echo "[git-format] sql: sqlfluff lint"
-echo "$files" | xargs sqlfluff "$@"
+xargs -0 sqlfluff "$@" < "$FILELIST"

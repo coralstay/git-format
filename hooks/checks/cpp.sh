@@ -12,12 +12,19 @@ if ! command -v clang-format >/dev/null 2>&1; then
   exit 0
 fi
 
-files=$(git diff --cached --name-only --diff-filter=ACM -- '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hpp' '*.hh' || true)
+# NUL로 구분해 공백 포함 파일명도 안전하게 다룬다(GF-36). git diff 출력을 셸
+# 변수에 담으면 NUL 바이트가 잘려나가므로 임시 파일에 받는다. --diff-filter에
+# R(rename)도 포함해 리네임+수정된 파일도 검사한다(GF-37).
+FILELIST="$(mktemp)"
+trap 'rm -f "$FILELIST"' EXIT
 
-if [ -z "$files" ]; then
+git diff --cached --name-only -z --diff-filter=ACMR -- \
+  '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hpp' '*.hh' > "$FILELIST" || true
+
+if [ ! -s "$FILELIST" ]; then
   echo "[git-format] cpp: 스테이징된 C/C++ 파일 없음, 건너뜀"
   exit 0
 fi
 
 echo "[git-format] cpp: clang-format --dry-run -Werror"
-echo "$files" | xargs clang-format --dry-run -Werror
+xargs -0 clang-format --dry-run -Werror < "$FILELIST"

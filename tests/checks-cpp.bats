@@ -28,6 +28,24 @@ teardown() {
   [ "$status" -ne 0 ]
 }
 
+@test "공백이 포함된 파일명도 정확히 검사한다 (GF-36)" {
+  printf 'int main(){\nreturn 0;\n      }\n' > "my file.cpp"
+  git add CMakeLists.txt "my file.cpp"
+  run git commit -m "feat(cpp): add spaced filename"
+  [ "$status" -ne 0 ]
+}
+
+@test "리네임하면서 수정한 파일도 검사한다 (GF-37)" {
+  printf 'int main() { return 0; }\n' > clean.cpp
+  git add CMakeLists.txt clean.cpp
+  git commit -q -m "feat(cpp): add clean baseline"
+  git mv clean.cpp renamed.cpp
+  printf 'int main(){\nreturn 0;\n      }\n' > renamed.cpp
+  git add renamed.cpp
+  run git commit -m "feat(cpp): rename and mangle formatting"
+  [ "$status" -ne 0 ]
+}
+
 @test "clang-format이 없으면 조용히 건너뛴다" {
   printf 'int main(){\nreturn 0;\n      }\n' > messy.cpp
   git add CMakeLists.txt messy.cpp
