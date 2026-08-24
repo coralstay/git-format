@@ -57,7 +57,20 @@ if [ -n "$AI_TOOL_GATE" ] && [ "$AI_TOOL_GATE" != "claude-code" ]; then
     exit 1
   fi
 
-  KNOWN_MODELS_FILE="$(cd "$(dirname "$0")" && pwd)/checks/known-models.txt"
+  # template/(GF-9)로 설치된 경우 $0이 심볼릭 링크라 dirname "$0"만으로는 새 저장소의
+  # .git/hooks/를 잘못 가리킨다 — 링크를 직접 해석한다.
+  resolve_self() {
+    p="$1"
+    while [ -L "$p" ]; do
+      target="$(readlink "$p")"
+      case "$target" in
+        /*) p="$target" ;;
+        *) p="$(dirname "$p")/$target" ;;
+      esac
+    done
+    printf '%s' "$p"
+  }
+  KNOWN_MODELS_FILE="$(cd "$(dirname "$(resolve_self "$0")")" && pwd)/checks/known-models.txt"
   if [ -f "$KNOWN_MODELS_FILE" ] && ! grep -qxF "$CONFIGURED_MODEL" "$KNOWN_MODELS_FILE"; then
     echo "commit-msg: gitformat.aiModel 값 '${CONFIGURED_MODEL}'이 알려진 모델 목록에 없습니다." >&2
     echo "  ${KNOWN_MODELS_FILE} 참고, 필요하면 목록에 추가하세요." >&2

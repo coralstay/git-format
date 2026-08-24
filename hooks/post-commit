@@ -85,7 +85,20 @@ fi
 # 수동 버전 문자열 대신 훅 스크립트가 위치한 저장소의 HEAD를 그대로 읽으므로 항상
 # 정확하다. hooks/가 git-format 클론 안에 있지 않으면(예: 훅만 복사해 배포한 경우)
 # 조용히 생략한다.
-HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
+# template/(GF-9)로 설치된 경우 $0은 git-format을 가리키는 심볼릭 링크이므로
+# dirname "$0"만으로는 새 저장소의 .git/hooks/를 잘못 가리킨다 — 링크를 직접 해석한다.
+resolve_self() {
+  p="$1"
+  while [ -L "$p" ]; do
+    target="$(readlink "$p")"
+    case "$target" in
+      /*) p="$target" ;;
+      *) p="$(dirname "$p")/$target" ;;
+    esac
+  done
+  printf '%s' "$p"
+}
+HOOK_DIR="$(cd "$(dirname "$(resolve_self "$0")")" && pwd)"
 if HOOKS_COMMIT="$(git -C "$HOOK_DIR" rev-parse --short HEAD 2>/dev/null)"; then
   set -- "$@" --trailer "Hooks-Commit: ${HOOKS_COMMIT}"
 fi
