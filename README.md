@@ -67,6 +67,13 @@ SQL(decision-6): `.sqlfluff` 설정 파일이 있거나 `.sql` 파일이 추적�
 `pre-push`는 저장소 전체를 검사한다. dialect 설정은 프로젝트의 `.sqlfluff`에 맡기고
 git-format은 강제하지 않는다.
 
+C/C++ 프로젝트의 `pre-push`는 `.gitformat-build/`에 빌드한다. 커밋 대상이 아니므로
+컨슈머 프로젝트의 `.gitignore`에 다음을 추가할 것을 권장한다:
+
+```
+.gitformat-build/
+```
+
 ## Task-Id 브랜치 강제 (decision-4)
 
 브랜치명에 `<prefix>-<번호>` 패턴(기본 접두어 `GF`, `git config gitformat.taskPrefix`로

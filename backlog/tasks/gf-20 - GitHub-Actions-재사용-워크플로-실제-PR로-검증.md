@@ -1,9 +1,10 @@
 ---
 id: GF-20
 title: GitHub Actions 재사용 워크플로 실제 PR로 검증
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-08-24 04:29'
+updated_date: '2026-08-24 04:32'
 labels: []
 dependencies: []
 type: task
