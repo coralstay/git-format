@@ -1,0 +1,25 @@
+#!/bin/sh
+# commit-msg 훅: Conventional Commits 형식 검증 (decision-1)
+#
+# 병합 커밋(merge)은 기본 메시지가 컨벤션을 따르지 않으므로 검사에서 제외한다.
+set -eu
+
+MSG_FILE="$1"
+SOURCE="${2:-}"
+
+if [ "$SOURCE" = "merge" ]; then
+  exit 0
+fi
+
+TYPES="feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert"
+SUBJECT_LINE="$(grep -v '^#' "$MSG_FILE" | sed -n '1p')"
+
+if ! printf '%s' "$SUBJECT_LINE" | grep -qE "^(${TYPES})(\([a-zA-Z0-9_.-]+\))?!?: .+"; then
+  echo "commit-msg: 커밋 메시지가 Conventional Commits 형식이 아닙니다." >&2
+  echo "  형식: <type>[(scope)][!]: <description>" >&2
+  echo "  허용 type: feat fix docs style refactor perf test build ci chore revert" >&2
+  echo "  예: fix(parser): 빈 입력 처리" >&2
+  exit 1
+fi
+
+exit 0
