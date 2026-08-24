@@ -1,0 +1,12 @@
+# 컨슈머 저장소의 .github/workflows/git-format-verify.yml로 복사해서 쓰는 예시.
+# git-format의 재사용 워크플로(.github/workflows/verify.yml)를 그대로 호출한다.
+# GitHub 저장소 설정 > Branch protection rules에서 이 워크플로를 필수 status
+# check로 지정해야 push 단계 --no-verify 우회에 대한 실질적인 백스톱이 된다(decision-3).
+name: git-format verify
+
+on:
+  pull_request:
+
+jobs:
+  verify:
+    uses: amosQP/git-format/.github/workflows/verify.yml@main
