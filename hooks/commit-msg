@@ -2,12 +2,32 @@
 # commit-msg 훅: Conventional Commits 형식 검증(decision-1) + Task-Id 브랜치 강제(decision-4)
 #
 # 병합 커밋(merge)은 기본 메시지가 컨벤션을 따르지 않으므로 검사에서 제외한다.
+# commit-msg 훅은 메시지 파일 경로 인자 1개만 받는다(source/sha1은
+# prepare-commit-msg의 인자다 — 예전엔 이걸 착각해서 $2로 "merge"를 확인했는데
+# 그 값이 절대 채워지지 않아 병합 예외가 전혀 작동하지 않았다, GF-30). 병합
+# 진행 여부는 .git/MERGE_HEAD 존재로 판단한다 — git이 병합 커밋을 만드는 동안,
+# commit-msg가 실행되는 시점에 이 파일이 존재함을 실측으로 확인했다.
 set -eu
 
 MSG_FILE="$1"
-SOURCE="${2:-}"
+GIT_DIR="$(git rev-parse --git-dir)"
 
-if [ "$SOURCE" = "merge" ]; then
+# pre-commit이 통과해 검증마커를 남긴 뒤 commit-msg가 거부하면 커밋 자체가 안
+# 생성돼 post-commit이 안 돌고 마커가 안 지워진다. 이후 무관한 --no-verify
+# 커밋이 그 스테일 마커를 "검증됨"으로 잘못 소비할 수 있다(GF-31). commit-msg가
+# 0이 아닌 상태로 끝나면(exit 1이든 set -e로 인한 비정상 종료든) 항상 마커를
+# 지우도록 trap으로 보장한다 — 정상 통과(exit 0)할 때는 post-commit이 마커를
+# 써야 하므로 지우지 않는다.
+# shellcheck disable=SC2329 # trap으로 간접 호출되는데 shellcheck이 이를 못 알아봄
+cleanup_marker_on_reject() {
+  status=$?
+  if [ "$status" -ne 0 ]; then
+    rm -f "${GIT_DIR}/.gitformat-verified" 2>/dev/null || true
+  fi
+}
+trap cleanup_marker_on_reject EXIT
+
+if [ -f "${GIT_DIR}/MERGE_HEAD" ]; then
   exit 0
 fi
 
@@ -25,6 +45,9 @@ fi
 # Task-Id 브랜치 강제: <prefix>-<번호> 패턴이 브랜치명에 없으면 커밋을 거부한다.
 # main/master/develop/release/* 등 예외 브랜치와 detached HEAD는 면제한다.
 TASK_PREFIX="$(git config --get gitformat.taskPrefix 2>/dev/null || printf '%s' GF)"
+# git config --get은 빈 문자열 설정도 성공으로 취급해 위 || 폴백이 안 걸린다
+# (GF-35) — 빈 값이면 명시적으로 기본값을 채운다.
+[ -n "$TASK_PREFIX" ] || TASK_PREFIX=GF
 BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || printf '%s' HEAD)"
 EXEMPT="$(git config --get-all gitformat.branchExempt 2>/dev/null || printf '%s\n' main master develop 'release/*')"
 
@@ -38,7 +61,10 @@ if [ "$BRANCH" != "HEAD" ]; then
   done
 
   if [ "$exempt_match" = false ]; then
-    if ! printf '%s' "$BRANCH" | grep -qiE "${TASK_PREFIX}-[0-9]+"; then
+    # 접두어 앞에 글자/숫자가 아닌 문자(또는 문자열 시작)가 오도록 앵커링한다
+    # (GF-34) — 안 그러면 예: taskPrefix=ID일 때 "valid-42-fix"의 "id-4"
+    # 부분 문자열이 잘못 매치된다.
+    if ! printf '%s' "$BRANCH" | grep -qiE "(^|[^a-zA-Z0-9])${TASK_PREFIX}-[0-9]+"; then
       echo "commit-msg: 브랜치명에 ${TASK_PREFIX}-<번호> 패턴이 없습니다 (현재 브랜치: ${BRANCH})." >&2
       echo "  예: ${TASK_PREFIX}-12-install-script" >&2
       echo "  Task-Id 없이 커밋하려면 예외 브랜치(main/master/develop/release/*)에서 작업하세요." >&2
