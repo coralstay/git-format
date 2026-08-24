@@ -46,14 +46,12 @@ if [ "$AI_TOOL_ID" = "claude-code" ]; then
   set -- "$@" --trailer "Co-Authored-By: Claude <noreply@anthropic.com>"
 fi
 
-if [ -n "${CLAUDE_CODE_SESSION_ID:-}" ]; then
-  set -- "$@" --trailer "AI-Session-Id: ${CLAUDE_CODE_SESSION_ID}"
-fi
-
 # AI-Model(decision-5): Claude Code는 세션 트랜스크립트(~/.claude/projects/<slug>/<session>.jsonl)의
 # message.model 필드를 읽는다 — 이는 Anthropic API 응답을 애플리케이션이 그대로 기록한 값이라
 # 자가신고가 아니다. 그 외 도구는 commit-msg 게이트가 이미 검증한 gitformat.aiModel을 쓴다.
 # 어떤 이유로든 조회에 실패하면 커밋을 막지 않고 조용히 생략한다.
+# CLAUDE_CODE_SESSION_ID는 트랜스크립트 파일 경로를 찾는 데만 쓰고, 값 자체를 커밋
+# footer에 남기지는 않는다(세션 식별자가 커밋 이력에 영구히 남는 걸 피하기 위함).
 AI_MODEL=""
 
 if [ "$AI_TOOL_ID" = "claude-code" ] && [ -n "${CLAUDE_CODE_SESSION_ID:-}" ] && command -v jq >/dev/null 2>&1; then
