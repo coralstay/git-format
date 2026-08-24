@@ -31,4 +31,12 @@ elif ls build.gradle* >/dev/null 2>&1 && [ -x ./gradlew ]; then
   ./gradlew -q check
 fi
 
+if [ -f CMakeLists.txt ] && command -v cmake >/dev/null 2>&1; then
+  echo "[git-format] pre-push cpp: cmake build + ctest"
+  BUILD_DIR="${REPO_ROOT}/.gitformat-build"
+  cmake -S "$REPO_ROOT" -B "$BUILD_DIR" >/dev/null
+  cmake --build "$BUILD_DIR"
+  (cd "$BUILD_DIR" && ctest --output-on-failure)
+fi
+
 exit 0
