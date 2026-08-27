@@ -20,22 +20,35 @@ resolve_self() {
 }
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
+readonly REPO_ROOT
 GIT_DIR="$(git rev-parse --git-dir)"
+readonly GIT_DIR
 HOOK_DIR="$(cd "$(dirname "$(resolve_self "$0")")" && pwd)"
+readonly HOOK_DIR
 CHECKS_DIR="${HOOK_DIR}/checks"
+readonly CHECKS_DIR
 # gitformat.conf(GF-44)에 이 훅의 내부 기본값(마커 파일명, 언어 감지 마커 파일명)이
 # 모여 있다. 값만 여기서 읽고, 이 값들을 쓰는 로직은 이 파일 안에서만 독립적으로
 # 유지한다(다른 훅과 함수/변수를 공유하지 않는다는 설계 원칙은 그대로다).
 CONF="${HOOK_DIR}/gitformat.conf"
+readonly CONF
 MARKER="${GIT_DIR}/$(git config --file "$CONF" --get gitformat.markerFile)"
+readonly MARKER
 
 MARKER_TS="$(git config --file "$CONF" --get gitformat.marker.ts)"
+readonly MARKER_TS
 MARKER_JAVA="$(git config --file "$CONF" --get gitformat.marker.java)"
+readonly MARKER_JAVA
 MARKER_JAVA_GRADLE="$(git config --file "$CONF" --get gitformat.marker.javaGradle)"
+readonly MARKER_JAVA_GRADLE
 MARKER_CPP="$(git config --file "$CONF" --get gitformat.marker.cpp)"
+readonly MARKER_CPP
 MARKER_CPP_MAKE="$(git config --file "$CONF" --get gitformat.marker.cppMake)"
+readonly MARKER_CPP_MAKE
 MARKER_SQL="$(git config --file "$CONF" --get gitformat.marker.sql)"
+readonly MARKER_SQL
 MARKER_SQL_GLOB="$(git config --file "$CONF" --get gitformat.marker.sqlGlob)"
+readonly MARKER_SQL_GLOB
 
 cd "$REPO_ROOT"
 
