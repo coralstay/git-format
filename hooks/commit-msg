@@ -60,7 +60,11 @@ if [ -f "${GIT_DIR}/MERGE_HEAD" ]; then
   exit 0
 fi
 
-TYPES="feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert"
+# 커밋 타입 목록은 gitformat.conf(다중값 gitformat.type)에서 읽어 파이프로
+# 이어붙인다 - .gitmessage에 적힌 사람이 읽는 목록과 일치하는지는
+# tests/robustness-commit-msg.bats가 검증한다(런타임 결합 없이 테스트로만 보장).
+TYPES="$(git config --file "$CONF" --get-all gitformat.type | tr '\n' '|')"
+TYPES="${TYPES%|}"
 readonly TYPES
 SUBJECT_LINE="$(grep -v '^#' "$MSG_FILE" | sed -n '1p')"
 readonly SUBJECT_LINE
