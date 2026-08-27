@@ -4,6 +4,25 @@
 # pre-push(GF-5)로 미룬다).
 set -eu
 
+# 이 훅 스크립트가 심볼릭 링크로 호출될 가능성에 대비해 실제 위치를 해석한다.
+# 이 함수는 이 파일 안에서만 쓰인다(sql.sh 등 다른 체크 스크립트도 각자 자기
+# 파일에 동일 함수를 독립적으로 갖고 있다 — 로직은 공유하지 않는다는 게
+# gitformat.conf 도입(GF-44) 이후에도 유지되는 설계 원칙이다).
+resolve_self() {
+  p="$1"
+  while [ -L "$p" ]; do
+    target="$(readlink "$p")"
+    case "$target" in
+      /*) p="$target" ;;
+      *) p="$(dirname "$p")/$target" ;;
+    esac
+  done
+  printf '%s' "$p"
+}
+# checks/의 상위 디렉터리(hooks/)에 gitformat.conf가 있다.
+HOOK_DIR="$(cd "$(dirname "$(dirname "$(resolve_self "$0")")")" && pwd)"
+CONF="${HOOK_DIR}/gitformat.conf"
+
 REPO_ROOT="$1"
 cd "$REPO_ROOT"
 
@@ -18,8 +37,9 @@ fi
 FILELIST="$(mktemp)"
 trap 'rm -f "$FILELIST"' EXIT
 
+# shellcheck disable=SC2046 # gitformat.conf의 다중값 확장자 목록을 그대로 인자로 펼친다.
 git diff --cached --name-only -z --diff-filter=ACMR -- \
-  '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hpp' '*.hh' > "$FILELIST" || true
+  $(git config --file "$CONF" --get-all gitformat.cpp.ext) > "$FILELIST" || true
 
 if [ ! -s "$FILELIST" ]; then
   echo "[git-format] cpp: 스테이징된 C/C++ 파일 없음, 건너뜀"
