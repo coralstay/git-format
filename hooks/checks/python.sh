@@ -4,6 +4,7 @@
 set -eu
 
 REPO_ROOT="$1"
+readonly REPO_ROOT
 cd "$REPO_ROOT"
 
 if command -v ruff >/dev/null 2>&1; then

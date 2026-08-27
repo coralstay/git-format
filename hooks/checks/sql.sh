@@ -20,9 +20,12 @@ resolve_self() {
 }
 # checks/의 상위 디렉터리(hooks/)에 gitformat.conf가 있다.
 HOOK_DIR="$(cd "$(dirname "$(dirname "$(resolve_self "$0")")")" && pwd)"
+readonly HOOK_DIR
 CONF="${HOOK_DIR}/gitformat.conf"
+readonly CONF
 
 REPO_ROOT="$1"
+readonly REPO_ROOT
 cd "$REPO_ROOT"
 
 if ! command -v sqlfluff >/dev/null 2>&1; then
@@ -33,6 +36,7 @@ fi
 # NUL로 구분해 공백 포함 파일명도 안전하게 다룬다(GF-36, cpp.sh와 동일 이유로
 # 임시 파일 사용). --diff-filter에 R(rename)도 포함한다(GF-37).
 FILELIST="$(mktemp)"
+readonly FILELIST
 trap 'rm -f "$FILELIST"' EXIT
 
 git diff --cached --name-only -z --diff-filter=ACMR -- '*.sql' > "$FILELIST" || true
@@ -48,6 +52,7 @@ fi
 set -- lint
 if [ ! -f .sqlfluff ]; then
   SQL_DIALECT_DEFAULT="$(git config --file "$CONF" --get gitformat.sqlDialectDefault)"
+  readonly SQL_DIALECT_DEFAULT
   set -- "$@" --dialect "$SQL_DIALECT_DEFAULT"
 fi
 

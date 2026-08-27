@@ -21,9 +21,12 @@ resolve_self() {
 }
 # checks/의 상위 디렉터리(hooks/)에 gitformat.conf가 있다.
 HOOK_DIR="$(cd "$(dirname "$(dirname "$(resolve_self "$0")")")" && pwd)"
+readonly HOOK_DIR
 CONF="${HOOK_DIR}/gitformat.conf"
+readonly CONF
 
 REPO_ROOT="$1"
+readonly REPO_ROOT
 cd "$REPO_ROOT"
 
 if ! command -v clang-format >/dev/null 2>&1; then
@@ -35,6 +38,7 @@ fi
 # 변수에 담으면 NUL 바이트가 잘려나가므로 임시 파일에 받는다. --diff-filter에
 # R(rename)도 포함해 리네임+수정된 파일도 검사한다(GF-37).
 FILELIST="$(mktemp)"
+readonly FILELIST
 trap 'rm -f "$FILELIST"' EXIT
 
 # shellcheck disable=SC2046 # gitformat.conf의 다중값 확장자 목록을 그대로 인자로 펼친다.

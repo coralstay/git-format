@@ -4,6 +4,7 @@
 set -eu
 
 REPO_ROOT="$1"
+readonly REPO_ROOT
 cd "$REPO_ROOT"
 
 if [ -f pom.xml ] && command -v mvn >/dev/null 2>&1; then
