@@ -101,3 +101,8 @@ case "$GLOBAL_MODE" in
     fi
     ;;
 esac
+
+echo "git-format: 참고 - git push --no-verify는 로컬 훅으로 탐지할 수 없습니다."
+echo "  push 단계까지 막으려면 opt-in GitHub Actions 백스톱을 브랜치 보호"
+echo "  필수 status check로 설정하세요 (docs/examples/github-actions-caller.yml,"
+echo "  README의 '--no-verify 우회 탐지' 참고)."
