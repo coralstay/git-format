@@ -14,3 +14,42 @@ load 'helpers/git-format'
   [ -n "$MSG_TYPES" ]
   [ "$CONF_TYPES" = "$MSG_TYPES" ]
 }
+
+@test "gitformat.conf에 각 훅이 참조하는 키가 전부 존재하고 값이 비어있지 않다 (GF-61)" {
+  CONF="${GITFORMAT_ROOT}/hooks/gitformat.conf"
+  # 이 목록은 hooks/*, hooks/checks/*.sh가 `git config --file "$CONF"`로 실제
+  # 읽는 키를 grep으로 뽑아 만든 것이다 - 키가 새로 추가/삭제되면 이 목록도
+  # 같이 갱신해야 한다(자동 추출이 아니라 수동 목록이라는 한계를 인지할 것).
+  for key in \
+    gitformat.aiToolClaudeCode \
+    gitformat.branchExempt \
+    gitformat.coAuthoredBy \
+    gitformat.cpp.ext \
+    gitformat.knownModel \
+    gitformat.marker.cpp \
+    gitformat.marker.cppMake \
+    gitformat.marker.java \
+    gitformat.marker.javaGradle \
+    gitformat.marker.python \
+    gitformat.marker.sql \
+    gitformat.marker.sqlGlob \
+    gitformat.marker.ts \
+    gitformat.markerFile \
+    gitformat.sqlDialectDefault \
+    gitformat.taskPrefixDefault \
+    gitformat.trailer.aiModel \
+    gitformat.trailer.aiTool \
+    gitformat.trailer.aiToolVersion \
+    gitformat.trailer.coAuthoredBy \
+    gitformat.trailer.hooksCommit \
+    gitformat.trailer.taskId \
+    gitformat.trailer.verifyBypassed \
+    gitformat.type \
+  ; do
+    value="$(git config --file "$CONF" --get "$key" 2>/dev/null || true)"
+    if [ -z "$value" ]; then
+      echo "누락되거나 빈 값: $key" >&2
+      false
+    fi
+  done
+}
