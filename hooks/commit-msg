@@ -12,6 +12,28 @@ set -eu
 MSG_FILE="$1"
 GIT_DIR="$(git rev-parse --git-dir)"
 
+# template/(GF-9)로 설치된 경우 $0이 심볼릭 링크라 dirname "$0"만으로는 새 저장소의
+# .git/hooks/를 잘못 가리킨다 — 링크를 직접 해석한다. 이 함수는 이 파일 안에서만
+# 쓰인다(다른 훅도 각자 자기 파일에 동일 함수를 독립적으로 갖고 있다 — 로직은
+# 공유하지 않는다는 게 gitformat.conf 도입(GF-44) 이후에도 유지되는 설계 원칙이다).
+resolve_self() {
+  p="$1"
+  while [ -L "$p" ]; do
+    target="$(readlink "$p")"
+    case "$target" in
+      /*) p="$target" ;;
+      *) p="$(dirname "$p")/$target" ;;
+    esac
+  done
+  printf '%s' "$p"
+}
+HOOK_DIR="$(cd "$(dirname "$(resolve_self "$0")")" && pwd)"
+# gitformat.conf(GF-44)에 이 훅의 내부 기본값(마커 파일명, Task-Id 접두어 기본값,
+# 예외 브랜치 기본값, AI 도구 식별자, known-models 경로)이 모여 있다. 값만 여기서
+# 읽고, 이 값들을 쓰는 로직은 이 파일 안에서만 독립적으로 유지한다.
+CONF="${HOOK_DIR}/gitformat.conf"
+MARKER="${GIT_DIR}/$(git config --file "$CONF" --get gitformat.markerFile)"
+
 # pre-commit이 통과해 검증마커를 남긴 뒤 commit-msg가 거부하면 커밋 자체가 안
 # 생성돼 post-commit이 안 돌고 마커가 안 지워진다. 이후 무관한 --no-verify
 # 커밋이 그 스테일 마커를 "검증됨"으로 잘못 소비할 수 있다(GF-31). commit-msg가
@@ -24,7 +46,7 @@ GIT_DIR="$(git rev-parse --git-dir)"
 cleanup_marker_on_reject() {
   status=$?
   if [ "$status" -ne 0 ]; then
-    rm -f "${GIT_DIR}/.gitformat-verified" 2>/dev/null || true
+    rm -f "$MARKER" 2>/dev/null || true
   fi
 }
 trap cleanup_marker_on_reject EXIT
@@ -46,12 +68,13 @@ fi
 
 # Task-Id 브랜치 강제: <prefix>-<번호> 패턴이 브랜치명에 없으면 커밋을 거부한다.
 # main/master/develop/release/* 등 예외 브랜치와 detached HEAD는 면제한다.
-TASK_PREFIX="$(git config --get gitformat.taskPrefix 2>/dev/null || printf '%s' GF)"
+TASK_PREFIX_DEFAULT="$(git config --file "$CONF" --get gitformat.taskPrefixDefault)"
+TASK_PREFIX="$(git config --get gitformat.taskPrefix 2>/dev/null || printf '%s' "$TASK_PREFIX_DEFAULT")"
 # git config --get은 빈 문자열 설정도 성공으로 취급해 위 || 폴백이 안 걸린다
 # (GF-35) — 빈 값이면 명시적으로 기본값을 채운다.
-[ -n "$TASK_PREFIX" ] || TASK_PREFIX=GF
+[ -n "$TASK_PREFIX" ] || TASK_PREFIX="$TASK_PREFIX_DEFAULT"
 BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || printf '%s' HEAD)"
-EXEMPT="$(git config --get-all gitformat.branchExempt 2>/dev/null || printf '%s\n' main master develop 'release/*')"
+EXEMPT="$(git config --get-all gitformat.branchExempt 2>/dev/null || git config --file "$CONF" --get-all gitformat.branchExempt)"
 
 if [ "$BRANCH" != "HEAD" ]; then
   exempt_match=false
@@ -77,8 +100,9 @@ fi
 
 # AI-Model 존재/화이트리스트 강제(decision-5). Claude Code는 post-commit이 세션
 # 트랜스크립트에서 자동으로 모델을 얻으므로 이 게이트에서 제외한다.
+AI_TOOL_CLAUDE_CODE="$(git config --file "$CONF" --get gitformat.aiToolClaudeCode)"
 AI_TOOL_GATE="$(printf '%s' "${AI_AGENT:-}" | cut -d_ -f1)"
-if [ -n "$AI_TOOL_GATE" ] && [ "$AI_TOOL_GATE" != "claude-code" ]; then
+if [ -n "$AI_TOOL_GATE" ] && [ "$AI_TOOL_GATE" != "$AI_TOOL_CLAUDE_CODE" ]; then
   CONFIGURED_MODEL="$(git config --get gitformat.aiModel 2>/dev/null || printf '%s' '')"
   if [ -z "$CONFIGURED_MODEL" ]; then
     echo "commit-msg: AI 도구(${AI_TOOL_GATE})가 감지됐지만 gitformat.aiModel이 설정되지 않았습니다." >&2
@@ -86,20 +110,7 @@ if [ -n "$AI_TOOL_GATE" ] && [ "$AI_TOOL_GATE" != "claude-code" ]; then
     exit 1
   fi
 
-  # template/(GF-9)로 설치된 경우 $0이 심볼릭 링크라 dirname "$0"만으로는 새 저장소의
-  # .git/hooks/를 잘못 가리킨다 — 링크를 직접 해석한다.
-  resolve_self() {
-    p="$1"
-    while [ -L "$p" ]; do
-      target="$(readlink "$p")"
-      case "$target" in
-        /*) p="$target" ;;
-        *) p="$(dirname "$p")/$target" ;;
-      esac
-    done
-    printf '%s' "$p"
-  }
-  KNOWN_MODELS_FILE="$(cd "$(dirname "$(resolve_self "$0")")" && pwd)/checks/known-models.txt"
+  KNOWN_MODELS_FILE="${HOOK_DIR}/$(git config --file "$CONF" --get gitformat.knownModelsFile)"
   if [ -f "$KNOWN_MODELS_FILE" ] && ! grep -qxF "$CONFIGURED_MODEL" "$KNOWN_MODELS_FILE"; then
     echo "commit-msg: gitformat.aiModel 값 '${CONFIGURED_MODEL}'이 알려진 모델 목록에 없습니다." >&2
     echo "  ${KNOWN_MODELS_FILE} 참고, 필요하면 목록에 추가하세요." >&2
