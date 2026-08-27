@@ -8,9 +8,13 @@
 set -eu
 
 SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+readonly SELF_DIR
 HOOKS_DIR="${SELF_DIR}/hooks"
+readonly HOOKS_DIR
 GITMESSAGE="${SELF_DIR}/.gitmessage"
+readonly GITMESSAGE
 TEMPLATE_DIR="${SELF_DIR}/template"
+readonly TEMPLATE_DIR
 
 GLOBAL_MODE="ask"
 TARGET=""
@@ -24,6 +28,7 @@ for arg in "$@"; do
 done
 TARGET="${TARGET:-$(pwd)}"
 TARGET="$(cd "$TARGET" && pwd)"
+readonly TARGET
 
 if ! git -C "$TARGET" rev-parse --git-dir >/dev/null 2>&1; then
   echo "install.sh: ${TARGET}는 git 저장소가 아닙니다." >&2
