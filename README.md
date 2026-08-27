@@ -244,3 +244,6 @@ git-format/
 ## 📄 라이선스
 
 MIT — 전문: [`LICENSE`](./LICENSE)
+
+> ⚠️ `docs/references/pro-git/`만은 예외로 CC BY-NC-SA 3.0(비영리)입니다 —
+> [`VENDORING.md`](./docs/references/pro-git/VENDORING.md) 참고.
