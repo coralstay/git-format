@@ -8,6 +8,11 @@ on:
   push:
     branches: [main]
 
+# 체크아웃과 읽기 전용 정적분석/테스트만 하고 아무 것도 쓰지 않으므로
+# (decision-8: 권한 최소화 점검, GF-28) contents:read만으로 충분하다.
+permissions:
+  contents: read
+
 jobs:
   static-analysis:
     runs-on: ubuntu-latest

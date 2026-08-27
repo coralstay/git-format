@@ -6,6 +6,11 @@ name: self-verify
 on:
   pull_request:
 
+# verify.yml을 호출만 하고 그 자신은 아무 것도 하지 않으므로
+# (decision-8: 권한 최소화 점검, GF-28) contents:read만으로 충분하다.
+permissions:
+  contents: read
+
 jobs:
   verify:
     uses: ./.github/workflows/verify.yml

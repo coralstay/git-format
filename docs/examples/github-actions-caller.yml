@@ -7,6 +7,11 @@ name: git-format verify
 on:
   pull_request:
 
+# verify.yml을 호출만 하고 쓰기 작업이 없으므로 contents:read면 충분하다
+# (decision-8: 권한 최소화 점검, GF-28).
+permissions:
+  contents: read
+
 jobs:
   verify:
     uses: amosQP/git-format/.github/workflows/verify.yml@main
