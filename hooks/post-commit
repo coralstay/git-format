@@ -16,7 +16,39 @@ if [ "${_GITFORMAT_AMEND_GUARD:-}" = "1" ]; then
 fi
 
 GIT_DIR="$(git rev-parse --git-dir)"
-MARKER="${GIT_DIR}/.gitformat-verified"
+
+# template/(GF-9)로 설치된 경우 $0은 git-format을 가리키는 심볼릭 링크이므로
+# dirname "$0"만으로는 새 저장소의 .git/hooks/를 잘못 가리킨다 — 링크를 직접 해석한다.
+# 이 함수는 이 파일 안에서만 쓰인다(다른 훅도 각자 자기 파일에 동일 함수를
+# 독립적으로 갖고 있다 — 로직은 공유하지 않는다는 게 gitformat.conf 도입(GF-44)
+# 이후에도 유지되는 설계 원칙이다).
+resolve_self() {
+  p="$1"
+  while [ -L "$p" ]; do
+    target="$(readlink "$p")"
+    case "$target" in
+      /*) p="$target" ;;
+      *) p="$(dirname "$p")/$target" ;;
+    esac
+  done
+  printf '%s' "$p"
+}
+HOOK_DIR="$(cd "$(dirname "$(resolve_self "$0")")" && pwd)"
+# gitformat.conf(GF-44)에 이 훅의 내부 기본값(마커 파일명, trailer 키 이름 7종,
+# Task-Id 접두어 기본값, AI 도구 식별자, Co-Authored-By 값)이 모여 있다. 값만
+# 여기서 읽고, 이 값들을 쓰는 로직은 이 파일 안에서만 독립적으로 유지한다.
+CONF="${HOOK_DIR}/gitformat.conf"
+MARKER="${GIT_DIR}/$(git config --file "$CONF" --get gitformat.markerFile)"
+
+TRAILER_VERIFY_BYPASSED="$(git config --file "$CONF" --get gitformat.trailer.verifyBypassed)"
+TRAILER_TASK_ID="$(git config --file "$CONF" --get gitformat.trailer.taskId)"
+TRAILER_AI_TOOL="$(git config --file "$CONF" --get gitformat.trailer.aiTool)"
+TRAILER_AI_TOOL_VERSION="$(git config --file "$CONF" --get gitformat.trailer.aiToolVersion)"
+TRAILER_CO_AUTHORED_BY="$(git config --file "$CONF" --get gitformat.trailer.coAuthoredBy)"
+TRAILER_AI_MODEL="$(git config --file "$CONF" --get gitformat.trailer.aiModel)"
+TRAILER_HOOKS_COMMIT="$(git config --file "$CONF" --get gitformat.trailer.hooksCommit)"
+AI_TOOL_CLAUDE_CODE="$(git config --file "$CONF" --get gitformat.aiToolClaudeCode)"
+CO_AUTHORED_BY_VALUE="$(git config --file "$CONF" --get gitformat.coAuthoredBy)"
 
 verified=false
 if [ -f "$MARKER" ]; then
@@ -38,29 +70,30 @@ trailer_exists() {
 
 set --
 
-if [ "$verified" = false ] && ! trailer_exists "Verify-Bypassed" "true"; then
-  set -- "$@" --trailer "Verify-Bypassed: true"
+if [ "$verified" = false ] && ! trailer_exists "$TRAILER_VERIFY_BYPASSED" "true"; then
+  set -- "$@" --trailer "${TRAILER_VERIFY_BYPASSED}: true"
 fi
 
 # Task-Id(decision-4): commit-msg가 이미 브랜치명에 <prefix>-<번호> 패턴이 있는지
 # 검증했으므로(없으면 예외 브랜치가 아닌 한 커밋 자체가 거부됨), 여기서는 같은 패턴을
 # 다시 찾아 Task-Id 트레일러로 남기기만 한다.
-TASK_PREFIX="$(git config --get gitformat.taskPrefix 2>/dev/null || printf '%s' GF)"
-[ -n "$TASK_PREFIX" ] || TASK_PREFIX=GF
+TASK_PREFIX_DEFAULT="$(git config --file "$CONF" --get gitformat.taskPrefixDefault)"
+TASK_PREFIX="$(git config --get gitformat.taskPrefix 2>/dev/null || printf '%s' "$TASK_PREFIX_DEFAULT")"
+[ -n "$TASK_PREFIX" ] || TASK_PREFIX="$TASK_PREFIX_DEFAULT"
 BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || printf '%s' HEAD)"
 # commit-msg와 동일하게 앵커링해서 부분 문자열 오매치를 피한다(GF-34).
 TASK_NUM="$(printf '%s' "$BRANCH" | grep -oiE "(^|[^a-zA-Z0-9])${TASK_PREFIX}-[0-9]+" | grep -oE '[0-9]+' | head -n 1 || printf '%s' '')"
 
-if [ -n "$TASK_NUM" ] && ! trailer_exists "Task-Id" "${TASK_PREFIX}-${TASK_NUM}"; then
-  set -- "$@" --trailer "Task-Id: ${TASK_PREFIX}-${TASK_NUM}"
+if [ -n "$TASK_NUM" ] && ! trailer_exists "$TRAILER_TASK_ID" "${TASK_PREFIX}-${TASK_NUM}"; then
+  set -- "$@" --trailer "${TRAILER_TASK_ID}: ${TASK_PREFIX}-${TASK_NUM}"
 fi
 
 # AI 귀속(decision-5): AI_AGENT는 Claude Code 프로세스가 하위 프로세스에 주입하는
 # 값이라 LLM이 스스로 만든 값이 아니다(예: claude-code_2-1-227_agent).
 AI_TOOL_ID="$(printf '%s' "${AI_AGENT:-}" | cut -d_ -f1)"
 
-if [ -n "$AI_TOOL_ID" ] && ! trailer_exists "AI-Tool" "${AI_TOOL_ID}"; then
-  set -- "$@" --trailer "AI-Tool: ${AI_TOOL_ID}"
+if [ -n "$AI_TOOL_ID" ] && ! trailer_exists "$TRAILER_AI_TOOL" "${AI_TOOL_ID}"; then
+  set -- "$@" --trailer "${TRAILER_AI_TOOL}: ${AI_TOOL_ID}"
 fi
 
 # cut -d_ -f2는 구분자가 없으면 원문 전체를 그대로 돌려준다 — AI_AGENT에
@@ -69,16 +102,16 @@ fi
 case "${AI_AGENT:-}" in
   *_*)
     AI_TOOL_VERSION="$(printf '%s' "${AI_AGENT:-}" | cut -d_ -f2 | tr '-' '.')"
-    if [ -n "$AI_TOOL_VERSION" ] && ! trailer_exists "AI-Tool-Version" "${AI_TOOL_VERSION}"; then
-      set -- "$@" --trailer "AI-Tool-Version: ${AI_TOOL_VERSION}"
+    if [ -n "$AI_TOOL_VERSION" ] && ! trailer_exists "$TRAILER_AI_TOOL_VERSION" "${AI_TOOL_VERSION}"; then
+      set -- "$@" --trailer "${TRAILER_AI_TOOL_VERSION}: ${AI_TOOL_VERSION}"
     fi
     ;;
 esac
 
 # Co-Authored-By는 실제로 Claude가 작업했다고 확신할 수 있는 경우(claude-code)에만 붙인다.
 # 다른 AI 도구까지 "Claude"로 공동저자 표기하면 잘못된 귀속이 된다.
-if [ "$AI_TOOL_ID" = "claude-code" ] && ! trailer_exists "Co-Authored-By" "Claude <noreply@anthropic.com>"; then
-  set -- "$@" --trailer "Co-Authored-By: Claude <noreply@anthropic.com>"
+if [ "$AI_TOOL_ID" = "$AI_TOOL_CLAUDE_CODE" ] && ! trailer_exists "$TRAILER_CO_AUTHORED_BY" "$CO_AUTHORED_BY_VALUE"; then
+  set -- "$@" --trailer "${TRAILER_CO_AUTHORED_BY}: ${CO_AUTHORED_BY_VALUE}"
 fi
 
 # AI-Model(decision-5): Claude Code는 세션 트랜스크립트(~/.claude/projects/<slug>/<session>.jsonl)의
@@ -89,7 +122,7 @@ fi
 # footer에 남기지는 않는다(세션 식별자가 커밋 이력에 영구히 남는 걸 피하기 위함).
 AI_MODEL=""
 
-if [ "$AI_TOOL_ID" = "claude-code" ] && [ -n "${CLAUDE_CODE_SESSION_ID:-}" ] && command -v jq >/dev/null 2>&1; then
+if [ "$AI_TOOL_ID" = "$AI_TOOL_CLAUDE_CODE" ] && [ -n "${CLAUDE_CODE_SESSION_ID:-}" ] && command -v jq >/dev/null 2>&1; then
   PROJECT_SLUG="$(printf '%s' "$PWD" | tr '/' '-')"
   TRANSCRIPT="${HOME}/.claude/projects/${PROJECT_SLUG}/${CLAUDE_CODE_SESSION_ID}.jsonl"
   if [ -f "$TRANSCRIPT" ]; then
@@ -101,30 +134,16 @@ elif [ -n "$AI_TOOL_ID" ]; then
   AI_MODEL="$(git config --get gitformat.aiModel 2>/dev/null || printf '%s' '')"
 fi
 
-if [ -n "$AI_MODEL" ] && ! trailer_exists "AI-Model" "${AI_MODEL}"; then
-  set -- "$@" --trailer "AI-Model: ${AI_MODEL}"
+if [ -n "$AI_MODEL" ] && ! trailer_exists "$TRAILER_AI_MODEL" "${AI_MODEL}"; then
+  set -- "$@" --trailer "${TRAILER_AI_MODEL}: ${AI_MODEL}"
 fi
 
 # Hooks-Commit(decision-5): 이 커밋을 검증한 git-format 훅 코드 자체의 커밋 해시.
 # 수동 버전 문자열 대신 훅 스크립트가 위치한 저장소의 HEAD를 그대로 읽으므로 항상
 # 정확하다. hooks/가 git-format 클론 안에 있지 않으면(예: 훅만 복사해 배포한 경우)
-# 조용히 생략한다.
-# template/(GF-9)로 설치된 경우 $0은 git-format을 가리키는 심볼릭 링크이므로
-# dirname "$0"만으로는 새 저장소의 .git/hooks/를 잘못 가리킨다 — 링크를 직접 해석한다.
-resolve_self() {
-  p="$1"
-  while [ -L "$p" ]; do
-    target="$(readlink "$p")"
-    case "$target" in
-      /*) p="$target" ;;
-      *) p="$(dirname "$p")/$target" ;;
-    esac
-  done
-  printf '%s' "$p"
-}
-HOOK_DIR="$(cd "$(dirname "$(resolve_self "$0")")" && pwd)"
-if HOOKS_COMMIT="$(git -C "$HOOK_DIR" rev-parse --short HEAD 2>/dev/null)" && ! trailer_exists "Hooks-Commit" "${HOOKS_COMMIT}"; then
-  set -- "$@" --trailer "Hooks-Commit: ${HOOKS_COMMIT}"
+# 조용히 생략한다. HOOK_DIR은 파일 앞부분에서 이미 계산해뒀다(resolve_self 참고).
+if HOOKS_COMMIT="$(git -C "$HOOK_DIR" rev-parse --short HEAD 2>/dev/null)" && ! trailer_exists "$TRAILER_HOOKS_COMMIT" "${HOOKS_COMMIT}"; then
+  set -- "$@" --trailer "${TRAILER_HOOKS_COMMIT}: ${HOOKS_COMMIT}"
 fi
 
 if [ "$#" -gt 0 ]; then
