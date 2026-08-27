@@ -4,6 +4,36 @@
 # 확인한다. 필요한 도구/스크립트가 없으면 해당 언어 검사만 조용히 건너뛴다.
 set -eu
 
+# template/(GF-9)로 설치된 경우 $0이 심볼릭 링크라 dirname "$0"만으로는 새 저장소의
+# .git/hooks/를 잘못 가리킨다 — 링크를 직접 해석한다. 이 함수는 이 파일 안에서만
+# 쓰인다(다른 훅도 각자 자기 파일에 동일 함수를 독립적으로 갖고 있다 — 로직은
+# 공유하지 않는다는 게 gitformat.conf 도입(GF-44) 이후에도 유지되는 설계 원칙이다).
+resolve_self() {
+  p="$1"
+  while [ -L "$p" ]; do
+    target="$(readlink "$p")"
+    case "$target" in
+      /*) p="$target" ;;
+      *) p="$(dirname "$p")/$target" ;;
+    esac
+  done
+  printf '%s' "$p"
+}
+HOOK_DIR="$(cd "$(dirname "$(resolve_self "$0")")" && pwd)"
+# gitformat.conf(GF-44)에 이 훅의 내부 기본값(언어 감지 마커, sqlfluff 기본
+# dialect)이 모여 있다. 값만 여기서 읽고, 이 값들을 쓰는 로직은 이 파일 안에서만
+# 독립적으로 유지한다.
+CONF="${HOOK_DIR}/gitformat.conf"
+
+MARKER_TS="$(git config --file "$CONF" --get gitformat.marker.ts)"
+MARKER_JAVA="$(git config --file "$CONF" --get gitformat.marker.java)"
+MARKER_JAVA_GRADLE="$(git config --file "$CONF" --get gitformat.marker.javaGradle)"
+MARKER_CPP="$(git config --file "$CONF" --get gitformat.marker.cpp)"
+MARKER_CPP_MAKE="$(git config --file "$CONF" --get gitformat.marker.cppMake)"
+MARKER_SQL="$(git config --file "$CONF" --get gitformat.marker.sql)"
+MARKER_SQL_GLOB="$(git config --file "$CONF" --get gitformat.marker.sqlGlob)"
+SQL_DIALECT_DEFAULT="$(git config --file "$CONF" --get gitformat.sqlDialectDefault)"
+
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
@@ -14,7 +44,7 @@ has_npm_script() {
   node -e "process.exit((require('./package.json').scripts || {})['$1'] ? 0 : 1)" 2>/dev/null
 }
 
-if [ -f package.json ] && command -v npm >/dev/null 2>&1; then
+if [ -f "$MARKER_TS" ] && command -v npm >/dev/null 2>&1; then
   if has_npm_script test; then
     echo "[git-format] pre-push ts: npm test"
     npm test --silent
@@ -25,27 +55,32 @@ if [ -f package.json ] && command -v npm >/dev/null 2>&1; then
   fi
 fi
 
-if { [ -f pyproject.toml ] || [ -f requirements.txt ]; } && command -v pytest >/dev/null 2>&1; then
+python_marker_found=false
+for f in $(git config --file "$CONF" --get-all gitformat.marker.python); do
+  [ -f "$f" ] && python_marker_found=true
+done
+if [ "$python_marker_found" = true ] && command -v pytest >/dev/null 2>&1; then
   echo "[git-format] pre-push python: pytest"
   pytest -q
 fi
 
-if [ -f pom.xml ] && command -v mvn >/dev/null 2>&1; then
+# shellcheck disable=SC2086 # 의도적 글롭 확장(예: build.gradle*). 따옴표로 감싸면 리터럴 비교가 되어 깨진다.
+if [ -f "$MARKER_JAVA" ] && command -v mvn >/dev/null 2>&1; then
   # -o(오프라인)는 캐시 없는 환경에서 플러그인 해석에 실패한다(GF-22).
   echo "[git-format] pre-push java: mvn -q verify"
   mvn -q verify
-elif ls build.gradle* >/dev/null 2>&1 && [ -x ./gradlew ]; then
+elif ls ${MARKER_JAVA_GRADLE} >/dev/null 2>&1 && [ -x ./gradlew ]; then
   echo "[git-format] pre-push java: ./gradlew -q check"
   ./gradlew -q check
 fi
 
-if [ -f CMakeLists.txt ] && command -v cmake >/dev/null 2>&1; then
+if [ -f "$MARKER_CPP" ] && command -v cmake >/dev/null 2>&1; then
   echo "[git-format] pre-push cpp: cmake build + ctest"
   BUILD_DIR="${REPO_ROOT}/.gitformat-build"
   cmake -S "$REPO_ROOT" -B "$BUILD_DIR" >/dev/null
   cmake --build "$BUILD_DIR"
   (cd "$BUILD_DIR" && ctest --output-on-failure)
-elif [ -f Makefile ] && command -v make >/dev/null 2>&1; then
+elif [ -f "$MARKER_CPP_MAKE" ] && command -v make >/dev/null 2>&1; then
   # pre-commit의 cpp.sh는 CMakeLists.txt 또는 Makefile로 C/C++ 프로젝트를
   # 감지하는데 pre-push는 CMakeLists.txt만 확인해, Makefile만 있는 프로젝트는
   # push 전 빌드 검증이 전혀 없었다(GF-38). 임의 Makefile의 테스트 타겟 이름은
@@ -54,15 +89,15 @@ elif [ -f Makefile ] && command -v make >/dev/null 2>&1; then
   make
 fi
 
-if { [ -f .sqlfluff ] || git ls-files -- '*.sql' | grep -q .; } && command -v sqlfluff >/dev/null 2>&1; then
+if { [ -f "$MARKER_SQL" ] || git ls-files -- "$MARKER_SQL_GLOB" | grep -q .; } && command -v sqlfluff >/dev/null 2>&1; then
   # .sqlfluff가 없으면 dialect 미지정으로 sqlfluff가 사용법 에러를 내므로(GF-22)
-  # 기본값 ansi를 명시한다.
-  if [ -f .sqlfluff ]; then
+  # 기본값(gitformat.conf의 sqlDialectDefault)을 명시한다.
+  if [ -f "$MARKER_SQL" ]; then
     echo "[git-format] pre-push sql: sqlfluff lint ."
     sqlfluff lint .
   else
-    echo "[git-format] pre-push sql: sqlfluff lint --dialect ansi ."
-    sqlfluff lint --dialect ansi .
+    echo "[git-format] pre-push sql: sqlfluff lint --dialect ${SQL_DIALECT_DEFAULT} ."
+    sqlfluff lint --dialect "$SQL_DIALECT_DEFAULT" .
   fi
 fi
 
