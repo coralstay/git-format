@@ -32,7 +32,7 @@ resolve_self() {
 HOOK_DIR="$(cd "$(dirname "$(resolve_self "$0")")" && pwd)"
 readonly HOOK_DIR
 # gitformat.conf(GF-44)에 이 훅의 내부 기본값(마커 파일명, Task-Id 접두어 기본값,
-# 예외 브랜치 기본값, AI 도구 식별자, known-models 경로)이 모여 있다. 값만 여기서
+# 예외 브랜치 기본값, AI 도구 식별자, AI-Model 화이트리스트)이 모여 있다. 값만 여기서
 # 읽고, 이 값들을 쓰는 로직은 이 파일 안에서만 독립적으로 유지한다.
 CONF="${HOOK_DIR}/gitformat.conf"
 readonly CONF
@@ -128,12 +128,18 @@ if [ -n "$AI_TOOL_GATE" ] && [ "$AI_TOOL_GATE" != "$AI_TOOL_CLAUDE_CODE" ]; then
     exit 1
   fi
 
-  KNOWN_MODELS_FILE="${HOOK_DIR}/$(git config --file "$CONF" --get gitformat.knownModelsFile)"
-  readonly KNOWN_MODELS_FILE
-  if [ -f "$KNOWN_MODELS_FILE" ] && ! grep -qxF "$CONFIGURED_MODEL" "$KNOWN_MODELS_FILE"; then
-    echo "commit-msg: gitformat.aiModel 값 '${CONFIGURED_MODEL}'이 알려진 모델 목록에 없습니다." >&2
-    echo "  ${KNOWN_MODELS_FILE} 참고, 필요하면 목록에 추가하세요." >&2
-    exit 1
+  KNOWN_MODELS="$(git config --file "$CONF" --get-all gitformat.knownModel 2>/dev/null || printf '%s' '')"
+  readonly KNOWN_MODELS
+  if [ -n "$KNOWN_MODELS" ]; then
+    known_model_found=false
+    for m in $KNOWN_MODELS; do
+      [ "$m" = "$CONFIGURED_MODEL" ] && known_model_found=true
+    done
+    if [ "$known_model_found" = false ]; then
+      echo "commit-msg: gitformat.aiModel 값 '${CONFIGURED_MODEL}'이 알려진 모델 목록에 없습니다." >&2
+      echo "  hooks/gitformat.conf의 gitformat.knownModel 항목에 추가하세요." >&2
+      exit 1
+    fi
   fi
 fi
 

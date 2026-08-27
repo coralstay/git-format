@@ -193,7 +193,7 @@ git config --add gitformat.branchExempt 'hotfix/*'   # 예외 브랜치 패턴 �
 git config gitformat.aiModel claude-opus-5           # Claude Code가 아닌 AI 도구의 모델명
 ```
 
-`hooks/checks/known-models.txt`에 조직 내부 모델 ID를 추가해도 됩니다.
+`hooks/gitformat.conf`의 `gitformat.knownModel` 항목에 조직 내부 모델 ID를 추가해도 됩니다.
 
 ## 📁 저장소 구조
 
@@ -204,7 +204,7 @@ git-format/
 │   ├── pre-commit
 │   ├── pre-push
 │   ├── post-commit
-│   └── checks/{ts,python,java,cpp,sql}.sh, known-models.txt
+│   └── checks/{ts,python,java,cpp,sql}.sh
 ├── template/                # init.templateDir용 (hooks/*는 install.sh --global이 생성)
 ├── .gitmessage               # commit.template
 ├── install.sh
