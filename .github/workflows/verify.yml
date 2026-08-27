@@ -21,6 +21,22 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: fetch-depth 안전성 확인 (GF-28/GF-64)
+        # 이 워크플로의 "Conventional Commits 형식 검증" 스텝은 git rev-list로
+        # PR의 BASE..HEAD 범위를 순회하는데, 이게 caller 워크플로가 fetch-depth를
+        # 지정했는지와 무관하게 항상 정상 동작하는 이유는 바로 위 체크아웃
+        # 스텝이 fetch-depth: 0으로 고정돼 있기 때문이다(GF-28에서 실제 PR
+        # 실행 로그로 1회 확인). 이 스텝은 그 전제를 매 실행마다(=이 워크플로가
+        # 돌 때마다) 반복해서 검증한다 - 나중에 위 체크아웃에서 실수로
+        # fetch-depth: 0을 지우면 여기서 즉시 실패한다.
+        run: |
+          set -eu
+          if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
+            echo "::error::체크아웃이 얕은 클론입니다 - fetch-depth: 0 설정이 깨졌을 수 있습니다(GF-28/GF-64)" >&2
+            exit 1
+          fi
+          echo "fetch-depth 안전성 확인: 얕은 클론 아님"
+
       - name: Checkout git-format hooks
         uses: actions/checkout@v4
         with:
