@@ -72,3 +72,35 @@ teardown() {
   [[ "$output" == *"git 저장소가 아닙니다"* ]]
   rm -rf "$NOT_A_REPO"
 }
+
+# ── .gitformat-build 자동 .gitignore 반영 (GF-65) ──────────────────
+
+@test "[gitignore] CMakeLists.txt가 있는 저장소는 .gitignore에 .gitformat-build/가 자동 추가된다" {
+  touch "${TARGET_REPO}/CMakeLists.txt"
+  run "${GITFORMAT_ROOT}/install.sh" --no-global "$TARGET_REPO"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *".gitignore에 .gitformat-build/ 추가함"* ]]
+  grep -qxF ".gitformat-build/" "${TARGET_REPO}/.gitignore"
+}
+
+@test "[gitignore] Makefile만 있어도 .gitignore에 .gitformat-build/가 추가된다" {
+  touch "${TARGET_REPO}/Makefile"
+  run "${GITFORMAT_ROOT}/install.sh" --no-global "$TARGET_REPO"
+  [ "$status" -eq 0 ]
+  grep -qxF ".gitformat-build/" "${TARGET_REPO}/.gitignore"
+}
+
+@test "[gitignore] 이미 .gitignore에 항목이 있으면 중복 추가하지 않는다(멱등성)" {
+  touch "${TARGET_REPO}/CMakeLists.txt"
+  run "${GITFORMAT_ROOT}/install.sh" --no-global "$TARGET_REPO"
+  [ "$status" -eq 0 ]
+  run "${GITFORMAT_ROOT}/install.sh" --no-global "$TARGET_REPO"
+  [ "$status" -eq 0 ]
+  [ "$(grep -cxF ".gitformat-build/" "${TARGET_REPO}/.gitignore")" -eq 1 ]
+}
+
+@test "[gitignore] C/C++ 마커가 없는 저장소는 .gitignore를 건드리지 않는다" {
+  run "${GITFORMAT_ROOT}/install.sh" --no-global "$TARGET_REPO"
+  [ "$status" -eq 0 ]
+  [ ! -f "${TARGET_REPO}/.gitignore" ]
+}
