@@ -113,7 +113,9 @@ fi
 
 # AI 귀속(decision-5): AI_AGENT는 Claude Code 프로세스가 하위 프로세스에 주입하는
 # 값이라 LLM이 스스로 만든 값이 아니다(예: claude-code_2-1-227_agent).
-AI_TOOL_ID="$(printf '%s' "${AI_AGENT:-}" | cut -d_ -f1)"
+# cut -d_ -f1 대신 매개변수 확장으로 첫 필드만 뽑는다(외부 프로세스 없이 처리).
+AI_TOOL_ID="${AI_AGENT:-}"
+AI_TOOL_ID="${AI_TOOL_ID%%_*}"
 readonly AI_TOOL_ID
 
 if [ -n "$AI_TOOL_ID" ] && ! trailer_exists "$TRAILER_AI_TOOL" "${AI_TOOL_ID}"; then
@@ -125,7 +127,13 @@ fi
 # 있을 때만 버전을 채운다.
 case "${AI_AGENT:-}" in
   *_*)
-    AI_TOOL_VERSION="$(printf '%s' "${AI_AGENT:-}" | cut -d_ -f2 | tr '-' '.')"
+    # cut -d_ -f2 대신 매개변수 확장으로 두 번째 필드만 뽑는다(외부 프로세스
+    # 없이 처리). 대시를 점으로 바꾸는 tr은 그대로 둔다 — POSIX 표준
+    # 유틸리티라 이식성 손해가 없고, 전역 치환은 매개변수 확장만으로 못
+    # 하므로 순수 셸로 바꾸면 루프+패턴 인용이 필요해 이득 없이 위험만 커진다.
+    AI_TOOL_VERSION="${AI_AGENT#*_}"
+    AI_TOOL_VERSION="${AI_TOOL_VERSION%%_*}"
+    AI_TOOL_VERSION="$(printf '%s' "$AI_TOOL_VERSION" | tr '-' '.')"
     readonly AI_TOOL_VERSION
     if [ -n "$AI_TOOL_VERSION" ] \
       && ! trailer_exists "$TRAILER_AI_TOOL_VERSION" "${AI_TOOL_VERSION}"; then

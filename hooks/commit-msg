@@ -115,7 +115,9 @@ fi
 # 트랜스크립트에서 자동으로 모델을 얻으므로 이 게이트에서 제외한다.
 AI_TOOL_CLAUDE_CODE="$(git config --file "$CONF" --get gitformat.aiToolClaudeCode)"
 readonly AI_TOOL_CLAUDE_CODE
-AI_TOOL_GATE="$(printf '%s' "${AI_AGENT:-}" | cut -d_ -f1)"
+# cut -d_ -f1 대신 매개변수 확장으로 첫 필드만 뽑는다(외부 프로세스 없이 처리).
+AI_TOOL_GATE="${AI_AGENT:-}"
+AI_TOOL_GATE="${AI_TOOL_GATE%%_*}"
 readonly AI_TOOL_GATE
 if [ -n "$AI_TOOL_GATE" ] && [ "$AI_TOOL_GATE" != "$AI_TOOL_CLAUDE_CODE" ]; then
   CONFIGURED_MODEL="$(git config --get gitformat.aiModel 2>/dev/null || printf '%s' '')"
