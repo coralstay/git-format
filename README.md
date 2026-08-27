@@ -195,6 +195,12 @@ git config gitformat.aiModel claude-opus-5           # Claude Code가 아닌 AI 
 
 `hooks/gitformat.conf`의 `gitformat.knownModel` 항목에 조직 내부 모델 ID를 추가해도 됩니다.
 
+위 `git config` 오버라이드는 컨슈머 저장소가 값을 바꿀 때 쓰는 것이고, 이
+git-format 저장소 자체의 내부 기본값(마커 파일명, trailer 키 이름, 언어 감지
+마커, 커밋 타입 목록, AI-Model 화이트리스트 등)은 전부 `hooks/gitformat.conf`
+(git config 포맷) 한 곳에 모여 있습니다. 컨슈머가 직접 건드릴 파일은 아니고,
+git-format을 포크/커스터마이즈할 때 참고하는 내부 설정 파일입니다.
+
 ## 📁 저장소 구조
 
 ```
@@ -204,11 +210,12 @@ git-format/
 │   ├── pre-commit
 │   ├── pre-push
 │   ├── post-commit
+│   ├── gitformat.conf      # 내부 기본값 한 곳에 모음(git config 포맷)
 │   └── checks/{ts,python,java,cpp,sql}.sh
 ├── template/                # init.templateDir용 (hooks/*는 install.sh --global이 생성)
 ├── .gitmessage               # commit.template
 ├── install.sh
-├── tests/                    # bats-core 테스트(dev 전용, decision-7)
+├── tests/                    # bats-core 테스트(dev 전용, decision-8)
 ├── docs/references/          # 외부 스펙 vendoring(conventional-commits, Pro Git)
 └── backlog/                  # 이 저장소 자체 개발 관리(decision, task)
 ```
