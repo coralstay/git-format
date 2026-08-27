@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: ShellCheck (ISO 29119 정적 테스트, decision-7)
+      - name: ShellCheck (정적 분석, decision-8)
         run: shellcheck -s sh hooks/commit-msg hooks/pre-commit hooks/pre-push hooks/post-commit hooks/checks/*.sh install.sh
 
   bats:

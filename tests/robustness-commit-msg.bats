@@ -1,0 +1,130 @@
+#!/usr/bin/env bats
+# GF-23: commit-msg 견고성 테스트 (동등분할/경계값/결정테이블/구문테스트) - decision-8
+# 표준 인증이 아니라 실제 버그 이력(GF-30, GF-34, GF-35)에 근거한 실용적 테스트.
+
+load 'helpers/git-format'
+
+setup() {
+  make_isolated_repo
+  echo hi > a.txt
+  git add a.txt
+}
+
+teardown() {
+  cleanup_isolated_repo
+}
+
+# ── 동등분할: type/scope/BREAKING CHANGE 대표값 ──────────────────────
+
+@test "[동등분할] 유효한 type + scope 없음은 통과한다" {
+  run git commit -m "fix: 버그 수정"
+  [ "$status" -eq 0 ]
+}
+
+@test "[동등분할] 유효한 type + scope 있음은 통과한다" {
+  run git commit -m "fix(parser): 버그 수정"
+  [ "$status" -eq 0 ]
+}
+
+@test "[동등분할] 목록에 없는 type은 거부된다" {
+  run git commit -m "wip: 진행중"
+  [ "$status" -ne 0 ]
+}
+
+@test "[동등분할] BREAKING CHANGE(subject의 !)는 통과한다" {
+  run git commit -m "feat!: 하위호환 깨는 변경"
+  [ "$status" -eq 0 ]
+}
+
+@test "[동등분할] BREAKING CHANGE(footer)는 통과한다" {
+  run git commit -m "$(printf 'feat: 변경\n\nBREAKING CHANGE: 하위호환 깨짐')"
+  [ "$status" -eq 0 ]
+}
+
+# ── 경계값분석: 빈 description / 매우 긴 값 / task 번호 0·거대값 ──────
+
+@test "[경계값] description이 빈 문자열이면 거부된다" {
+  run git commit -m "feat: "
+  [ "$status" -ne 0 ]
+}
+
+@test "[경계값] 매우 긴 subject도 형식만 맞으면 통과한다" {
+  long_desc="$(printf 'x%.0s' $(seq 1 5000))"
+  run git commit -m "feat: ${long_desc}"
+  [ "$status" -eq 0 ]
+}
+
+@test "[경계값] Task-Id 번호가 0이어도 브랜치 패턴은 통과한다" {
+  git checkout -q -b "GF-0-zero"
+  run git commit -m "feat: zero task id"
+  [ "$status" -eq 0 ]
+}
+
+@test "[경계값] Task-Id 번호가 매우 커도 브랜치 패턴은 통과한다" {
+  git checkout -q -b "GF-99999999999999999999-huge"
+  run git commit -m "feat: huge task id"
+  [ "$status" -eq 0 ]
+}
+
+@test "[경계값] 매우 긴 브랜치명도 Task-Id 패턴만 있으면 통과한다" {
+  long_suffix="$(printf 'x%.0s' $(seq 1 200))"
+  git checkout -q -b "GF-1-${long_suffix}"
+  run git commit -m "feat: long branch"
+  [ "$status" -eq 0 ]
+}
+
+@test "[경계값] Task-Id 없는 non-exempt 브랜치는 거부된다" {
+  git checkout -q -b "no-task-id-here"
+  run git commit -m "feat: missing task id"
+  [ "$status" -ne 0 ]
+}
+
+# ── 결정테이블: AI_AGENT유무 x claude-code여부 x aiModel설정 x 화이트리스트 ──
+
+@test "[결정테이블] AI_AGENT 미설정이면 AI-Model 게이트를 건너뛴다" {
+  AI_AGENT="" run git commit -m "feat: no ai agent"
+  [ "$status" -eq 0 ]
+}
+
+@test "[결정테이블] AI_AGENT=claude-code면 aiModel 미설정이어도 통과한다" {
+  AI_AGENT="claude-code_2-1-0" run git commit -m "feat: claude code agent"
+  [ "$status" -eq 0 ]
+}
+
+@test "[결정테이블] 비-claude-code 도구 + aiModel 미설정이면 거부된다" {
+  AI_AGENT="other-tool_1-0" run git commit -m "feat: other tool no model"
+  [ "$status" -ne 0 ]
+}
+
+@test "[결정테이블] 비-claude-code 도구 + aiModel 설정했지만 화이트리스트에 없으면 거부된다" {
+  git config gitformat.aiModel "not-a-real-model"
+  AI_AGENT="other-tool_1-0" run git commit -m "feat: unknown model"
+  [ "$status" -ne 0 ]
+}
+
+@test "[결정테이블] 비-claude-code 도구 + aiModel이 화이트리스트에 있으면 통과한다" {
+  git config gitformat.aiModel "gpt-5"
+  AI_AGENT="other-tool_1-0" run git commit -m "feat: known model"
+  [ "$status" -eq 0 ]
+}
+
+# ── 구문테스트: 셸 메타문자 / 개행 / 제어문자 ─────────────────────────
+
+@test "[구문테스트] 커밋 메시지에 셸 메타문자가 있어도 실행되지 않고 안전하게 처리된다" {
+  run git commit -m 'feat: $(touch pwned-1) `touch pwned-2` ; touch pwned-3 | touch pwned-4'
+  [ "$status" -eq 0 ]
+  [ ! -e pwned-1 ]
+  [ ! -e pwned-2 ]
+  [ ! -e pwned-3 ]
+  [ ! -e pwned-4 ]
+}
+
+@test "[구문테스트] 커밋 메시지 본문에 개행이 있어도 정상 처리된다" {
+  run git commit -m "$(printf 'feat: 여러줄\n\n첫 줄\n둘째 줄\n\nFooter: value')"
+  [ "$status" -eq 0 ]
+}
+
+@test "[구문테스트] type 앞에 제어문자(탭)가 섞이면 거부된다" {
+  run git commit -m "$(printf '\tfeat: 탭으로 시작')"
+  [ "$status" -ne 0 ]
+}
