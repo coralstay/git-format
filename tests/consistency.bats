@@ -53,3 +53,33 @@ load 'helpers/git-format'
     fi
   done
 }
+
+@test "resolve_self() 6개 사본이 글자 그대로 동일하다 (GF-62)" {
+  # commit-msg/pre-commit/pre-push/post-commit/checks/cpp.sh/checks/sql.sh는
+  # 각자 독립적으로 resolve_self()를 갖고 있다(로직은 공유하지 않는다는 설계
+  # 원칙, decision-9). 이 함수 자체는 지금 6곳 모두 동일해야 하고, 한 곳만
+  # 고치고 나머지를 빠뜨리면(GF-16류) 이 테스트가 잡는다.
+  files="${GITFORMAT_ROOT}/hooks/commit-msg
+${GITFORMAT_ROOT}/hooks/pre-commit
+${GITFORMAT_ROOT}/hooks/pre-push
+${GITFORMAT_ROOT}/hooks/post-commit
+${GITFORMAT_ROOT}/hooks/checks/cpp.sh
+${GITFORMAT_ROOT}/hooks/checks/sql.sh"
+
+  reference=""
+  while IFS= read -r f; do
+    body="$(awk '/^resolve_self\(\) \{/,/^\}/' "$f")"
+    if [ -z "$body" ]; then
+      echo "resolve_self()를 찾을 수 없음: $f" >&2
+      false
+    fi
+    if [ -z "$reference" ]; then
+      reference="$body"
+    elif [ "$body" != "$reference" ]; then
+      echo "resolve_self()가 다름: $f" >&2
+      false
+    fi
+  done <<EOF
+$files
+EOF
+}
