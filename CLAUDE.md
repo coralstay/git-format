@@ -22,3 +22,16 @@ Do not edit Backlog task, draft, document, decision, or milestone markdown files
 
 </CRITICAL_INSTRUCTION>
 <!-- BACKLOG.MD GUIDELINES END -->
+
+## Backlog Decision 상태 확인 관례
+
+`backlog decision` CLI에는 `create`/`list`만 있고 상태(status)를 바꾸는 명령이
+없다. 그래서 어떤 decision이 나중 decision으로 대체(superseded)돼도
+`backlog decision list`에는 여전히 `accepted`로 표시된다(예: decision-7은
+decision-8로 대체됐지만 목록상 상태는 그대로다).
+
+**decision을 참고할 때는 `backlog decision list`의 상태 표시만 보지 말고,
+`backlog/decisions/`의 해당 파일 본문(Context/Decision/Consequences)에 "OO으로
+대체됨/superseded" 같은 언급이 있는지 항상 확인할 것.** (`backlog decision`
+CLI에는 `view`가 없어 파일을 직접 읽어야 한다.) 가장 번호가 큰 decision이
+같은 주제를 다루고 있으면 그게 최신 결정이다.
