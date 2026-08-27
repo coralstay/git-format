@@ -23,7 +23,19 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 GIT_DIR="$(git rev-parse --git-dir)"
 HOOK_DIR="$(cd "$(dirname "$(resolve_self "$0")")" && pwd)"
 CHECKS_DIR="${HOOK_DIR}/checks"
-MARKER="${GIT_DIR}/.gitformat-verified"
+# gitformat.conf(GF-44)에 이 훅의 내부 기본값(마커 파일명, 언어 감지 마커 파일명)이
+# 모여 있다. 값만 여기서 읽고, 이 값들을 쓰는 로직은 이 파일 안에서만 독립적으로
+# 유지한다(다른 훅과 함수/변수를 공유하지 않는다는 설계 원칙은 그대로다).
+CONF="${HOOK_DIR}/gitformat.conf"
+MARKER="${GIT_DIR}/$(git config --file "$CONF" --get gitformat.markerFile)"
+
+MARKER_TS="$(git config --file "$CONF" --get gitformat.marker.ts)"
+MARKER_JAVA="$(git config --file "$CONF" --get gitformat.marker.java)"
+MARKER_JAVA_GRADLE="$(git config --file "$CONF" --get gitformat.marker.javaGradle)"
+MARKER_CPP="$(git config --file "$CONF" --get gitformat.marker.cpp)"
+MARKER_CPP_MAKE="$(git config --file "$CONF" --get gitformat.marker.cppMake)"
+MARKER_SQL="$(git config --file "$CONF" --get gitformat.marker.sql)"
+MARKER_SQL_GLOB="$(git config --file "$CONF" --get gitformat.marker.sqlGlob)"
 
 cd "$REPO_ROOT"
 
@@ -37,23 +49,28 @@ run_check() {
   fi
 }
 
-if [ -f package.json ]; then
+if [ -f "$MARKER_TS" ]; then
   run_check "${CHECKS_DIR}/ts.sh"
 fi
 
-if [ -f pyproject.toml ] || [ -f requirements.txt ]; then
+python_marker_found=false
+for f in $(git config --file "$CONF" --get-all gitformat.marker.python); do
+  [ -f "$f" ] && python_marker_found=true
+done
+if [ "$python_marker_found" = true ]; then
   run_check "${CHECKS_DIR}/python.sh"
 fi
 
-if [ -f pom.xml ] || ls build.gradle* >/dev/null 2>&1; then
+# shellcheck disable=SC2086 # 의도적 글롭 확장(예: build.gradle*). 따옴표로 감싸면 리터럴 비교가 되어 깨진다.
+if [ -f "$MARKER_JAVA" ] || ls ${MARKER_JAVA_GRADLE} >/dev/null 2>&1; then
   run_check "${CHECKS_DIR}/java.sh"
 fi
 
-if [ -f CMakeLists.txt ] || [ -f Makefile ]; then
+if [ -f "$MARKER_CPP" ] || [ -f "$MARKER_CPP_MAKE" ]; then
   run_check "${CHECKS_DIR}/cpp.sh"
 fi
 
-if [ -f .sqlfluff ] || git ls-files -- '*.sql' | grep -q .; then
+if [ -f "$MARKER_SQL" ] || git ls-files -- "$MARKER_SQL_GLOB" | grep -q .; then
   run_check "${CHECKS_DIR}/sql.sh"
 fi
 
