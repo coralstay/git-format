@@ -100,3 +100,18 @@ EOF
   [ -n "$post_commit_block" ]
   [ "$commit_msg_block" = "$post_commit_block" ]
 }
+
+@test "python_marker_found 루프 블록이 pre-commit과 pre-push에서 동일하다 (GF-71)" {
+  # 둘 다 gitformat.conf의 다중값 marker.python을 순회해 python_marker_found를
+  # 세팅하는 로직을 각자 독립적으로 갖고 있다(resolve_self와 같은 설계 원칙).
+  extract_block() {
+    awk '/^python_marker_found=false$/,/^done$/' "$1"
+  }
+
+  pre_commit_block="$(extract_block "${GITFORMAT_ROOT}/hooks/pre-commit")"
+  pre_push_block="$(extract_block "${GITFORMAT_ROOT}/hooks/pre-push")"
+
+  [ -n "$pre_commit_block" ]
+  [ -n "$pre_push_block" ]
+  [ "$pre_commit_block" = "$pre_push_block" ]
+}
