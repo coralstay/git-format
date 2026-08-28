@@ -83,3 +83,20 @@ ${GITFORMAT_ROOT}/hooks/checks/sql.sh"
 $files
 EOF
 }
+
+@test "TASK_PREFIX/BRANCH 계산 블록이 commit-msg와 post-commit에서 동일하다 (GF-70)" {
+  # commit-msg가 검증한 Task-Id 브랜치 패턴을 post-commit이 그대로 재파싱해
+  # 트레일러로 남긴다(decision-4) - 두 파일이 TASK_PREFIX_DEFAULT/TASK_PREFIX/
+  # BRANCH를 계산하는 로직이 정확히 같아야만 서로 어긋나지 않는다. resolve_self
+  # 처럼 이 블록도 로직은 공유하지 않고(독립 설계) 동일성만 테스트로 보장한다.
+  extract_block() {
+    awk '/^TASK_PREFIX_DEFAULT=/,/^readonly BRANCH$/' "$1"
+  }
+
+  commit_msg_block="$(extract_block "${GITFORMAT_ROOT}/hooks/commit-msg")"
+  post_commit_block="$(extract_block "${GITFORMAT_ROOT}/hooks/post-commit")"
+
+  [ -n "$commit_msg_block" ]
+  [ -n "$post_commit_block" ]
+  [ "$commit_msg_block" = "$post_commit_block" ]
+}

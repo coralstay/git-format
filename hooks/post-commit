@@ -97,6 +97,8 @@ TASK_PREFIX_DEFAULT="$(git config --file "$CONF" --get gitformat.taskPrefixDefau
 readonly TASK_PREFIX_DEFAULT
 TASK_PREFIX="$(git config --get gitformat.taskPrefix 2>/dev/null \
   || printf '%s' "$TASK_PREFIX_DEFAULT")"
+# git config --get은 빈 문자열 설정도 성공으로 취급해 위 || 폴백이 안 걸린다
+# (GF-35) — 빈 값이면 명시적으로 기본값을 채운다.
 [ -n "$TASK_PREFIX" ] || TASK_PREFIX="$TASK_PREFIX_DEFAULT"
 readonly TASK_PREFIX
 BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || printf '%s' HEAD)"
