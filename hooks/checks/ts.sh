@@ -14,7 +14,8 @@ fi
 
 # grep으로 "lint": 문자열을 찾으면 scripts 밖(예: devDependencies의 "lint"라는
 # 패키지명)도 오탐한다(GF-39). package.json이 이미 npm이 이해하는 형식이므로
-# node로 실제 scripts 객체를 확인한다.
+# node로 실제 scripts 객체를 확인한다. $1은 항상 이 파일 안에서 "lint" 같은
+# 고정 리터럴로만 호출되므로(외부/사용자 입력 아님) 문자열 삽입이 안전하다.
 has_npm_script() {
   node -e "process.exit((require('./package.json').scripts || {})['$1'] ? 0 : 1)" 2>/dev/null
 }

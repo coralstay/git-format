@@ -132,7 +132,8 @@ if [ -n "$AI_TOOL_GATE" ] && [ "$AI_TOOL_GATE" != "$AI_TOOL_CLAUDE_CODE" ]; then
     exit 1
   fi
 
-  KNOWN_MODELS="$(git config --file "$CONF" --get-all gitformat.knownModel 2>/dev/null || printf '%s' '')"
+  KNOWN_MODELS="$(git config --file "$CONF" --get-all gitformat.knownModel \
+    2>/dev/null || printf '%s' '')"
   readonly KNOWN_MODELS
   if [ -n "$KNOWN_MODELS" ]; then
     known_model_found=false

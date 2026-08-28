@@ -17,6 +17,10 @@ repositories share one commit convention.
 
 </div>
 
+> ⚠️ **This repo's code was written with AI (Claude Code).** The hooks
+> actively reject commits and rewrite them via `--amend`, so read and
+> review the code in `hooks/` yourself before adopting it.
+
 ---
 
 ## 📖 Table of Contents

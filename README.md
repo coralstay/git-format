@@ -16,6 +16,10 @@ npm/pip 같은 별도 런타임 없이, `core.hooksPath` · `commit.template` ·
 
 </div>
 
+> ⚠️ **이 저장소의 코드는 AI(Claude Code)와 함께 작성했습니다.** 훅이 커밋을 거부하거나
+> `--amend`로 내용을 바꾸는 등 실제 동작을 하므로, 적용 전에 `hooks/`의 코드를 직접 읽고
+> 검토하세요.
+
 ---
 
 ## 📖 목차

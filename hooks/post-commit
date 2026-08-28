@@ -84,6 +84,9 @@ trailer_exists() {
   printf '%s\n' "$EXISTING_TRAILERS" | grep -qxF "$1: $2"
 }
 
+# POSIX sh has no arrays, so $@ is repurposed as one: `set --` clears it, and
+# each block below conditionally appends a --trailer flag with `set -- "$@" ...`.
+# The accumulated list is passed to `git interpret-trailers` as "$@" further down.
 set --
 
 if [ "$verified" = false ] && ! trailer_exists "$TRAILER_VERIFY_BYPASSED" "true"; then
