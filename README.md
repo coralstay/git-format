@@ -27,6 +27,7 @@ npm/pip 같은 별도 런타임 없이, `core.hooksPath` · `commit.template` ·
 - [🤔 왜 만들었나](#-왜-만들었나)
 - [🎯 목적](#-목적)
 - [🚀 설치](#-설치)
+- [📌 실제 사용법](#-실제-사용법)
 - [🗂️ 이 저장소가 만들거나 바꾸는 것](#️-이-저장소가-만들거나-바꾸는-것)
 - [📝 커밋 메시지 규칙](#-커밋-메시지-규칙)
 - [🪝 훅이 하는 일](#-훅이-하는-일)
@@ -84,6 +85,102 @@ cd ~/my-project
 `git init`/`git clone`을 실행할 때마다 훅과 커밋 템플릿이 자동으로 심어집니다
 (`init.templateDir`). 대화형 터미널에서 인자 없이 실행하면 이 적용 여부를 물어보고,
 `--global`/`--no-global`로 비대화형 지정도 가능합니다.
+
+## 📌 실제 사용법
+
+설치가 끝나면 평소 하던 `git checkout`/`git add`/`git commit`/`git push`를
+그대로 쓰면 됩니다. 아래는 실제로 한 번 돌려서 확인한 흐름입니다.
+
+### 1. Task-Id가 들어간 브랜치에서 작업 시작
+
+```sh
+git checkout -b GF-42-fix-login-crash
+```
+
+`main`/`master`/`develop`/`release/*`가 아닌 브랜치라면 `GF-<번호>` 패턴이
+브랜치명 어딘가에 있어야 합니다(대소문자 무관, 접두어는 `gitformat.taskPrefix`로
+변경 가능). 없으면 이 브랜치에서의 모든 커밋이 `commit-msg`에서 거부됩니다.
+
+### 2. 코드를 고치고 스테이징
+
+```sh
+git add src/login.ts
+```
+
+### 3. 커밋 — 훅이 순서대로 개입
+
+```sh
+git commit
+```
+
+1. **`pre-commit`**이 스테이징된 파일로 언어를 감지해 해당 체크를 돌립니다.
+   TS 프로젝트라면 이런 출력이 보입니다:
+   ```
+   [git-format] ts: npm run lint
+   ```
+2. **`commit-msg`**가 방금 쓴 커밋 메시지 제목과 브랜치명을 검사합니다.
+   `commit.template`이 설정돼 있으면 에디터에 [📝 커밋 메시지 규칙](#-커밋-메시지-규칙)의
+   형식 안내가 주석으로 미리 채워져 있습니다. 형식에 안 맞으면:
+   ```
+   commit-msg: 커밋 메시지가 Conventional Commits 형식이 아닙니다.
+     형식: <type>[(scope)][!]: <description>
+     허용 type: feat fix docs style refactor perf test build ci chore revert
+     예: fix(parser): 빈 입력 처리
+   ```
+   브랜치에 Task-Id가 없으면:
+   ```
+   commit-msg: 브랜치명에 GF-<번호> 패턴이 없습니다 (현재 브랜치: fix-login).
+     예: GF-12-install-script
+     Task-Id 없이 커밋하려면 예외 브랜치(main/master/develop/release/*)에서 작업하세요.
+   ```
+3. 둘 다 통과하면 커밋이 만들어지고, **`post-commit`**이 `Task-Id`/`Hooks-Commit`
+   등 트레일러를 자동으로 붙입니다(내부적으로 `git commit --amend` 1회 실행 —
+   [🕵️ `--no-verify` 우회 탐지](#️---no-verify-우회-탐지) 참고).
+
+### 4. 결과 확인
+
+```sh
+git log -1
+```
+
+```
+    fix(login): 빈 비밀번호 입력 시 크래시 수정
+
+    Task-Id: GF-42
+    Hooks-Commit: b5bf03a
+```
+
+AI 코딩 에이전트로 커밋했다면 `AI-Tool`/`AI-Model`/`Co-Authored-By` 등이
+더 붙습니다 — [🤖 AI 귀속 footer](#-ai-귀속-footer) 참고.
+
+### 5. 급할 때 `--no-verify`로 건너뛰기
+
+```sh
+git commit --no-verify -m "chore: 급한 핫픽스"
+```
+
+lint/형식 검사는 건너뛰지만 이력에 흔적이 남습니다:
+
+```sh
+git log -1
+```
+```
+    chore: 급한 핫픽스
+
+    Verify-Bypassed: true
+    Task-Id: GF-42
+    Hooks-Commit: b5bf03a
+```
+
+### 6. push — 무거운 검사는 여기서
+
+```sh
+git push
+```
+
+`pre-push`가 같은 언어 감지로 테스트/빌드를 돌립니다(TS면 `npm test`/`npm run build`,
+Python이면 `pytest`, Java면 `mvn verify`/`./gradlew check` 등 — [🪝 훅이 하는
+일](#-훅이-하는-일) 참고). 필요한 도구가 없으면 그 언어 검사만 조용히 건너뜁니다.
 
 ## 🗂️ 이 저장소가 만들거나 바꾸는 것
 

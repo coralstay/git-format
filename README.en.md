@@ -28,6 +28,7 @@ repositories share one commit convention.
 - [🤔 Why this exists](#-why-this-exists)
 - [🎯 Goals](#-goals)
 - [🚀 Install](#-install)
+- [📌 Actual usage](#-actual-usage)
 - [🗂️ What this repo creates or changes](#️-what-this-repo-creates-or-changes)
 - [📝 Commit message rules](#-commit-message-rules)
 - [🪝 What the hooks do](#-what-the-hooks-do)
@@ -89,6 +90,108 @@ Every time you run `git init`/`git clone`, the hooks and commit template are
 planted automatically (`init.templateDir`). Running with no arguments in an
 interactive terminal asks whether to apply this; `--global`/`--no-global`
 lets you specify it non-interactively.
+
+## 📌 Actual usage
+
+Once installed, keep using `git checkout`/`git add`/`git commit`/`git push`
+as normal. Here's a flow that was actually run once to verify it.
+
+### 1. Start work on a branch with a Task-Id
+
+```sh
+git checkout -b GF-42-fix-login-crash
+```
+
+Unless the branch is `main`/`master`/`develop`/`release/*`, it needs a
+`GF-<number>` pattern somewhere in its name (case-insensitive, prefix
+changeable via `gitformat.taskPrefix`). Without it, every commit on this
+branch gets rejected by `commit-msg`.
+
+### 2. Edit code and stage it
+
+```sh
+git add src/login.ts
+```
+
+### 3. Commit — the hooks step in, in order
+
+```sh
+git commit
+```
+
+1. **`pre-commit`** detects the language from staged files and runs the
+   matching check. For a TS project you'd see:
+   ```
+   [git-format] ts: npm run lint
+   ```
+2. **`commit-msg`** validates the subject line you just wrote and the
+   branch name. If `commit.template` is set, the editor is pre-filled with
+   the format guidance from [📝 Commit message rules](#-commit-message-rules)
+   as comments. If the format is wrong:
+   ```
+   commit-msg: 커밋 메시지가 Conventional Commits 형식이 아닙니다.
+     형식: <type>[(scope)][!]: <description>
+     허용 type: feat fix docs style refactor perf test build ci chore revert
+     예: fix(parser): 빈 입력 처리
+   ```
+   If the branch has no Task-Id:
+   ```
+   commit-msg: 브랜치명에 GF-<번호> 패턴이 없습니다 (현재 브랜치: fix-login).
+     예: GF-12-install-script
+     Task-Id 없이 커밋하려면 예외 브랜치(main/master/develop/release/*)에서 작업하세요.
+   ```
+   (The hooks' own messages are in Korean regardless of which README you're
+   reading — they're not localized.)
+3. Once both pass, the commit is created, and **`post-commit`** automatically
+   adds trailers like `Task-Id`/`Hooks-Commit` (internally runs
+   `git commit --amend` once — see
+   [🕵️ `--no-verify` bypass detection](#️---no-verify-bypass-detection)).
+
+### 4. Check the result
+
+```sh
+git log -1
+```
+
+```
+    fix(login): 빈 비밀번호 입력 시 크래시 수정
+
+    Task-Id: GF-42
+    Hooks-Commit: b5bf03a
+```
+
+If an AI coding agent made the commit, `AI-Tool`/`AI-Model`/`Co-Authored-By`
+etc. get added too — see [🤖 AI attribution footer](#-ai-attribution-footer).
+
+### 5. Skipping checks in a hurry with `--no-verify`
+
+```sh
+git commit --no-verify -m "chore: 급한 핫픽스"
+```
+
+Lint/format checks are skipped, but a trace is left in the history:
+
+```sh
+git log -1
+```
+```
+    chore: 급한 핫픽스
+
+    Verify-Bypassed: true
+    Task-Id: GF-42
+    Hooks-Commit: b5bf03a
+```
+
+### 6. push — the heavier checks run here
+
+```sh
+git push
+```
+
+`pre-push` runs tests/builds using the same language detection (`npm test`/
+`npm run build` for TS, `pytest` for Python, `mvn verify`/`./gradlew check`
+for Java, etc. — see [🪝 What the hooks do](#-what-the-hooks-do)). If a
+needed tool is missing, that language's check is silently skipped.
 
 ## 🗂️ What this repo creates or changes
 
