@@ -79,6 +79,31 @@ teardown() {
   [ "$status" -ne 0 ]
 }
 
+# ── branchExempt --add 시 기본 예외 유실 회귀 방지 (GF-78) ──────────────
+
+@test "[GF-78] branchExempt를 --add해도 기본 예외 브랜치(main)는 유지된다" {
+  git config --add gitformat.branchExempt 'hotfix/*'
+  # -B: 이미 main 브랜치일 수도(git init 기본값에 따라 다름) 있어 -b 대신
+  # 강제 생성/전환으로 환경에 상관없이 동작하게 한다.
+  git checkout -q -B main
+  run git commit -m "feat: main after add"
+  [ "$status" -eq 0 ]
+}
+
+@test "[GF-78] branchExempt로 --add한 패턴도 예외로 동작한다" {
+  git config --add gitformat.branchExempt 'hotfix/*'
+  git checkout -q -b hotfix/urgent
+  run git commit -m "feat: added exempt pattern"
+  [ "$status" -eq 0 ]
+}
+
+@test "[GF-78] branchExempt를 --add해도 Task-Id 없는 다른 브랜치는 여전히 거부된다" {
+  git config --add gitformat.branchExempt 'hotfix/*'
+  git checkout -q -b unrelated-branch
+  run git commit -m "feat: still rejected"
+  [ "$status" -ne 0 ]
+}
+
 # ── 결정테이블: AI_AGENT유무 x claude-code여부 x aiModel설정 x 화이트리스트 ──
 
 @test "[결정테이블] AI_AGENT 미설정이면 AI-Model 게이트를 건너뛴다" {

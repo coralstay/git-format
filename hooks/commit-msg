@@ -104,8 +104,14 @@ TASK_PREFIX="$(git config --get gitformat.taskPrefix 2>/dev/null \
 readonly TASK_PREFIX
 BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || printf '%s' HEAD)"
 readonly BRANCH
-EXEMPT="$(git config --get-all gitformat.branchExempt 2>/dev/null \
-  || git config --file "$CONF" --get-all gitformat.branchExempt)"
+# 로컬 오버라이드와 내장 기본값을 합친다(union) - README가 --add로 패턴을
+# "추가"하라고 안내하므로, 로컬에 하나라도 추가되면 main/master/develop/
+# release/* 기본값이 통째로 사라지면 안 된다. 예전엔 로컬 값이 있으면 그것만
+# 쓰는 폴백(||) 구조라, --add 직후 main 커밋조차 거부되는 버그가 있었다.
+EXEMPT="$(
+  git config --get-all gitformat.branchExempt 2>/dev/null || true
+  git config --file "$CONF" --get-all gitformat.branchExempt
+)"
 readonly EXEMPT
 
 if [ "$BRANCH" != "HEAD" ]; then
