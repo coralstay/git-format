@@ -9,6 +9,8 @@
 [![Runtime deps: none](https://img.shields.io/badge/runtime%20deps-none-brightgreen.svg)](#--설치)
 [![Conventional Commits](https://img.shields.io/badge/commits-Conventional%20Commits-fe5196.svg)](https://www.conventionalcommits.org/ko/v1.0.0/)
 
+**한국어** | [English](./README.en.md)
+
 npm/pip 같은 별도 런타임 없이, `core.hooksPath` · `commit.template` · `git interpret-trailers` 등
 **git 자체 기능만으로** 여러 저장소가 하나의 커밋 규칙을 공유하게 합니다.
 
@@ -258,7 +260,6 @@ git-format/
   플랫폼용 예시는 없습니다.
 - **커밋 이력을 반정형 데이터로 남기는 것까지가 이 프로젝트의 범위입니다.** 그
   데이터를 실제로 파싱하거나 학습용으로 가공하는 도구는 포함돼 있지 않습니다.
-- **README는 한국어만 제공합니다.** 영어 버전은 없습니다.
 - **비-Claude-Code AI 도구의 `AI-Model` 값은 자가신고 수준입니다.** Claude Code처럼
   세션 트랜스크립트로 검증하지 않고, 사용자가 `gitformat.aiModel`에 설정한 값을
   그대로 신뢰합니다.
