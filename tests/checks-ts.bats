@@ -75,3 +75,17 @@ EOF
   run git commit -m "feat(ts): add type error"
   [ "$status" -ne 0 ]
 }
+
+@test "tsconfig.json은 있지만 tsc가 어디에도 없으면 조용히 건너뛴다 (GF-79)" {
+  # npx --no-install tsc는 PATH가 아니라 npm/npx 자체의 조회 경로를 따로
+  # 참조해서, tsc가 정말 없을 때도 npx 특유의 실패로 정상 커밋을 막았다
+  # (typescript를 devDependency로만 설치하는 흔한 실사용 패턴, 그리고 이
+  # 프로젝트 자체 CI도 typescript를 따로 설치하지 않아 같은 문제를 겪었다).
+  echo '{}' > package.json
+  echo '{ "compilerOptions": { "strict": true } }' > tsconfig.json
+  echo 'const x: number = 1;' > clean.ts
+  git add package.json tsconfig.json clean.ts
+  PATH="$(path_without tsc)" run git commit -m "feat(ts): no tsc anywhere"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"tsconfig.json은 있지만 tsc를 찾을 수 없어 건너뜀"* ]]
+}

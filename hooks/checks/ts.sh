@@ -27,7 +27,21 @@ else
   echo "[git-format] ts: package.json에 lint 스크립트가 없어 건너뜀"
 fi
 
-if [ -f tsconfig.json ] && command -v npx >/dev/null 2>&1; then
-  echo "[git-format] ts: tsc --noEmit"
-  npx --no-install tsc --noEmit
+# npx --no-install은 PATH가 아니라 npm/npx 자체의 전역 설치 조회 경로를
+# 따로 참조한다 - `command -v tsc`가 PATH에서 tsc를 찾아내도(예: 버전
+# 매니저 shim), npx의 조회 경로가 다르면 `npx --no-install tsc`가 여전히
+# "npx canceled due to missing packages"로 실패해 타입 에러가 없는 정상
+# 커밋까지 막을 수 있다(실측 확인, GF-79). 그래서 npx를 거치지 않고, 이미
+# 존재를 확인한 tsc(로컬 devDependency 우선, 없으면 PATH의 tsc)를 직접
+# 실행한다. 다른 언어 체크와 같은 원칙(도구 없으면 조용히 건너뜀)을 지킨다.
+if [ -f tsconfig.json ]; then
+  if [ -x node_modules/.bin/tsc ]; then
+    echo "[git-format] ts: tsc --noEmit"
+    node_modules/.bin/tsc --noEmit
+  elif command -v tsc >/dev/null 2>&1; then
+    echo "[git-format] ts: tsc --noEmit"
+    tsc --noEmit
+  else
+    echo "[git-format] ts: tsconfig.json은 있지만 tsc를 찾을 수 없어 건너뜀"
+  fi
 fi
