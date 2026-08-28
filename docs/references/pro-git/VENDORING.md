@@ -17,5 +17,5 @@ git-format 개발·문서 작업 중 git 개념(특히 훅, 커스터마이징, 
   `book/10-git-internals` (Git Internals).
 
 이 디렉터리는 참고용 vendoring이며, git-format 자체의 코드/문서는 별도로
-[decision-1~7](../../../backlog/decisions/)에 기록돼 있다. 비영리 라이선스이므로
-이 디렉터리 내용을 상업적으로 재배포하지 않는다.
+[backlog/decisions/](../../../backlog/decisions/)에 기록돼 있다. 비영리
+라이선스이므로 이 디렉터리 내용을 상업적으로 재배포하지 않는다.

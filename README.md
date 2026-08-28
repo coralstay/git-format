@@ -217,7 +217,10 @@ git-format/
 ├── .gitmessage               # commit.template
 ├── install.sh
 ├── tests/                    # bats-core 테스트(dev 전용, decision-8)
-├── docs/references/          # 외부 스펙 vendoring(conventional-commits, Pro Git)
+├── docs/
+│   ├── references/          # 외부 스펙 vendoring(conventional-commits, Pro Git)
+│   └── examples/            # 컨슈머 저장소에 복사해 쓰는 예시(GitHub Actions 백스톱 등)
+├── .github/workflows/        # verify.yml(컨슈머용 재사용 워크플로), test.yml/self-verify.yml(dev 전용)
 └── backlog/                  # 이 저장소 자체 개발 관리(decision, task)
 ```
 
