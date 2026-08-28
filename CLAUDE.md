@@ -35,3 +35,15 @@ decision-8로 대체됐지만 목록상 상태는 그대로다).
 대체됨/superseded" 같은 언급이 있는지 항상 확인할 것.** (`backlog decision`
 CLI에는 `view`가 없어 파일을 직접 읽어야 한다.) 가장 번호가 큰 decision이
 같은 주제를 다루고 있으면 그게 최신 결정이다.
+
+## `hooks/*`, `install.sh`에서 `readonly VAR="$(cmd)"`를 한 줄로 합치지 말 것
+
+`VAR="$(cmd)"` 다음 줄에 `readonly VAR`를 쓰는 두 줄짜리 패턴이 hooks/*,
+install.sh 전체에 반복된다. "한 줄로 합칠 수 있지 않나" 싶어도(POSIX 문법상
+`readonly VAR="$(cmd)"`도 유효하다) **절대 합치지 말 것** — 실측 확인 결과,
+`set -eu` 아래에서 `cmd`가 실패해도 `readonly VAR="$(cmd)"` 형태는 여러 셸
+(bash의 sh 모드, dash, zsh의 sh 에뮬레이션)에서 그 실패를 **조용히 삼켜버리고**
+빈 문자열로 계속 진행한다. 반면 `VAR="$(cmd)"; readonly VAR`처럼 대입과
+readonly를 분리하면 대입 실패 시점에 정상적으로 `set -e`가 걸려 스크립트가
+즉시 중단된다. 즉 지금의 "장황해 보이는" 두 줄 패턴은 스타일이 아니라
+안전장치이며, 한 줄로 "정리"하면 조용한 실패를 유발하는 회귀가 생긴다.
