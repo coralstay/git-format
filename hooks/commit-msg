@@ -9,6 +9,15 @@
 # commit-msg가 실행되는 시점에 이 파일이 존재함을 실측으로 확인했다.
 set -eu
 
+# 커밋 메시지 원문은 유효하지 않은 UTF-8 바이트를 포함할 수 있다(GF-80,
+# 실제 CI에서 재현). UTF-8 로케일의 GNU grep(Linux)은 잘못된 멀티바이트
+# 시퀀스를 만나면 매칭 자체에 실패해, 형식은 정상인데 그 뒤에 깨진 바이트가
+# 섞였다는 이유만으로 "형식이 아닙니다"로 잘못 거부한다(macOS BSD grep은
+# 관대해서 로컬에서는 재현되지 않았다). type 목록/설명 정규식은 전부
+# ASCII라 바이트 단위(C 로케일)로 매칭해도 의미가 같으므로, 이 스크립트
+# 전체를 로케일 독립적으로 고정한다.
+export LC_ALL=C
+
 MSG_FILE="$1"
 readonly MSG_FILE
 GIT_DIR="$(git rev-parse --git-dir)"
