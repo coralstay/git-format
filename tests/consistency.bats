@@ -54,17 +54,19 @@ load 'helpers/git-format'
   done
 }
 
-@test "resolve_self() 6개 사본이 글자 그대로 동일하다 (GF-62)" {
-  # commit-msg/pre-commit/pre-push/post-commit/checks/cpp.sh/checks/sql.sh는
+@test "resolve_self() 7개 사본이 글자 그대로 동일하다 (GF-62/GF-72)" {
+  # commit-msg/pre-commit/pre-push/post-commit/checks/{cpp,sql,java}.sh는
   # 각자 독립적으로 resolve_self()를 갖고 있다(로직은 공유하지 않는다는 설계
-  # 원칙, decision-9). 이 함수 자체는 지금 6곳 모두 동일해야 하고, 한 곳만
-  # 고치고 나머지를 빠뜨리면(GF-16류) 이 테스트가 잡는다.
+  # 원칙, decision-9). 이 함수 자체는 지금 7곳 모두 동일해야 하고, 한 곳만
+  # 고치고 나머지를 빠뜨리면(GF-16류) 이 테스트가 잡는다. 새 파일에
+  # resolve_self를 추가할 때는 이 목록도 같이 갱신해야 한다.
   files="${GITFORMAT_ROOT}/hooks/commit-msg
 ${GITFORMAT_ROOT}/hooks/pre-commit
 ${GITFORMAT_ROOT}/hooks/pre-push
 ${GITFORMAT_ROOT}/hooks/post-commit
 ${GITFORMAT_ROOT}/hooks/checks/cpp.sh
-${GITFORMAT_ROOT}/hooks/checks/sql.sh"
+${GITFORMAT_ROOT}/hooks/checks/sql.sh
+${GITFORMAT_ROOT}/hooks/checks/java.sh"
 
   reference=""
   while IFS= read -r f; do
