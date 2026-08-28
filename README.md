@@ -30,6 +30,7 @@ npm/pip 같은 별도 런타임 없이, `core.hooksPath` · `commit.template` ·
 - [🔧 커스터마이즈](#-커스터마이즈)
 - [📁 저장소 구조](#-저장소-구조)
 - [⚠️ 주의점](#️-주의점)
+- [🚧 한계 및 향후 검토 과제](#-한계-및-향후-검토-과제)
 - [📄 라이선스](#-라이선스)
 
 ---
@@ -240,6 +241,24 @@ git-format/
   안 됩니다 — [`docs/references/pro-git/VENDORING.md`](./docs/references/pro-git/VENDORING.md) 참고.
 - **`.gitformat-build/`는 커밋하지 말 것.** C/C++ 프로젝트라면 컨슈머 저장소의
   `.gitignore`에 `.gitformat-build/`를 추가하세요.
+
+## 🚧 한계 및 향후 검토 과제
+
+- **subject 글자수/본문 줄바꿈 폭은 검증하지 않습니다.** `.gitmessage`의 "50자 이내
+  권장", "72자에서 줄바꿈 권장" 문구는 안내일 뿐이고, `commit-msg`는 실제로 길이를
+  재지 않습니다.
+- **Windows를 네이티브로 지원하지 않습니다.** 훅이 POSIX sh로 작성돼 있어 WSL이나
+  Git Bash 같은 POSIX 호환 셸이 필요합니다.
+- **지원 언어는 TS/Python/Java/C·C++/SQL 5종으로 고정돼 있습니다.** 확대 계획은
+  없습니다.
+- **서버사이드 백스톱은 GitHub Actions 예시만 제공합니다.** GitLab CI 등 다른
+  플랫폼용 예시는 없습니다.
+- **커밋 이력을 반정형 데이터로 남기는 것까지가 이 프로젝트의 범위입니다.** 그
+  데이터를 실제로 파싱하거나 학습용으로 가공하는 도구는 포함돼 있지 않습니다.
+- **README는 한국어만 제공합니다.** 영어 버전은 없습니다.
+- **비-Claude-Code AI 도구의 `AI-Model` 값은 자가신고 수준입니다.** Claude Code처럼
+  세션 트랜스크립트로 검증하지 않고, 사용자가 `gitformat.aiModel`에 설정한 값을
+  그대로 신뢰합니다.
 
 ## 📄 라이선스
 
