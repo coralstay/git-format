@@ -46,6 +46,15 @@ teardown() {
   [ "$status" -ne 0 ]
 }
 
+@test "루트에 정상 포맷 cpp가 있어도 하위 디렉터리 cpp 위반은 검사된다 (GF-81)" {
+  mkdir -p src
+  printf 'int main() { return 0; }\n' > root.cpp
+  printf 'int main(){\nreturn 0;\n      }\n' > src/deep.cpp
+  git add CMakeLists.txt root.cpp src/deep.cpp
+  run git commit -m "feat(cpp): add root and nested cpp files"
+  [ "$status" -ne 0 ]
+}
+
 @test "clang-format이 없으면 조용히 건너뛴다" {
   printf 'int main(){\nreturn 0;\n      }\n' > messy.cpp
   git add CMakeLists.txt messy.cpp

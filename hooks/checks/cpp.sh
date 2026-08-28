@@ -49,9 +49,25 @@ FILELIST="$(mktemp)"
 readonly FILELIST
 trap 'rm -f "$FILELIST"' EXIT
 
-# shellcheck disable=SC2046 # gitformat.conf의 다중값 확장자 목록을 그대로 인자로 펼친다.
-git diff --cached --name-only -z --diff-filter=ACMR -- \
-  $(git config --file "$CONF" --get-all gitformat.cpp.ext) > "$FILELIST" || true
+# gitformat.conf의 다중값 확장자 목록(*.c, *.cpp, ...)을 git diff pathspec
+# 인자로 하나씩 넘긴다. 예전엔 $(...)를 따옴표 없이 그대로 펼쳤는데, 그러면
+# word splitting 뒤에 셸이 pathname expansion(실제 파일시스템 글롭)까지 같이
+# 수행해버린다 - 저장소 루트(cd "$REPO_ROOT" 상태)에 그 확장자와 매치되는
+# 파일이 하나라도 있으면 글롭 토큰이 "그 파일명 하나"로 셸에 의해 먼저
+# 치환돼, git에 넘어가는 pathspec이 트리 전체가 아니라 루트의 그 파일
+# 하나로 좁아진다. 그러면 하위 디렉터리의 같은 확장자 파일은 스테이징돼
+# 있어도 검사에서 통째로 빠진다(GF-81). POSIX sh엔 배열이 없으므로
+# post-commit의 트레일러 누적과 동일하게 $@를 배열처럼 써서 값을 한 줄씩
+# 따옴표 유지한 채 담는다 - word splitting은 되지만 각 값이 개별 인자로
+# 남아 pathname expansion은 겪지 않는다.
+set --
+while IFS= read -r ext; do
+  set -- "$@" "$ext"
+done <<EOF
+$(git config --file "$CONF" --get-all gitformat.cpp.ext)
+EOF
+
+git diff --cached --name-only -z --diff-filter=ACMR -- "$@" > "$FILELIST" || true
 
 if [ ! -s "$FILELIST" ]; then
   echo "[git-format] cpp: 스테이징된 C/C++ 파일 없음, 건너뜀"
