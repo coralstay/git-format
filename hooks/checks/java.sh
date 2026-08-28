@@ -23,6 +23,14 @@ HOOK_DIR="$(cd "$(dirname "$(dirname "$(resolve_self "$0")")")" && pwd)"
 readonly HOOK_DIR
 CONF="${HOOK_DIR}/gitformat.conf"
 readonly CONF
+# gitformat.conf 자체를 못 읽으면(파일 없음/문법 깨짐) 이후 모든 git config
+# --file 읽기가 하나씩 실패하면서 원인을 알기 어려운 에러로 이어진다. 여기서
+# 미리 검증해 원인을 명확히 알려준다. 이 블록은 CONF를 읽는 다른 파일들에도
+# byte-identical하게 있다(tests/consistency.bats가 동일성을 보장).
+if ! git config --file "$CONF" --list >/dev/null 2>&1; then
+  echo "gitformat: gitformat.conf를 읽을 수 없습니다: ${CONF}" >&2
+  exit 1
+fi
 MARKER_JAVA="$(git config --file "$CONF" --get gitformat.marker.java)"
 readonly MARKER_JAVA
 MARKER_JAVA_GRADLE="$(git config --file "$CONF" --get gitformat.marker.javaGradle)"

@@ -117,3 +117,40 @@ EOF
   [ -n "$pre_push_block" ]
   [ "$pre_commit_block" = "$pre_push_block" ]
 }
+
+@test "gitformat.conf 읽기 검증 가드가 CONF를 읽는 8개 파일에서 동일하다 (GF-76)" {
+  # commit-msg/pre-commit/pre-push/post-commit/checks/{cpp,java,sql}.sh/install.sh는
+  # 각자 독립적으로 이 가드를 갖고 있다(resolve_self와 같은 설계 원칙, decision-9).
+  # gitformat.conf 자체를 못 읽을 때 원인을 명확히 알려주는 조기 진단이라, 8곳
+  # 모두 같은 문구/로직이어야 한다. 새 파일에 CONF를 읽는 로직을 추가할 때는
+  # 이 목록도 같이 갱신해야 한다.
+  files="${GITFORMAT_ROOT}/hooks/commit-msg
+${GITFORMAT_ROOT}/hooks/pre-commit
+${GITFORMAT_ROOT}/hooks/pre-push
+${GITFORMAT_ROOT}/hooks/post-commit
+${GITFORMAT_ROOT}/hooks/checks/cpp.sh
+${GITFORMAT_ROOT}/hooks/checks/java.sh
+${GITFORMAT_ROOT}/hooks/checks/sql.sh
+${GITFORMAT_ROOT}/install.sh"
+
+  extract_block() {
+    awk '/^if ! git config --file "\$CONF" --list/,/^fi$/' "$1"
+  }
+
+  reference=""
+  while IFS= read -r f; do
+    body="$(extract_block "$f")"
+    if [ -z "$body" ]; then
+      echo "gitformat.conf 읽기 검증 가드를 찾을 수 없음: $f" >&2
+      false
+    fi
+    if [ -z "$reference" ]; then
+      reference="$body"
+    elif [ "$body" != "$reference" ]; then
+      echo "gitformat.conf 읽기 검증 가드가 다름: $f" >&2
+      false
+    fi
+  done <<EOF
+$files
+EOF
+}
