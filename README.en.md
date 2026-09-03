@@ -370,11 +370,14 @@ git-format/
   If the `AI_AGENT` env var is detected but `gitformat.aiModel` hasn't been
   set, `commit-msg` rejects the commit (see
   [🔧 Customization](#-customization)).
-- **There are two licenses.** git-format itself is MIT, but the vendored
+- **There are multiple licenses.** git-format itself is MIT, but the vendored
   Pro Git text in `docs/references/pro-git/` is
   **CC BY-NC-SA 3.0 (non-commercial)** and must not be redistributed
   commercially — see
   [`docs/references/pro-git/VENDORING.md`](./docs/references/pro-git/VENDORING.md).
+  The vendored Google Shell Style Guide in `docs/references/google-shellguide/`
+  is **CC BY 3.0** (attribution only, no non-commercial restriction) — see
+  [`docs/references/google-shellguide/VENDORING.md`](./docs/references/google-shellguide/VENDORING.md).
 
 ## 🚧 Limitations and open questions
 

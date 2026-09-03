@@ -338,9 +338,12 @@ git-format/
 - **비-Claude-Code AI 도구는 설정 없이 커밋이 막힐 수 있습니다.** `AI_AGENT` 환경변수가
   감지되는데 `gitformat.aiModel`을 안 정했다면 `commit-msg`가 거부합니다([🔧 커스터마이즈](#-커스터마이즈)
   참고).
-- **라이선스가 두 가지입니다.** git-format 자체는 MIT지만, `docs/references/pro-git/`에
+- **라이선스가 여러 개입니다.** git-format 자체는 MIT지만, `docs/references/pro-git/`에
   vendoring한 Pro Git 원문은 **CC BY-NC-SA 3.0(비영리)**이라 상업적으로 재배포하면
   안 됩니다 — [`docs/references/pro-git/VENDORING.md`](./docs/references/pro-git/VENDORING.md) 참고.
+  `docs/references/google-shellguide/`에 vendoring한 Google Shell Style Guide는
+  **CC BY 3.0**(저작자 표시만 요구, 비영리 제한 없음)입니다 —
+  [`docs/references/google-shellguide/VENDORING.md`](./docs/references/google-shellguide/VENDORING.md) 참고.
 
 ## 🚧 한계 및 향후 검토 과제
 
