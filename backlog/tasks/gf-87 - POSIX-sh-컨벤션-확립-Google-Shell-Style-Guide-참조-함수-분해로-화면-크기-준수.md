@@ -1,9 +1,10 @@
 ---
 id: GF-87
 title: 'POSIX sh 컨벤션 확립: Google Shell Style Guide 참조 + 함수 분해로 화면 크기 준수'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-03 11:25'
+updated_date: '2026-09-03 12:06'
 labels: []
 milestone: m-0
 dependencies: []
