@@ -356,7 +356,12 @@ git-format/
   데이터를 실제로 파싱하거나 학습용으로 가공하는 도구는 포함돼 있지 않습니다.
 - **비-Claude-Code AI 도구의 `AI-Model` 값은 자가신고 수준입니다.** Claude Code처럼
   세션 트랜스크립트로 검증하지 않고, 사용자가 `gitformat.aiModel`에 설정한 값을
-  그대로 신뢰합니다.
+  그대로 신뢰합니다. Cursor/GitHub Copilot CLI/Aider/Cline/Windsurf/OpenAI Codex
+  CLI/Google Gemini CLI/Amazon Q Developer CLI를 조사했지만, Claude Code처럼
+  "앱이 직접 주입하는 세션 상관관계 채널 + API 응답이 확정한 model 값"을 동시에
+  제공하는 도구는 찾지 못했습니다(decision-15). 가장 근접한 OpenAI Codex CLI도
+  세션 로그의 model 필드가 로컬 설정값을 그대로 옮겨 적은 것으로 보여 자가신고와
+  신뢰 수준이 같았습니다.
 
 ## 📄 라이선스
 

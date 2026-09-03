@@ -391,7 +391,14 @@ git-format/
   into training data isn't included.
 - **Non-Claude-Code AI tools' `AI-Model` value is self-reported.** Unlike
   Claude Code, it isn't verified against a session transcript — whatever the
-  user sets in `gitformat.aiModel` is trusted as-is.
+  user sets in `gitformat.aiModel` is trusted as-is. We investigated Cursor,
+  GitHub Copilot CLI, Aider, Cline, Windsurf, OpenAI Codex CLI, Google Gemini
+  CLI, and Amazon Q Developer CLI, but found none that offer both of what
+  makes Claude Code's channel trustworthy at once: an app-injected session
+  correlation channel plus a model value the API itself confirmed
+  (decision-15). Even the closest candidate, OpenAI Codex CLI, appears to log
+  a locally configured model value rather than one confirmed by the API
+  response, putting it at the same trust level as self-reporting.
 
 ## 📄 License
 
