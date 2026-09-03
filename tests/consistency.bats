@@ -92,8 +92,10 @@ EOF
   # 트레일러로 남긴다(decision-4) - 두 파일이 TASK_PREFIX_DEFAULT/TASK_PREFIX/
   # BRANCH를 계산하는 로직이 정확히 같아야만 서로 어긋나지 않는다. resolve_self
   # 처럼 이 블록도 로직은 공유하지 않고(독립 설계) 동일성만 테스트로 보장한다.
+  # GF-87부터 이 블록은 두 파일 다 함수(enforce_task_id_branch/trailer_task_id)
+  # 안에 있어 2칸 들여쓰기가 붙는다.
   extract_block() {
-    awk '/^TASK_PREFIX_DEFAULT=/,/^readonly BRANCH$/' "$1"
+    awk '/^  TASK_PREFIX_DEFAULT=/,/^  readonly BRANCH$/' "$1"
   }
 
   commit_msg_block="$(extract_block "${GITFORMAT_ROOT}/hooks/commit-msg")"

@@ -9,6 +9,14 @@
 #
 # 트레일러 삽입은 `git commit --amend`로 이뤄지는데, amend 자체도 post-commit을
 # 재발동시키므로 재귀 가드가 필요하다.
+#
+# 아래 각 트레일러 판단 단계는 이름 있는 함수로 분해돼 있다(GF-87) — 화면 크기
+# 안에서 각 단계를 독립적으로 읽을 수 있게 하려는 목적이고, 실행 순서는 파일
+# 맨 아래에 나열돼 있다. POSIX sh는 함수 호출이 끝나면 그 함수 안에서 바꾼
+# 위치 매개변수($@/set --)를 호출자에게 넘기지 않고 원래대로 되돌린다 — 그래서
+# 각 함수는 `set --`를 직접 쓰지 않고 전역 변수 TRAILER_QUEUE에 queue_trailer로
+# 한 줄씩 쌓아두기만 하고, 위치 매개변수 조립과 amend 실행은 함수 밖(파일 맨
+# 아래, 톱레벨)에서 한 번만 한다.
 set -eu
 
 # 커밋 메시지 원문은 유효하지 않은 UTF-8 바이트를 포함할 수 있다(GF-80,
@@ -101,118 +109,163 @@ trailer_exists() {
   printf '%s\n' "$EXISTING_TRAILERS" | grep -qxF "$1: $2"
 }
 
-# POSIX sh has no arrays, so $@ is repurposed as one: `set --` clears it, and
-# each block below conditionally appends a --trailer flag with `set -- "$@" ...`.
-# The accumulated list is passed to `git interpret-trailers` as "$@" further down.
-set --
+# 함수들이 공유하는 누적 버퍼. 각 트레일러 판단 함수는 필요할 때 이 함수로
+# "키: 값" 한 줄을 TRAILER_QUEUE에 추가하기만 한다 — 값 안에 공백이 있어도
+# (예: "Signed-off-by: Jane Dev <jane@example.com>") 한 줄 = 한 트레일러라는
+# 경계가 깨지지 않는다. TRAILER_QUEUE는 위치 매개변수가 아니라 평범한 전역
+# 변수라 함수 밖에서도 값이 그대로 유지된다.
+TRAILER_QUEUE=""
+queue_trailer() {
+  TRAILER_QUEUE="${TRAILER_QUEUE}
+$1: $2"
+}
 
-if [ "$verified" = false ] && ! trailer_exists "$TRAILER_VERIFY_BYPASSED" "true"; then
-  set -- "$@" --trailer "${TRAILER_VERIFY_BYPASSED}: true"
-fi
+# --no-verify 우회 탐지(decision-3): pre-commit이 마커를 남기지 못했다는 건
+# commit-msg/pre-commit이 스킵됐다는 뜻이다.
+detect_verify_bypass() {
+  if [ "$verified" = false ] && ! trailer_exists "$TRAILER_VERIFY_BYPASSED" "true"; then
+    queue_trailer "$TRAILER_VERIFY_BYPASSED" "true"
+  fi
+}
 
 # Task-Id(decision-4): commit-msg가 이미 브랜치명에 <prefix>-<번호> 패턴이 있는지
 # 검증했으므로(없으면 예외 브랜치가 아닌 한 커밋 자체가 거부됨), 여기서는 같은 패턴을
-# 다시 찾아 Task-Id 트레일러로 남기기만 한다.
-TASK_PREFIX_DEFAULT="$(git config --file "$CONF" --get gitformat.taskPrefixDefault)"
-readonly TASK_PREFIX_DEFAULT
-TASK_PREFIX="$(git config --get gitformat.taskPrefix 2>/dev/null \
-  || printf '%s' "$TASK_PREFIX_DEFAULT")"
-# git config --get은 빈 문자열 설정도 성공으로 취급해 위 || 폴백이 안 걸린다
-# (GF-35) — 빈 값이면 명시적으로 기본값을 채운다.
-[ -n "$TASK_PREFIX" ] || TASK_PREFIX="$TASK_PREFIX_DEFAULT"
-readonly TASK_PREFIX
-BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || printf '%s' HEAD)"
-readonly BRANCH
-# commit-msg와 동일하게 앵커링해서 부분 문자열 오매치를 피한다(GF-34).
-TASK_NUM="$(printf '%s' "$BRANCH" \
-  | grep -oiE "(^|[^a-zA-Z0-9])${TASK_PREFIX}-[0-9]+" \
-  | grep -oE '[0-9]+' | head -n 1 || printf '%s' '')"
-readonly TASK_NUM
+# 다시 찾아 Task-Id 트레일러로 남기기만 한다. 여기서 계산하는 TASK_PREFIX/BRANCH
+# 블록은 commit-msg의 enforce_task_id_branch가 검증할 때 쓰는 블록과 완전히
+# 동일해야 한다(tests/consistency.bats).
+trailer_task_id() {
+  TASK_PREFIX_DEFAULT="$(git config --file "$CONF" --get gitformat.taskPrefixDefault)"
+  readonly TASK_PREFIX_DEFAULT
+  TASK_PREFIX="$(git config --get gitformat.taskPrefix 2>/dev/null \
+    || printf '%s' "$TASK_PREFIX_DEFAULT")"
+  # git config --get은 빈 문자열 설정도 성공으로 취급해 위 || 폴백이 안 걸린다
+  # (GF-35) — 빈 값이면 명시적으로 기본값을 채운다.
+  [ -n "$TASK_PREFIX" ] || TASK_PREFIX="$TASK_PREFIX_DEFAULT"
+  readonly TASK_PREFIX
+  BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || printf '%s' HEAD)"
+  readonly BRANCH
+  # commit-msg와 동일하게 앵커링해서 부분 문자열 오매치를 피한다(GF-34).
+  TASK_NUM="$(printf '%s' "$BRANCH" \
+    | grep -oiE "(^|[^a-zA-Z0-9])${TASK_PREFIX}-[0-9]+" \
+    | grep -oE '[0-9]+' | head -n 1 || printf '%s' '')"
+  readonly TASK_NUM
 
-if [ -n "$TASK_NUM" ] && ! trailer_exists "$TRAILER_TASK_ID" "${TASK_PREFIX}-${TASK_NUM}"; then
-  set -- "$@" --trailer "${TRAILER_TASK_ID}: ${TASK_PREFIX}-${TASK_NUM}"
-fi
-
-# AI 귀속(decision-5): AI_AGENT는 Claude Code 프로세스가 하위 프로세스에 주입하는
-# 값이라 LLM이 스스로 만든 값이 아니다(예: claude-code_2-1-227_agent).
-# cut -d_ -f1 대신 매개변수 확장으로 첫 필드만 뽑는다(외부 프로세스 없이 처리).
-AI_TOOL_ID="${AI_AGENT:-}"
-AI_TOOL_ID="${AI_TOOL_ID%%_*}"
-readonly AI_TOOL_ID
-
-if [ -n "$AI_TOOL_ID" ] && ! trailer_exists "$TRAILER_AI_TOOL" "${AI_TOOL_ID}"; then
-  set -- "$@" --trailer "${TRAILER_AI_TOOL}: ${AI_TOOL_ID}"
-fi
-
-# cut -d_ -f2는 구분자가 없으면 원문 전체를 그대로 돌려준다 — AI_AGENT에
-# 밑줄이 없으면 AI_TOOL_VERSION이 AI_TOOL_ID와 같아져버린다(GF-33). 밑줄이
-# 있을 때만 버전을 채운다.
-case "${AI_AGENT:-}" in
-  *_*)
-    # cut -d_ -f2 대신 매개변수 확장으로 두 번째 필드만 뽑는다(외부 프로세스
-    # 없이 처리). 대시를 점으로 바꾸는 tr은 그대로 둔다 — POSIX 표준
-    # 유틸리티라 이식성 손해가 없고, 전역 치환은 매개변수 확장만으로 못
-    # 하므로 순수 셸로 바꾸면 루프+패턴 인용이 필요해 이득 없이 위험만 커진다.
-    AI_TOOL_VERSION="${AI_AGENT#*_}"
-    AI_TOOL_VERSION="${AI_TOOL_VERSION%%_*}"
-    AI_TOOL_VERSION="$(printf '%s' "$AI_TOOL_VERSION" | tr '-' '.')"
-    readonly AI_TOOL_VERSION
-    if [ -n "$AI_TOOL_VERSION" ] \
-      && ! trailer_exists "$TRAILER_AI_TOOL_VERSION" "${AI_TOOL_VERSION}"; then
-      set -- "$@" --trailer "${TRAILER_AI_TOOL_VERSION}: ${AI_TOOL_VERSION}"
-    fi
-    ;;
-esac
-
-# Co-Authored-By는 실제로 Claude가 작업했다고 확신할 수 있는 경우(claude-code)에만 붙인다.
-# 다른 AI 도구까지 "Claude"로 공동저자 표기하면 잘못된 귀속이 된다.
-if [ "$AI_TOOL_ID" = "$AI_TOOL_CLAUDE_CODE" ] \
-  && ! trailer_exists "$TRAILER_CO_AUTHORED_BY" "$CO_AUTHORED_BY_VALUE"; then
-  set -- "$@" --trailer "${TRAILER_CO_AUTHORED_BY}: ${CO_AUTHORED_BY_VALUE}"
-fi
-
-# AI-Model(decision-5): Claude Code는 세션 트랜스크립트(~/.claude/projects/<slug>/<session>.jsonl)의
-# message.model 필드를 읽는다 — 이는 Anthropic API 응답을 애플리케이션이 그대로 기록한 값이라
-# 자가신고가 아니다. 그 외 도구는 commit-msg 게이트가 이미 검증한 gitformat.aiModel을 쓴다.
-# 어떤 이유로든 조회에 실패하면 커밋을 막지 않고 조용히 생략한다.
-# CLAUDE_CODE_SESSION_ID는 트랜스크립트 파일 경로를 찾는 데만 쓰고, 값 자체를 커밋
-# footer에 남기지는 않는다(세션 식별자가 커밋 이력에 영구히 남는 걸 피하기 위함).
-AI_MODEL=""
-
-if [ "$AI_TOOL_ID" = "$AI_TOOL_CLAUDE_CODE" ] \
-  && [ -n "${CLAUDE_CODE_SESSION_ID:-}" ] && command -v jq >/dev/null 2>&1; then
-  PROJECT_SLUG="$(printf '%s' "$PWD" | tr '/' '-')"
-  TRANSCRIPT="${HOME}/.claude/projects/${PROJECT_SLUG}/${CLAUDE_CODE_SESSION_ID}.jsonl"
-  if [ -f "$TRANSCRIPT" ]; then
-    AI_MODEL="$(tail -n 200 "$TRANSCRIPT" 2>/dev/null \
-      | jq -r 'select(.type=="assistant") | .message.model // empty' 2>/dev/null \
-      | tail -n 1 || printf '%s' '')"
+  if [ -n "$TASK_NUM" ] && ! trailer_exists "$TRAILER_TASK_ID" "${TASK_PREFIX}-${TASK_NUM}"; then
+    queue_trailer "$TRAILER_TASK_ID" "${TASK_PREFIX}-${TASK_NUM}"
   fi
-elif [ -n "$AI_TOOL_ID" ]; then
-  AI_MODEL="$(git config --get gitformat.aiModel 2>/dev/null || printf '%s' '')"
-fi
+}
 
-if [ -n "$AI_MODEL" ] && ! trailer_exists "$TRAILER_AI_MODEL" "${AI_MODEL}"; then
-  set -- "$@" --trailer "${TRAILER_AI_MODEL}: ${AI_MODEL}"
-fi
+# AI-Tool/AI-Tool-Version/Co-Authored-By(decision-5). AI_TOOL_ID는
+# trailer_ai_model()도 참조하므로 여기서 전역으로 채워둔다(POSIX sh는 함수
+# 지역변수가 없어 함수 밖에서도 그대로 보인다, decision-9).
+trailer_ai_tool() {
+  # AI_AGENT는 Claude Code 프로세스가 하위 프로세스에 주입하는 값이라 LLM이
+  # 스스로 만든 값이 아니다(예: claude-code_2-1-227_agent). cut -d_ -f1 대신
+  # 매개변수 확장으로 첫 필드만 뽑는다(외부 프로세스 없이 처리).
+  AI_TOOL_ID="${AI_AGENT:-}"
+  AI_TOOL_ID="${AI_TOOL_ID%%_*}"
+  readonly AI_TOOL_ID
+
+  if [ -n "$AI_TOOL_ID" ] && ! trailer_exists "$TRAILER_AI_TOOL" "${AI_TOOL_ID}"; then
+    queue_trailer "$TRAILER_AI_TOOL" "${AI_TOOL_ID}"
+  fi
+
+  # cut -d_ -f2는 구분자가 없으면 원문 전체를 그대로 돌려준다 — AI_AGENT에
+  # 밑줄이 없으면 AI_TOOL_VERSION이 AI_TOOL_ID와 같아져버린다(GF-33). 밑줄이
+  # 있을 때만 버전을 채운다.
+  case "${AI_AGENT:-}" in
+    *_*)
+      # cut -d_ -f2 대신 매개변수 확장으로 두 번째 필드만 뽑는다(외부 프로세스
+      # 없이 처리). 대시를 점으로 바꾸는 tr은 그대로 둔다 — POSIX 표준
+      # 유틸리티라 이식성 손해가 없고, 전역 치환은 매개변수 확장만으로 못
+      # 하므로 순수 셸로 바꾸면 루프+패턴 인용이 필요해 이득 없이 위험만 커진다.
+      AI_TOOL_VERSION="${AI_AGENT#*_}"
+      AI_TOOL_VERSION="${AI_TOOL_VERSION%%_*}"
+      AI_TOOL_VERSION="$(printf '%s' "$AI_TOOL_VERSION" | tr '-' '.')"
+      readonly AI_TOOL_VERSION
+      if [ -n "$AI_TOOL_VERSION" ] \
+        && ! trailer_exists "$TRAILER_AI_TOOL_VERSION" "${AI_TOOL_VERSION}"; then
+        queue_trailer "$TRAILER_AI_TOOL_VERSION" "${AI_TOOL_VERSION}"
+      fi
+      ;;
+  esac
+
+  # Co-Authored-By는 실제로 Claude가 작업했다고 확신할 수 있는 경우(claude-code)에만
+  # 붙인다. 다른 AI 도구까지 "Claude"로 공동저자 표기하면 잘못된 귀속이 된다.
+  if [ "$AI_TOOL_ID" = "$AI_TOOL_CLAUDE_CODE" ] \
+    && ! trailer_exists "$TRAILER_CO_AUTHORED_BY" "$CO_AUTHORED_BY_VALUE"; then
+    queue_trailer "$TRAILER_CO_AUTHORED_BY" "$CO_AUTHORED_BY_VALUE"
+  fi
+}
+
+# AI-Model(decision-5): Claude Code는 세션 트랜스크립트
+# (~/.claude/projects/<slug>/<session>.jsonl)의 message.model 필드를 읽는다 —
+# 이는 Anthropic API 응답을 애플리케이션이 그대로 기록한 값이라 자가신고가
+# 아니다. 그 외 도구는 commit-msg 게이트가 이미 검증한 gitformat.aiModel을
+# 쓴다. 어떤 이유로든 조회에 실패하면 커밋을 막지 않고 조용히 생략한다.
+# CLAUDE_CODE_SESSION_ID는 트랜스크립트 파일 경로를 찾는 데만 쓰고, 값 자체를
+# 커밋 footer에 남기지는 않는다(세션 식별자가 커밋 이력에 영구히 남는 걸
+# 피하기 위함). trailer_ai_tool()이 채운 AI_TOOL_ID를 그대로 재사용한다.
+trailer_ai_model() {
+  AI_MODEL=""
+
+  if [ "$AI_TOOL_ID" = "$AI_TOOL_CLAUDE_CODE" ] \
+    && [ -n "${CLAUDE_CODE_SESSION_ID:-}" ] && command -v jq >/dev/null 2>&1; then
+    PROJECT_SLUG="$(printf '%s' "$PWD" | tr '/' '-')"
+    TRANSCRIPT="${HOME}/.claude/projects/${PROJECT_SLUG}/${CLAUDE_CODE_SESSION_ID}.jsonl"
+    if [ -f "$TRANSCRIPT" ]; then
+      AI_MODEL="$(tail -n 200 "$TRANSCRIPT" 2>/dev/null \
+        | jq -r 'select(.type=="assistant") | .message.model // empty' 2>/dev/null \
+        | tail -n 1 || printf '%s' '')"
+    fi
+  elif [ -n "$AI_TOOL_ID" ]; then
+    AI_MODEL="$(git config --get gitformat.aiModel 2>/dev/null || printf '%s' '')"
+  fi
+
+  if [ -n "$AI_MODEL" ] && ! trailer_exists "$TRAILER_AI_MODEL" "${AI_MODEL}"; then
+    queue_trailer "$TRAILER_AI_MODEL" "${AI_MODEL}"
+  fi
+}
 
 # Hooks-Commit(decision-5): 이 커밋을 검증한 git-format 훅 코드 자체의 커밋 해시.
 # 수동 버전 문자열 대신 훅 스크립트가 위치한 저장소의 HEAD를 그대로 읽으므로 항상
 # 정확하다. hooks/가 git-format 클론 안에 있지 않으면(예: 훅만 복사해 배포한 경우)
 # 조용히 생략한다. HOOK_DIR은 파일 앞부분에서 이미 계산해뒀다(resolve_self 참고).
-if HOOKS_COMMIT="$(git -C "$HOOK_DIR" rev-parse --short HEAD 2>/dev/null)" \
-  && ! trailer_exists "$TRAILER_HOOKS_COMMIT" "${HOOKS_COMMIT}"; then
-  set -- "$@" --trailer "${TRAILER_HOOKS_COMMIT}: ${HOOKS_COMMIT}"
-fi
+trailer_hooks_commit() {
+  if HOOKS_COMMIT="$(git -C "$HOOK_DIR" rev-parse --short HEAD 2>/dev/null)" \
+    && ! trailer_exists "$TRAILER_HOOKS_COMMIT" "${HOOKS_COMMIT}"; then
+    queue_trailer "$TRAILER_HOOKS_COMMIT" "${HOOKS_COMMIT}"
+  fi
+}
 
 # Signed-off-by(리누스/DCO 스타일): 커미터 정보를 `git commit -s`와 동일한 방식으로
 # 모든 커밋에 자동 삽입한다. AI 여부와 무관하며, 사람이 직접 입력하게 강제하지 않는다.
-SIGNED_OFF_BY_VALUE="$(git log -1 --format='%cn <%ce>')"
-readonly SIGNED_OFF_BY_VALUE
-if [ -n "$SIGNED_OFF_BY_VALUE" ] \
-  && ! trailer_exists "$TRAILER_SIGNED_OFF_BY" "$SIGNED_OFF_BY_VALUE"; then
-  set -- "$@" --trailer "${TRAILER_SIGNED_OFF_BY}: ${SIGNED_OFF_BY_VALUE}"
-fi
+trailer_signed_off_by() {
+  SIGNED_OFF_BY_VALUE="$(git log -1 --format='%cn <%ce>')"
+  readonly SIGNED_OFF_BY_VALUE
+  if [ -n "$SIGNED_OFF_BY_VALUE" ] \
+    && ! trailer_exists "$TRAILER_SIGNED_OFF_BY" "$SIGNED_OFF_BY_VALUE"; then
+    queue_trailer "$TRAILER_SIGNED_OFF_BY" "$SIGNED_OFF_BY_VALUE"
+  fi
+}
+
+detect_verify_bypass
+trailer_task_id
+trailer_ai_tool
+trailer_ai_model
+trailer_hooks_commit
+trailer_signed_off_by
+
+# TRAILER_QUEUE를 한 줄씩 읽어 위치 매개변수로 조립한다. 이 while 루프는
+# 함수 안이 아니라 톱레벨에 있고, 파이프가 아니라 heredoc(<<EOF)으로 입력을
+# 받는다 — 파이프(`cmd | while read`)로 연결하면 루프가 서브셸에서 돌아 여기서
+# 하는 `set --`도 이 스크립트 프로세스에 남지 않는다.
+set --
+while IFS= read -r trailer_line; do
+  [ -n "$trailer_line" ] && set -- "$@" --trailer "$trailer_line"
+done <<EOF
+$TRAILER_QUEUE
+EOF
 
 if [ "$#" -gt 0 ]; then
   # 위에서 이미 정확히 일치하는 트레일러는 걸러냈으므로(trailer_exists), 여기서는
