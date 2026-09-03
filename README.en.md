@@ -231,8 +231,13 @@ focuses on "why", trailers, atomic-commit practice) was adopted as-is
 - `subsystem` is optional: `[type] <description>`.
 - Allowed types: `feat` `fix` `docs` `style` `refactor` `perf` `test` `build`
   `ci` `chore` `revert`.
+- The subject must be 50 characters or under (Unicode character count, not
+  bytes — `commit-msg` validates this).
 - If there's a body, a blank line is required between it and the subject
   (`commit-msg` validates this).
+- Each body line must wrap at 72 characters or under (`commit-msg` validates
+  this). Lines starting with a registered footer trailer (`Task-Id`, `Fixes`,
+  `BREAKING CHANGE`, etc.) are exempt.
 - `Fixes: <hash> ("<title of the commit that introduced the bug>")` is not
   required, but if present, `commit-msg` verifies the hash refers to a real
   commit.
@@ -249,7 +254,7 @@ this format and the type list as comments.
 
 | Hook | What it does |
 |---|---|
-| `commit-msg` | Validates `[type][subsystem]` format, requires a blank line before a body, verifies `Fixes:` hashes exist, enforces a Task-Id in the branch name, checks that AI-Model exists/is whitelisted (for non-Claude-Code AI tools) |
+| `commit-msg` | Validates `[type][subsystem]` format, checks subject (50 chars) / body line (72 chars) length (trailer lines exempt), requires a blank line before a body, verifies `Fixes:` hashes exist, enforces a Task-Id in the branch name, checks that AI-Model exists/is whitelisted (for non-Claude-Code AI tools) |
 | `pre-commit` | Detects the language (`package.json` / `pyproject.toml`·`requirements.txt` / `pom.xml`·`build.gradle*` / `CMakeLists.txt`·`Makefile` / `.sqlfluff`·tracked `*.sql`), then runs `hooks/checks/<lang>.sh` for lint/compile/format checks |
 | `post-commit` | Detects `--no-verify` bypass + auto-inserts AI attribution/Task-Id/Signed-off-by footer trailers |
 
@@ -373,9 +378,6 @@ git-format/
 
 ## 🚧 Limitations and open questions
 
-- **Subject length / body line-wrap width aren't validated.** The "keep it
-  under 50 chars", "wrap around 72 chars" text in `.gitmessage` is guidance
-  only — `commit-msg` doesn't actually measure length.
 - **No native Windows support.** The hooks are POSIX sh, so a POSIX-compatible
   shell (WSL, Git Bash) is required.
 - **Supported languages are fixed at TS/Python/Java/C·C++/SQL.** There's no

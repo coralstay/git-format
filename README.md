@@ -217,7 +217,10 @@ CI나 서버측으로 구성해야 합니다([⚠️ 주의점](#️-주의점) 
 
 - `subsystem`은 생략 가능합니다: `[type] <description>`.
 - 허용 type: `feat` `fix` `docs` `style` `refactor` `perf` `test` `build` `ci` `chore` `revert`.
+- 제목은 50자 이내여야 합니다(유니코드 문자 수 기준, 바이트 아님 — `commit-msg`가 검증).
 - 본문이 있으면 제목과의 사이에 빈 줄이 필요합니다(`commit-msg`가 검증).
+- 본문의 각 줄은 72자 이내로 줄바꿈해야 합니다(`commit-msg`가 검증). `Task-Id`/`Fixes`/
+  `BREAKING CHANGE` 등 등록된 footer 트레일러로 시작하는 줄은 이 제한에서 예외입니다.
 - `Fixes: <hash> ("<원인 커밋 제목>")`은 강제하지 않지만, 있으면 해시가 실재하는
   커밋인지 `commit-msg`가 검증합니다.
 - `Signed-off-by: <이름> <이메일>`은 `post-commit`이 커미터 정보로 모든 커밋에
@@ -231,7 +234,7 @@ CI나 서버측으로 구성해야 합니다([⚠️ 주의점](#️-주의점) 
 
 | 훅 | 하는 일 |
 |---|---|
-| `commit-msg` | `[type][subsystem]` 형식 검증, 본문 있으면 빈 줄 강제, `Fixes:` 해시 존재 검증, 브랜치명 Task-Id 강제, (non-Claude-Code AI 도구의) AI-Model 존재/화이트리스트 검증 |
+| `commit-msg` | `[type][subsystem]` 형식 검증, 제목 50자/본문 줄 72자 길이 검증(트레일러 줄 예외), 본문 있으면 빈 줄 강제, `Fixes:` 해시 존재 검증, 브랜치명 Task-Id 강제, (non-Claude-Code AI 도구의) AI-Model 존재/화이트리스트 검증 |
 | `pre-commit` | 언어 감지(`package.json`/`pyproject.toml`·`requirements.txt`/`pom.xml`·`build.gradle*`/`CMakeLists.txt`·`Makefile`/`.sqlfluff`·추적된 `*.sql`) 후 `hooks/checks/<lang>.sh`로 lint/컴파일/포맷 검사 |
 | `post-commit` | `--no-verify` 우회 탐지 + AI 귀속/Task-Id/Signed-off-by footer 트레일러 자동 삽입 |
 
@@ -341,9 +344,6 @@ git-format/
 
 ## 🚧 한계 및 향후 검토 과제
 
-- **subject 글자수/본문 줄바꿈 폭은 검증하지 않습니다.** `.gitmessage`의 "50자 이내
-  권장", "72자에서 줄바꿈 권장" 문구는 안내일 뿐이고, `commit-msg`는 실제로 길이를
-  재지 않습니다.
 - **Windows를 네이티브로 지원하지 않습니다.** 훅이 POSIX sh로 작성돼 있어 WSL이나
   Git Bash 같은 POSIX 호환 셸이 필요합니다.
 - **지원 언어는 TS/Python/Java/C·C++/SQL 5종으로 고정돼 있습니다.** 확대 계획은

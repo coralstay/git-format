@@ -1,14 +1,15 @@
 
 # [type][subsystem] <description>
 #   ↳ subsystem은 생략 가능: [type] <description>
-#   ↳ 50자 이내 권장, 명령형 현재형으로 작성 ("추가한다" / "add", not "추가함")
+#   ↳ 50자 이내로 작성(commit-msg가 검증, 유니코드 문자 수 기준),
+#     명령형 현재형으로 작성 ("추가한다" / "add", not "추가함")
 #
 # (빈 줄)
 #
 # [optional body]
 #   ↳ 무엇을 "왜" 바꿨는지 설명 (어떻게가 아니라 - diff가 이미 어떻게를 보여준다).
-#     한 줄 72자 정도에서 줄바꿈 권장. 본문이 있으면 제목과의 사이에 반드시
-#     빈 줄이 필요합니다(commit-msg가 검증).
+#     한 줄 72자 이내로 줄바꿈(commit-msg가 검증, footer 트레일러 줄은 예외).
+#     본문이 있으면 제목과의 사이에 반드시 빈 줄이 필요합니다(commit-msg가 검증).
 #
 # [optional footer(s)]
 #   ↳ git trailer 형식(Token: value). 예:
