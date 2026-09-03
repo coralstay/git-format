@@ -125,6 +125,74 @@ validate_format() {
   fi
 }
 
+# subject 글자수(50자 이내) / 본문 줄 길이(72자 이내) 검증(GF-83). .gitmessage가
+# "권장"이라고만 안내하고 실제로는 강제하지 않던 두 규칙을 실제로 검증한다 -
+# 위반하면 이 훅의 다른 형식 위반과 동일하게 거부한다(경고가 아님 - 이 훅의
+# 기존 정책(형식/빈 줄/Task-Id/AI-Model 전부 거부)과의 일관성을 위한 판단,
+# 근거는 GF-83 태스크 노트 참고).
+#
+# 글자 수는 바이트가 아니라 유니코드 문자 단위로 센다. 이 저장소의 실제 커밋
+# 이력은 한글 위주라(한글 1자는 UTF-8로 3바이트) 바이트 기준으로 세면 "50자"
+# 안내와 실제 강제 기준이 크게 어긋난다 - 실측: 한글 48자짜리 제목이 66바이트.
+# 스크립트 전체는 grep의 GF-80 로케일 이슈 때문에 LC_ALL=C로 고정돼 있으므로,
+# 이 문자 수 계산에서만 그 명령 하나에 한정해(서브셸 export가 아니라 명령
+# prefix로) UTF-8 로케일(C.UTF-8 - glibc/macOS 모두 locale-gen 없이 쓸 수
+# 있어 en_US.UTF-8보다 이식성이 높다)을 지정한다. 스크립트 전역 LC_ALL=C는
+# 그대로 유지된다.
+#
+# 본문 중 트레일러로 등록된 토큰(gitformat.conf의 [gitformat "trailer"] 값,
+# 예: Task-Id/Fixes/BREAKING CHANGE)으로 시작하는 줄은 72자 제한에서 예외로
+# 둔다 - 해시/설명이 길어질 수 있는 footer는 애초에 줄바꿈 대상이 아니다.
+validate_length() {
+  SUBJECT_MAX="$(git config --file "$CONF" --get gitformat.subjectMaxLength)"
+  readonly SUBJECT_MAX
+  BODY_MAX="$(git config --file "$CONF" --get gitformat.bodyLineMaxLength)"
+  readonly BODY_MAX
+
+  SUBJECT_LEN_RAW="$(printf '%s' "$SUBJECT_LINE" | LC_ALL=C.UTF-8 wc -m)"
+  # shellcheck disable=SC2086 # wc -m 출력의 선행 공백(BSD/GNU 패딩 차이)을
+  # 외부 명령(tr) 없이 word-splitting으로 제거하는 의도적 unquoted 확장.
+  set -- $SUBJECT_LEN_RAW
+  SUBJECT_LEN="$1"
+  readonly SUBJECT_LEN
+  if [ "$SUBJECT_LEN" -gt "$SUBJECT_MAX" ]; then
+    echo "commit-msg: 제목이 ${SUBJECT_MAX}자를 넘습니다 (현재 ${SUBJECT_LEN}자)." >&2
+    echo "  형식: [type][subsystem] <description>" >&2
+    exit 1
+  fi
+
+  # 알려진 트레일러 토큰 목록을 gitformat.conf에서 읽어 "Token: " 예외 패턴을
+  # 만든다 - 임의의 "단어: "를 전부 예외 처리하면 본문 문장에 콜론이 섞였을 때
+  # (예: "주의: ...") 검증을 조용히 우회하게 되므로, 등록된 토큰만 인정한다.
+  RAW_TRAILER_TOKENS="$(git config --file "$CONF" --get-regexp '^gitformat\.trailer\.')"
+  readonly RAW_TRAILER_TOKENS
+  TRAILER_ALT="$(printf '%s\n' "$RAW_TRAILER_TOKENS" | cut -d' ' -f2- | tr '\n' '|')"
+  TRAILER_ALT="${TRAILER_ALT%|}"
+  readonly TRAILER_ALT
+
+  BODY_LINES="$(printf '%s\n' "$CONTENT" | sed -n '3,$p')"
+  readonly BODY_LINES
+  [ -z "$BODY_LINES" ] && return 0
+
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    if printf '%s' "$line" | grep -qE "^(${TRAILER_ALT}): "; then
+      continue
+    fi
+    LINE_LEN_RAW="$(printf '%s' "$line" | LC_ALL=C.UTF-8 wc -m)"
+    # shellcheck disable=SC2086 # 위와 동일한 이유(선행 공백 제거).
+    set -- $LINE_LEN_RAW
+    LINE_LEN="$1"
+    if [ "$LINE_LEN" -gt "$BODY_MAX" ]; then
+      echo "commit-msg: 본문 줄이 ${BODY_MAX}자를 넘습니다 (현재 ${LINE_LEN}자): ${line}" >&2
+      echo "  본문은 한 줄 ${BODY_MAX}자 이내로 줄바꿈하세요 (등록된 footer 트레일러 줄은 예외)." >&2
+      exit 1
+    fi
+  done <<EOF
+$BODY_LINES
+EOF
+}
+
 # Fixes: <hash> 트레일러는 강제하지 않지만(원인 커밋을 항상 알 수 있는 건 아님),
 # 있으면 참조 해시가 저장소에 실재하는 커밋인지 검증한다 - 오타/잘못된 참조를 잡는다.
 # validate_format이 채운 CONTENT를 그대로 재사용한다.
@@ -229,6 +297,7 @@ enforce_ai_model_gate() {
 }
 
 validate_format
+validate_length
 validate_fixes_trailer
 enforce_task_id_branch
 enforce_ai_model_gate
