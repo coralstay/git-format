@@ -271,16 +271,6 @@ git-format은 강제하지 않습니다(`.sqlfluff`가 없으면 범용 기본�
 `Verify-Bypassed: true` footer를 **프로그래밍적으로** 삽입합니다. 텍스트 안내가 아니라
 커밋 이력 자체에 남는 사실이라 `git log`만으로 우회 여부를 확인할 수 있습니다.
 
-### opt-in: GitHub Actions 백스톱 설정
-
-[`docs/examples/github-actions-caller.yml`](./docs/examples/github-actions-caller.yml)을 컨슈머 저장소의
-`.github/workflows/`로 복사하면 git-format의 재사용 워크플로
-(`.github/workflows/verify.yml`)가 PR마다 commit-msg 형식 검증 +
-언어별 lint/빌드/테스트를 다시 실행합니다. 그다음 저장소 설정의
-Branch protection rules에서 이 워크플로를 **필수 status check**로
-지정해야 실제로 병합을 막는 효과가 생깁니다(단순히 워크플로만 추가하면
-결과가 표시만 되고 강제되지는 않습니다) — [⚠️ 주의점](#️-주의점) 참고.
-
 ## 🤖 AI 귀속 footer
 
 > decision-5
@@ -332,9 +322,9 @@ git-format/
 ├── install.sh
 ├── tests/                    # bats-core 테스트(dev 전용, decision-8)
 ├── docs/
-│   ├── references/          # 외부 스펙 vendoring(conventional-commits, Pro Git)
-│   └── examples/            # 컨슈머 저장소에 복사해 쓰는 예시(GitHub Actions 백스톱 등)
-├── .github/workflows/        # verify.yml(컨슈머용 재사용 워크플로), test.yml/self-verify.yml(dev 전용)
+│   └── references/          # 외부 스펙 vendoring(conventional-commits, Pro Git)
+├── .github/workflows/        # test.yml - 이 저장소 자신의 dev용 CI(shellcheck+bats)뿐,
+│                              #   컨슈머에게 제공하는 서버사이드 검증 기능은 없음(decision-11)
 └── backlog/                  # 이 저장소 자체 개발 관리(decision, task)
 ```
 
@@ -345,8 +335,11 @@ git-format/
 - **`git push --no-verify`는 탐지할 수 없습니다.** git에는 push 이후 무조건 실행되는
   로컬 훅이 없어서(`commit`과 다름) `--no-verify` 트릭을 push 단계엔 못 씁니다. 로컬
   훅은 애초에 `rm -rf .git/hooks`로도 완전히 우회 가능하므로, 이건 "우회 불가능"이
-  아니라 "정상적인 사용에서 흔적을 남긴다"는 보장입니다. push까지 막고 싶으면 위
-  opt-in GitHub Actions 백스톱을 브랜치 보호 필수 status check로 걸어야 합니다.
+  아니라 "정상적인 사용에서 흔적을 남긴다"는 보장입니다. push 단계까지 막는 서버사이드
+  백스톱(예: CI 필수 status check, 서버 pre-receive 훅)은 이 프로젝트 범위 밖입니다 —
+  git-format은 클라이언트측 훅만 제공합니다(decision-11). 필요하면 컨슈머가 직접
+  구성해야 하고, `hooks/commit-msg`/`hooks/pre-commit`/`hooks/pre-push`를 그대로
+  호출하는 방식으로 재사용할 수 있습니다.
 - **`post-commit`이 커밋 해시를 amend로 바꿀 수 있습니다.** Verify-Bypassed나 AI 귀속
   트레일러가 붙을 때마다 커밋이 한 번 더 amend됩니다 — 커밋 해시를 미리 캐싱하는
   외부 도구가 있다면 이 점을 인지해야 합니다.
@@ -368,8 +361,10 @@ git-format/
   Git Bash 같은 POSIX 호환 셸이 필요합니다.
 - **지원 언어는 TS/Python/Java/C·C++/SQL 5종으로 고정돼 있습니다.** 확대 계획은
   없습니다.
-- **서버사이드 백스톱은 GitHub Actions 예시만 제공합니다.** GitLab CI 등 다른
-  플랫폼용 예시는 없습니다.
+- **서버사이드/CI 기반 push 백스톱은 의도적으로 이 프로젝트 범위 밖입니다
+  (decision-11).** git-format은 클라이언트측 훅만 다룹니다 — 필요하면 컨슈머가
+  자체 CI나 서버 pre-receive 훅에서 `hooks/commit-msg` 등을 직접 호출해 구성해야
+  합니다.
 - **커밋 이력을 반정형 데이터로 남기는 것까지가 이 프로젝트의 범위입니다.** 그
   데이터를 실제로 파싱하거나 학습용으로 가공하는 도구는 포함돼 있지 않습니다.
 - **비-Claude-Code AI 도구의 `AI-Model` 값은 자가신고 수준입니다.** Claude Code처럼

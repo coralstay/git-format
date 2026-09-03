@@ -296,17 +296,6 @@ a `Verify-Bypassed: true` footer **programmatically** via
 `git commit --amend`. This isn't a text notice — it's a fact recorded in the
 commit history itself, so bypasses can be checked with `git log` alone.
 
-### opt-in: setting up the GitHub Actions backstop
-
-Copying [`docs/examples/github-actions-caller.yml`](./docs/examples/github-actions-caller.yml)
-into the consumer repo's `.github/workflows/` makes git-format's reusable
-workflow (`.github/workflows/verify.yml`) re-run commit-msg format
-validation and per-language lint/build/test checks on every PR. You then
-need to set this workflow as a **required status check** under Branch
-protection rules in the repo settings for it to actually block merges
-(adding the workflow alone only shows the result, it doesn't enforce
-anything) — see [⚠️ Caveats](#️-caveats).
-
 ## 🤖 AI attribution footer
 
 > decision-5
@@ -362,9 +351,9 @@ git-format/
 ├── install.sh
 ├── tests/                    # bats-core tests (dev only, decision-8)
 ├── docs/
-│   ├── references/          # vendored external specs (conventional-commits, Pro Git)
-│   └── examples/            # examples meant to be copied into a consumer repo (GitHub Actions backstop, etc.)
-├── .github/workflows/        # verify.yml (reusable workflow for consumers), test.yml/self-verify.yml (dev only)
+│   └── references/          # vendored external specs (conventional-commits, Pro Git)
+├── .github/workflows/        # test.yml only - this repo's own dev CI (shellcheck+bats);
+│                              #   no server-side verification is shipped to consumers (decision-11)
 └── backlog/                  # this repo's own dev management (decisions, tasks)
 ```
 
@@ -378,8 +367,12 @@ git-format/
   trick used for commit-msg/pre-commit doesn't apply at push time. Local
   hooks can always be bypassed entirely anyway (e.g. `rm -rf .git/hooks`) —
   so this was never a guarantee of "can't be bypassed," only that "normal
-  usage leaves a trace." To block push too, set up the opt-in GitHub Actions
-  backstop above as a required branch-protection status check.
+  usage leaves a trace." A server-side backstop that blocks at push time
+  (e.g. a required CI status check, a server-side pre-receive hook) is out
+  of scope for this project — git-format only ships client-side hooks
+  (decision-11). If you need one, build it yourself; it can reuse
+  `hooks/commit-msg`/`hooks/pre-commit`/`hooks/pre-push` by calling them
+  directly.
 - **`post-commit` can change the commit hash via amend.** Every time a
   Verify-Bypassed or AI attribution trailer is added, the commit gets
   amended once more — be aware of this if you have external tooling that
@@ -405,8 +398,10 @@ git-format/
   shell (WSL, Git Bash) is required.
 - **Supported languages are fixed at TS/Python/Java/C·C++/SQL.** There's no
   plan to add more.
-- **The server-side backstop only ships a GitHub Actions example.** There's
-  no example for other platforms like GitLab CI.
+- **A server-side/CI push backstop is intentionally out of scope for this
+  project (decision-11).** git-format only deals with client-side hooks —
+  if you need one, you build it yourself, calling `hooks/commit-msg` etc.
+  from your own CI or server-side pre-receive hook.
 - **Structuring commit history as semi-structured data is as far as this
   project's scope goes.** A tool that actually parses or turns that data
   into training data isn't included.
