@@ -1,9 +1,10 @@
 ---
 id: GF-83
 title: commit-msg가 subject 길이 / 본문 줄바꿈 폭을 실제로 검증하도록 만들기
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-03 01:25'
+updated_date: '2026-09-03 22:16'
 labels: []
 dependencies:
   - GF-82
