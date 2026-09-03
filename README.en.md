@@ -7,7 +7,6 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Shell: POSIX sh](https://img.shields.io/badge/shell-POSIX%20sh-89e051.svg)](./install.sh)
 [![Runtime deps: none](https://img.shields.io/badge/runtime%20deps-none-brightgreen.svg)](#-install)
-[![Conventional Commits](https://img.shields.io/badge/commits-Conventional%20Commits-fe5196.svg)](https://www.conventionalcommits.org/en/v1.0.0/)
 
 [한국어](./README.md) | **English**
 
@@ -57,7 +56,7 @@ setup using **native git features** only.
 
 | | Benefit |
 |---|---|
-| ✅ | Enforces [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) the same way regardless of language. |
+| ✅ | Enforces a Linus Torvalds (Linux kernel) style commit convention (`[type][subsystem]` prefix + a body that focuses on "why" + atomic commits) the same way regardless of language. |
 | 🧩 | Works with no separate runtime (Node/Python/etc.) — only `core.hooksPath`, `init.templateDir`, `commit.template`, git hooks, and `git interpret-trailers`. Per-language lint tools (npm/ruff/clang-format/mvn/sqlfluff/etc.) are used if present and silently skipped otherwise. |
 | 🕵️ | Even when `git commit --no-verify` bypasses checks, a programmatic trace (`Verify-Bypassed: true`) is left in the commit history itself. |
 | 🤖 | For commits made by AI coding agents, records which tool/model was involved, with a footer that distinguishes the trust level of each value. |
@@ -129,10 +128,10 @@ git commit
    the format guidance from [📝 Commit message rules](#-commit-message-rules)
    as comments. If the format is wrong:
    ```
-   commit-msg: 커밋 메시지가 Conventional Commits 형식이 아닙니다.
-     형식: <type>[(scope)][!]: <description>
+   commit-msg: 커밋 메시지가 [type][subsystem] 형식이 아닙니다.
+     형식: [type][subsystem] <description>  (subsystem 생략 가능: [type] <description>)
      허용 type: feat fix docs style refactor perf test build ci chore revert
-     예: fix(parser): 빈 입력 처리
+     예: [fix][parser] 빈 입력 처리
    ```
    If the branch has no Task-Id:
    ```
@@ -143,7 +142,7 @@ git commit
    (The hooks' own messages are in Korean regardless of which README you're
    reading — they're not localized.)
 3. Once both pass, the commit is created, and **`post-commit`** automatically
-   adds trailers like `Task-Id`/`Hooks-Commit` (internally runs
+   adds trailers like `Task-Id`/`Signed-off-by`/`Hooks-Commit` (internally runs
    `git commit --amend` once — see
    [🕵️ `--no-verify` bypass detection](#️---no-verify-bypass-detection)).
 
@@ -154,9 +153,10 @@ git log -1
 ```
 
 ```
-    fix(login): 빈 비밀번호 입력 시 크래시 수정
+    [fix][login] 빈 비밀번호 입력 시 크래시 수정
 
     Task-Id: GF-42
+    Signed-off-by: Jane Dev <jane@example.com>
     Hooks-Commit: b5bf03a
 ```
 
@@ -166,7 +166,7 @@ etc. get added too — see [🤖 AI attribution footer](#-ai-attribution-footer)
 ### 5. Skipping checks in a hurry with `--no-verify`
 
 ```sh
-git commit --no-verify -m "chore: 급한 핫픽스"
+git commit --no-verify -m "[chore] 급한 핫픽스"
 ```
 
 Lint/format checks are skipped, but a trace is left in the history:
@@ -175,10 +175,11 @@ Lint/format checks are skipped, but a trace is left in the history:
 git log -1
 ```
 ```
-    chore: 급한 핫픽스
+    [chore] 급한 핫픽스
 
     Verify-Bypassed: true
     Task-Id: GF-42
+    Signed-off-by: Jane Dev <jane@example.com>
     Hooks-Commit: b5bf03a
 ```
 
@@ -222,29 +223,44 @@ touched.
 
 ## 📝 Commit message rules
 
-Follows [Conventional Commits v1.0.0](https://www.conventionalcommits.org/en/v1.0.0/)
-(summary: [`docs/references/conventional-commits-ko.md`](./docs/references/conventional-commits-ko.md), decision: decision-1).
+Follows a Linus Torvalds (Linux kernel) style convention — only the subject
+prefix was changed to bracket form; everything else (blank line, a body that
+focuses on "why", trailers, atomic-commit practice) was adopted as-is
+(decision: decision-10, supersedes decision-1).
 
 ```
-<type>[(scope)][!]: <description>
+[type][subsystem] <description>
 
 [body]
 
 [footer(s)]
 ```
 
-Allowed types: `feat` `fix` `docs` `style` `refactor` `perf` `test` `build`
-`ci` `chore` `revert`. If `git config commit.template` is set, the commit
-editor is pre-filled with this format and the type list as comments.
+- `subsystem` is optional: `[type] <description>`.
+- Allowed types: `feat` `fix` `docs` `style` `refactor` `perf` `test` `build`
+  `ci` `chore` `revert`.
+- If there's a body, a blank line is required between it and the subject
+  (`commit-msg` validates this).
+- `Fixes: <hash> ("<title of the commit that introduced the bug>")` is not
+  required, but if present, `commit-msg` verifies the hash refers to a real
+  commit.
+- `Signed-off-by: <name> <email>` is auto-inserted by `post-commit` from the
+  committer's identity (same mechanism as `git commit -s`) — no need to
+  write it yourself.
+- Breaking changes are marked only via a `BREAKING CHANGE: <description>`
+  footer — there's no `!` marker.
+
+If `git config commit.template` is set, the commit editor is pre-filled with
+this format and the type list as comments.
 
 ## 🪝 What the hooks do
 
 | Hook | What it does |
 |---|---|
-| `commit-msg` | Validates Conventional Commits format, enforces a Task-Id in the branch name, checks that AI-Model exists/is whitelisted (for non-Claude-Code AI tools) |
+| `commit-msg` | Validates `[type][subsystem]` format, requires a blank line before a body, verifies `Fixes:` hashes exist, enforces a Task-Id in the branch name, checks that AI-Model exists/is whitelisted (for non-Claude-Code AI tools) |
 | `pre-commit` | Detects the language (`package.json` / `pyproject.toml`·`requirements.txt` / `pom.xml`·`build.gradle*` / `CMakeLists.txt`·`Makefile` / `.sqlfluff`·tracked `*.sql`), then runs `hooks/checks/<lang>.sh` for lint/compile/format checks |
 | `pre-push` | Same language detection, for tests/full builds (heavier checks deferred here) |
-| `post-commit` | Detects `--no-verify` bypass + auto-inserts AI attribution/Task-Id footer trailers |
+| `post-commit` | Detects `--no-verify` bypass + auto-inserts AI attribution/Task-Id/Signed-off-by footer trailers |
 
 If a tool a language check needs (npm, ruff/flake8, mvn/gradle,
 clang-format, cmake, sqlfluff, etc.) isn't installed, that check is silently
@@ -304,6 +320,7 @@ automatically. It matters that the trust level differs per trailer.
 | `AI-Model` | **Claude Code**: `message.model` from the session transcript (`~/.claude/projects/<slug>/<session>.jsonl`) — the value the Anthropic API actually returned, recorded as-is. **Other tools**: `git config gitformat.aiModel` (commit-msg enforces that it exists and is whitelisted) | Claude Code: a server-issued fact / Others: only presence+format enforced, truthfulness unverifiable |
 | `Co-Authored-By` | Auto-inserted only when `AI-Tool` is `claude-code` | Automatic |
 | `Hooks-Commit` | `git rev-parse --short HEAD` of this git-format clone itself | Fully automatic, applied to every commit regardless of AI involvement |
+| `Signed-off-by` | Committer identity (`git log -1 --format='%cn <%ce>'`) | Fully automatic, applied to every commit regardless of AI involvement (same mechanism as `git commit -s`, decision-10) |
 
 `CLAUDE_CODE_SESSION_ID` is used internally only to locate the transcript
 file path for the `AI-Model` lookup — the value itself is never left in the

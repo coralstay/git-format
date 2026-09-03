@@ -7,7 +7,6 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Shell: POSIX sh](https://img.shields.io/badge/shell-POSIX%20sh-89e051.svg)](./install.sh)
 [![Runtime deps: none](https://img.shields.io/badge/runtime%20deps-none-brightgreen.svg)](#--설치)
-[![Conventional Commits](https://img.shields.io/badge/commits-Conventional%20Commits-fe5196.svg)](https://www.conventionalcommits.org/ko/v1.0.0/)
 
 **한국어** | [English](./README.en.md)
 
@@ -54,7 +53,7 @@ npm/pip 같은 별도 런타임 없이, `core.hooksPath` · `commit.template` ·
 
 | | 이점 |
 |---|---|
-| ✅ | [Conventional Commits](https://www.conventionalcommits.org/ko/v1.0.0/)를 언어와 무관하게 동일하게 강제합니다. |
+| ✅ | 리누스 토발즈(리눅스 커널) 스타일 커밋 규칙(`[type][subsystem]` 프리픽스 + "왜"에 집중하는 본문 + 원자적 커밋)을 언어와 무관하게 동일하게 강제합니다. |
 | 🧩 | 별도 런타임(Node/Python 등) 의존성 없이 `core.hooksPath`, `init.templateDir`, `commit.template`, git hooks, `git interpret-trailers` 같은 **git 자체 기능**만으로 동작합니다 — 언어별 lint 도구(npm/ruff/clang-format/mvn/sqlfluff 등)는 있으면 쓰고 없으면 조용히 건너뜁니다. |
 | 🕵️ | `git commit --no-verify`로 검사를 우회해도 커밋 이력 자체에 프로그래밍적으로 흔적(`Verify-Bypassed: true`)이 남게 합니다. |
 | 🤖 | AI 코딩 에이전트가 만든 커밋에 어떤 도구/모델이 관여했는지, 신뢰 수준을 구분해서 footer에 남깁니다. |
@@ -122,10 +121,10 @@ git commit
    `commit.template`이 설정돼 있으면 에디터에 [📝 커밋 메시지 규칙](#-커밋-메시지-규칙)의
    형식 안내가 주석으로 미리 채워져 있습니다. 형식에 안 맞으면:
    ```
-   commit-msg: 커밋 메시지가 Conventional Commits 형식이 아닙니다.
-     형식: <type>[(scope)][!]: <description>
+   commit-msg: 커밋 메시지가 [type][subsystem] 형식이 아닙니다.
+     형식: [type][subsystem] <description>  (subsystem 생략 가능: [type] <description>)
      허용 type: feat fix docs style refactor perf test build ci chore revert
-     예: fix(parser): 빈 입력 처리
+     예: [fix][parser] 빈 입력 처리
    ```
    브랜치에 Task-Id가 없으면:
    ```
@@ -144,9 +143,10 @@ git log -1
 ```
 
 ```
-    fix(login): 빈 비밀번호 입력 시 크래시 수정
+    [fix][login] 빈 비밀번호 입력 시 크래시 수정
 
     Task-Id: GF-42
+    Signed-off-by: Jane Dev <jane@example.com>
     Hooks-Commit: b5bf03a
 ```
 
@@ -156,7 +156,7 @@ AI 코딩 에이전트로 커밋했다면 `AI-Tool`/`AI-Model`/`Co-Authored-By` 
 ### 5. 급할 때 `--no-verify`로 건너뛰기
 
 ```sh
-git commit --no-verify -m "chore: 급한 핫픽스"
+git commit --no-verify -m "[chore] 급한 핫픽스"
 ```
 
 lint/형식 검사는 건너뛰지만 이력에 흔적이 남습니다:
@@ -165,10 +165,11 @@ lint/형식 검사는 건너뛰지만 이력에 흔적이 남습니다:
 git log -1
 ```
 ```
-    chore: 급한 핫픽스
+    [chore] 급한 핫픽스
 
     Verify-Bypassed: true
     Task-Id: GF-42
+    Signed-off-by: Jane Dev <jane@example.com>
     Hooks-Commit: b5bf03a
 ```
 
@@ -209,18 +210,27 @@ Python이면 `pytest`, Java면 `mvn verify`/`./gradlew check` 등 — [🪝 훅�
 
 ## 📝 커밋 메시지 규칙
 
-[Conventional Commits v1.0.0](https://www.conventionalcommits.org/ko/v1.0.0/)을 따릅니다
-(요약: [`docs/references/conventional-commits-ko.md`](./docs/references/conventional-commits-ko.md), 결정: decision-1).
+리누스 토발즈(리눅스 커널) 스타일을 따릅니다 — 서브젝트 프리픽스만 대괄호
+형식으로 바꾸고, 나머지(빈 줄, "왜"에 집중하는 본문, 트레일러, 원자적 커밋
+관행)는 그대로 채택했습니다(결정: decision-10, decision-1을 대체).
 
 ```
-<type>[(scope)][!]: <description>
+[type][subsystem] <description>
 
 [body]
 
 [footer(s)]
 ```
 
-허용 type: `feat` `fix` `docs` `style` `refactor` `perf` `test` `build` `ci` `chore` `revert`.
+- `subsystem`은 생략 가능합니다: `[type] <description>`.
+- 허용 type: `feat` `fix` `docs` `style` `refactor` `perf` `test` `build` `ci` `chore` `revert`.
+- 본문이 있으면 제목과의 사이에 빈 줄이 필요합니다(`commit-msg`가 검증).
+- `Fixes: <hash> ("<원인 커밋 제목>")`은 강제하지 않지만, 있으면 해시가 실재하는
+  커밋인지 `commit-msg`가 검증합니다.
+- `Signed-off-by: <이름> <이메일>`은 `post-commit`이 커미터 정보로 모든 커밋에
+  자동 삽입합니다(`git commit -s`와 동일한 방식) — 직접 쓸 필요 없습니다.
+- BREAKING CHANGE는 `!` 마커 없이 footer의 `BREAKING CHANGE: <설명>`으로만 표시합니다.
+
 `git config commit.template`이 설정돼 있으면 커밋 시 에디터에 이 형식과 type 목록이
 주석으로 채워집니다.
 
@@ -228,10 +238,10 @@ Python이면 `pytest`, Java면 `mvn verify`/`./gradlew check` 등 — [🪝 훅�
 
 | 훅 | 하는 일 |
 |---|---|
-| `commit-msg` | Conventional Commits 형식 검증, 브랜치명 Task-Id 강제, (non-Claude-Code AI 도구의) AI-Model 존재/화이트리스트 검증 |
+| `commit-msg` | `[type][subsystem]` 형식 검증, 본문 있으면 빈 줄 강제, `Fixes:` 해시 존재 검증, 브랜치명 Task-Id 강제, (non-Claude-Code AI 도구의) AI-Model 존재/화이트리스트 검증 |
 | `pre-commit` | 언어 감지(`package.json`/`pyproject.toml`·`requirements.txt`/`pom.xml`·`build.gradle*`/`CMakeLists.txt`·`Makefile`/`.sqlfluff`·추적된 `*.sql`) 후 `hooks/checks/<lang>.sh`로 lint/컴파일/포맷 검사 |
 | `pre-push` | 같은 언어 감지로 테스트/전체 빌드(무거운 검사는 여기로 미룸) |
-| `post-commit` | `--no-verify` 우회 탐지 + AI 귀속/Task-Id footer 트레일러 자동 삽입 |
+| `post-commit` | `--no-verify` 우회 탐지 + AI 귀속/Task-Id/Signed-off-by footer 트레일러 자동 삽입 |
 
 언어별 체크에 필요한 도구(npm, ruff/flake8, mvn/gradle, clang-format, cmake, sqlfluff 등)가
 없으면 해당 검사만 조용히 건너뜁니다 — 프로젝트에 해당 언어가 없으면 아무 일도 하지 않습니다.
@@ -284,6 +294,7 @@ AI 코딩 에이전트가 커밋했다면 아래 트레일러가 자동으로 �
 | `AI-Model` | **Claude Code**: 세션 트랜스크립트(`~/.claude/projects/<slug>/<session>.jsonl`)의 `message.model` — Anthropic API 응답을 그대로 기록한 값. **그 외 도구**: `git config gitformat.aiModel`(commit-msg가 존재/화이트리스트를 강제) | Claude Code는 서버 발급 사실 / 그 외는 존재+형식만 강제, 진실성은 검증 불가 |
 | `Co-Authored-By` | `AI-Tool`이 `claude-code`일 때만 자동 삽입 | 자동 |
 | `Hooks-Commit` | 이 git-format 클론 자체의 `git rev-parse --short HEAD` | 완전 자동, 모든 커밋에 적용(AI 여부 무관) |
+| `Signed-off-by` | 커미터 정보(`git log -1 --format='%cn <%ce>'`) | 완전 자동, 모든 커밋에 적용(AI 여부 무관, `git commit -s`와 동일 방식, decision-10) |
 
 `CLAUDE_CODE_SESSION_ID`는 `AI-Model` 조회를 위해 트랜스크립트 파일 경로를 찾는 데만
 내부적으로 쓰이고, 값 자체가 커밋 footer에 남지는 않습니다 — 세션 식별자를 공개 저장소

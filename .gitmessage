@@ -1,16 +1,25 @@
 
-# <type>[(scope)][!]: <description>
+# [type][subsystem] <description>
+#   ↳ subsystem은 생략 가능: [type] <description>
 #   ↳ 50자 이내 권장, 명령형 현재형으로 작성 ("추가한다" / "add", not "추가함")
 #
+# (빈 줄)
+#
 # [optional body]
-#   ↳ 무엇을 왜 바꿨는지 설명 (어떻게가 아니라). 한 줄 72자 정도에서 줄바꿈 권장.
+#   ↳ 무엇을 "왜" 바꿨는지 설명 (어떻게가 아니라 - diff가 이미 어떻게를 보여준다).
+#     한 줄 72자 정도에서 줄바꿈 권장. 본문이 있으면 제목과의 사이에 반드시
+#     빈 줄이 필요합니다(commit-msg가 검증).
 #
 # [optional footer(s)]
-#   ↳ git trailer 형식(Token: value). 예: Task-Id: GF-3, BREAKING CHANGE: ...
+#   ↳ git trailer 형식(Token: value). 예:
+#     Task-Id: GF-3
+#     Fixes: <hash> ("<원인 커밋 제목>")   - 이 버그를 만든 커밋을 아는 경우에만
+#     Signed-off-by: <이름> <이메일>        - post-commit이 커미터 정보로 자동 삽입
+#     BREAKING CHANGE: <설명>
 #
-# ── type 목록 (Conventional Commits v1.0.0, https://www.conventionalcommits.org/ko/v1.0.0/) ──
-#   feat      새 기능 추가                        (SemVer MINOR)
-#   fix       버그 수정                           (SemVer PATCH)
+# ── type 목록 ──
+#   feat      새 기능 추가
+#   fix       버그 수정
 #   docs      문서 변경
 #   style     코드 의미에 영향 없는 스타일 변경(포맷팅, 세미콜론 등)
 #   refactor  기능 변경 없는 코드 구조 개선
@@ -21,13 +30,11 @@
 #   chore     위 항목에 속하지 않는 기타 변경사항
 #   revert    이전 커밋 되돌리기
 #
-# ── scope (선택) ──
-#   type 뒤에 괄호로 영향 범위를 명사로 표기.  예: fix(parser): 빈 입력 처리
+# ── subsystem (선택) ──
+#   type 뒤에 대괄호로 영향 범위를 명사로 표기.  예: [fix][parser] 빈 입력 처리
 #
-# ── BREAKING CHANGE (SemVer MAJOR) ──
-#   호환성을 깨는 변경은 둘 중 하나로 표시:
-#     1) type/scope 뒤에 `!` 추가        예: feat(api)!: 응답 형식 변경
-#     2) footer에 `BREAKING CHANGE: <설명>` 추가
+# ── 원자적 커밋 ──
+#   커밋 하나 = 논리적 변경 하나. 공백 정리와 기능 변경을 한 커밋에 섞지 않기.
 #
 # ── 이 템플릿 사용법 ──
 #   git config commit.template .gitmessage
