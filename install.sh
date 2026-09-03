@@ -52,22 +52,6 @@ echo "git-format: ${TARGET} 설정 완료"
 echo "  core.hooksPath  = ${HOOKS_DIR}"
 echo "  commit.template = ${GITMESSAGE}"
 
-# C/C++ 프로젝트(CMakeLists.txt/Makefile)면 pre-push가 cmake 빌드 시 만드는
-# .gitformat-build/ 산출물을 실수로 커밋하지 않도록 .gitignore에 등록한다
-# (마커 파일명은 gitformat.conf에서 읽어 pre-commit/pre-push와 같은 값을 쓴다).
-MARKER_CPP="$(git config --file "$CONF" --get gitformat.marker.cpp)"
-readonly MARKER_CPP
-MARKER_CPP_MAKE="$(git config --file "$CONF" --get gitformat.marker.cppMake)"
-readonly MARKER_CPP_MAKE
-BUILD_DIR_NAME="$(git config --file "$CONF" --get gitformat.buildDir)"
-readonly BUILD_DIR_NAME
-if [ -f "${TARGET}/${MARKER_CPP}" ] || [ -f "${TARGET}/${MARKER_CPP_MAKE}" ]; then
-  if ! grep -qxF "${BUILD_DIR_NAME}/" "${TARGET}/.gitignore" 2>/dev/null; then
-    printf '%s\n' "${BUILD_DIR_NAME}/" >> "${TARGET}/.gitignore"
-    echo "git-format: .gitignore에 ${BUILD_DIR_NAME}/ 추가함"
-  fi
-fi
-
 sync_template() {
   mkdir -p "${TEMPLATE_DIR}/hooks"
   for h in "${HOOKS_DIR}"/*; do

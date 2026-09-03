@@ -56,15 +56,14 @@ load 'helpers/git-format'
   done
 }
 
-@test "resolve_self() 7개 사본이 글자 그대로 동일하다 (GF-62/GF-72)" {
-  # commit-msg/pre-commit/pre-push/post-commit/checks/{cpp,sql,java}.sh는
+@test "resolve_self() 6개 사본이 글자 그대로 동일하다 (GF-62/GF-72)" {
+  # commit-msg/pre-commit/post-commit/checks/{cpp,sql,java}.sh는
   # 각자 독립적으로 resolve_self()를 갖고 있다(로직은 공유하지 않는다는 설계
-  # 원칙, decision-9). 이 함수 자체는 지금 7곳 모두 동일해야 하고, 한 곳만
+  # 원칙, decision-9). 이 함수 자체는 지금 6곳 모두 동일해야 하고, 한 곳만
   # 고치고 나머지를 빠뜨리면(GF-16류) 이 테스트가 잡는다. 새 파일에
   # resolve_self를 추가할 때는 이 목록도 같이 갱신해야 한다.
   files="${GITFORMAT_ROOT}/hooks/commit-msg
 ${GITFORMAT_ROOT}/hooks/pre-commit
-${GITFORMAT_ROOT}/hooks/pre-push
 ${GITFORMAT_ROOT}/hooks/post-commit
 ${GITFORMAT_ROOT}/hooks/checks/cpp.sh
 ${GITFORMAT_ROOT}/hooks/checks/sql.sh
@@ -105,30 +104,14 @@ EOF
   [ "$commit_msg_block" = "$post_commit_block" ]
 }
 
-@test "python_marker_found 루프 블록이 pre-commit과 pre-push에서 동일하다 (GF-71)" {
-  # 둘 다 gitformat.conf의 다중값 marker.python을 순회해 python_marker_found를
-  # 세팅하는 로직을 각자 독립적으로 갖고 있다(resolve_self와 같은 설계 원칙).
-  extract_block() {
-    awk '/^python_marker_found=false$/,/^done$/' "$1"
-  }
-
-  pre_commit_block="$(extract_block "${GITFORMAT_ROOT}/hooks/pre-commit")"
-  pre_push_block="$(extract_block "${GITFORMAT_ROOT}/hooks/pre-push")"
-
-  [ -n "$pre_commit_block" ]
-  [ -n "$pre_push_block" ]
-  [ "$pre_commit_block" = "$pre_push_block" ]
-}
-
-@test "gitformat.conf 읽기 검증 가드가 CONF를 읽는 8개 파일에서 동일하다 (GF-76)" {
-  # commit-msg/pre-commit/pre-push/post-commit/checks/{cpp,java,sql}.sh/install.sh는
+@test "gitformat.conf 읽기 검증 가드가 CONF를 읽는 7개 파일에서 동일하다 (GF-76)" {
+  # commit-msg/pre-commit/post-commit/checks/{cpp,java,sql}.sh/install.sh는
   # 각자 독립적으로 이 가드를 갖고 있다(resolve_self와 같은 설계 원칙, decision-9).
-  # gitformat.conf 자체를 못 읽을 때 원인을 명확히 알려주는 조기 진단이라, 8곳
+  # gitformat.conf 자체를 못 읽을 때 원인을 명확히 알려주는 조기 진단이라, 7곳
   # 모두 같은 문구/로직이어야 한다. 새 파일에 CONF를 읽는 로직을 추가할 때는
   # 이 목록도 같이 갱신해야 한다.
   files="${GITFORMAT_ROOT}/hooks/commit-msg
 ${GITFORMAT_ROOT}/hooks/pre-commit
-${GITFORMAT_ROOT}/hooks/pre-push
 ${GITFORMAT_ROOT}/hooks/post-commit
 ${GITFORMAT_ROOT}/hooks/checks/cpp.sh
 ${GITFORMAT_ROOT}/hooks/checks/java.sh

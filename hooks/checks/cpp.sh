@@ -1,7 +1,7 @@
 #!/bin/sh
 # C/C++ 체크: pre-commit 디스패처가 CMakeLists.txt/Makefile 감지 시 호출한다.
-# 스테이징된 C/C++ 파일에 대해서만 clang-format 포맷 검사를 한다(빌드는 무거우므로
-# pre-push(GF-5)로 미룬다).
+# 스테이징된 C/C++ 파일에 대해서만 clang-format 포맷 검사를 한다(빌드/테스트는
+# git-format 범위 밖이다, decision-12).
 set -eu
 
 # 이 훅 스크립트가 심볼릭 링크로 호출될 가능성에 대비해 실제 위치를 해석한다.

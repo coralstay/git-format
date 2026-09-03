@@ -44,7 +44,7 @@ npm/pip 같은 별도 런타임 없이, `core.hooksPath` · `commit.template` ·
 ## 🤔 왜 만들었나
 
 여러 언어(TS, C/C++, Java, Python, SQL 등)로 나뉜 프로젝트들에서 커밋 규칙과
-커밋/푸시 전 검사가 저장소마다 제각각이거나 아예 없는 문제, 그리고 `git commit --no-verify`로
+커밋 전 검사가 저장소마다 제각각이거나 아예 없는 문제, 그리고 `git commit --no-verify`로
 검사를 우회해도 아무 흔적이 안 남는 문제를 해결하려고 만들었습니다. 언어별로 다른 린터를
 설치하게 하거나 팀마다 커밋 컨벤션 문서를 따로 유지하는 대신, **git 자체 기능**만으로
 하나의 저장소를 여러 프로젝트가 공유해서 쓸 수 있게 하는 것이 의도입니다.
@@ -173,15 +173,9 @@ git log -1
     Hooks-Commit: b5bf03a
 ```
 
-### 6. push — 무거운 검사는 여기서
-
-```sh
-git push
-```
-
-`pre-push`가 같은 언어 감지로 테스트/빌드를 돌립니다(TS면 `npm test`/`npm run build`,
-Python이면 `pytest`, Java면 `mvn verify`/`./gradlew check` 등 — [🪝 훅이 하는
-일](#-훅이-하는-일) 참고). 필요한 도구가 없으면 그 언어 검사만 조용히 건너뜁니다.
+git-format은 커밋 단계까지만 다룹니다 — `git push`는 아무 훅도 거치지 않는
+평범한 push입니다(decision-12). push 단계 검증이 필요하면 컨슈머가 직접
+CI나 서버측으로 구성해야 합니다([⚠️ 주의점](#️-주의점) 참고).
 
 ## 🗂️ 이 저장소가 만들거나 바꾸는 것
 
@@ -200,7 +194,6 @@ Python이면 `pytest`, Java면 `mvn verify`/`./gradlew check` 등 — [🪝 훅�
 | 파일/디렉터리 | 위치 | 언제 | 비고 |
 |---|---|---|---|
 | `.gitformat-verified` | `<대상 저장소>/.git/` | `pre-commit` 통과 시 생성, `post-commit`이 곧 삭제 | 커밋 사이에 남지 않는 임시 마커 |
-| `.gitformat-build/` | 컨슈머 저장소 루트 | C/C++ `pre-push`가 cmake 빌드 시 | 커밋 대상 아님, `.gitignore`에 추가 권장 |
 | `template/hooks/*` | 이 git-format 클론 자신의 `template/` 안 | `install.sh --global` 실행 시 | 클론 위치를 가리키는 심볼릭 링크, 커밋 안 됨(`.gitignore`) |
 
 **커밋 자체가 바뀌는 경우**: `post-commit`이 조건에 따라 `git commit --amend`로
@@ -240,16 +233,15 @@ Python이면 `pytest`, Java면 `mvn verify`/`./gradlew check` 등 — [🪝 훅�
 |---|---|
 | `commit-msg` | `[type][subsystem]` 형식 검증, 본문 있으면 빈 줄 강제, `Fixes:` 해시 존재 검증, 브랜치명 Task-Id 강제, (non-Claude-Code AI 도구의) AI-Model 존재/화이트리스트 검증 |
 | `pre-commit` | 언어 감지(`package.json`/`pyproject.toml`·`requirements.txt`/`pom.xml`·`build.gradle*`/`CMakeLists.txt`·`Makefile`/`.sqlfluff`·추적된 `*.sql`) 후 `hooks/checks/<lang>.sh`로 lint/컴파일/포맷 검사 |
-| `pre-push` | 같은 언어 감지로 테스트/전체 빌드(무거운 검사는 여기로 미룸) |
 | `post-commit` | `--no-verify` 우회 탐지 + AI 귀속/Task-Id/Signed-off-by footer 트레일러 자동 삽입 |
 
 언어별 체크에 필요한 도구(npm, ruff/flake8, mvn/gradle, clang-format, cmake, sqlfluff 등)가
 없으면 해당 검사만 조용히 건너뜁니다 — 프로젝트에 해당 언어가 없으면 아무 일도 하지 않습니다.
 
 **SQL**(decision-6): `.sqlfluff` 설정 파일이 있거나 `.sql` 파일이 추적돼 있으면
-[sqlfluff](https://sqlfluff.com/)로 lint합니다. `pre-commit`은 스테이징된 `.sql`만,
-`pre-push`는 저장소 전체를 검사합니다. dialect 설정은 프로젝트의 `.sqlfluff`에 맡기고
-git-format은 강제하지 않습니다(`.sqlfluff`가 없으면 범용 기본값 `ansi`로 대체).
+[sqlfluff](https://sqlfluff.com/)로 스테이징된 `.sql`만 lint합니다(`pre-commit`).
+dialect 설정은 프로젝트의 `.sqlfluff`에 맡기고 git-format은 강제하지 않습니다
+(`.sqlfluff`가 없으면 범용 기본값 `ansi`로 대체).
 
 ## 🏷️ Task-Id 브랜치 강제
 
@@ -313,7 +305,6 @@ git-format/
 ├── hooks/                  # core.hooksPath가 가리키는 실제 훅
 │   ├── commit-msg
 │   ├── pre-commit
-│   ├── pre-push
 │   ├── post-commit
 │   ├── gitformat.conf      # 내부 기본값 한 곳에 모음(git config 포맷)
 │   └── checks/{ts,python,java,cpp,sql}.sh
@@ -332,14 +323,15 @@ git-format/
 
 - **`core.hooksPath`는 로컬 훅을 완전히 대체합니다.** 기존에 `.git/hooks/`에 다른 훅을
   쓰고 있었다면 install.sh 실행 전에 충돌 여부를 확인하세요.
-- **`git push --no-verify`는 탐지할 수 없습니다.** git에는 push 이후 무조건 실행되는
-  로컬 훅이 없어서(`commit`과 다름) `--no-verify` 트릭을 push 단계엔 못 씁니다. 로컬
-  훅은 애초에 `rm -rf .git/hooks`로도 완전히 우회 가능하므로, 이건 "우회 불가능"이
-  아니라 "정상적인 사용에서 흔적을 남긴다"는 보장입니다. push 단계까지 막는 서버사이드
-  백스톱(예: CI 필수 status check, 서버 pre-receive 훅)은 이 프로젝트 범위 밖입니다 —
-  git-format은 클라이언트측 훅만 제공합니다(decision-11). 필요하면 컨슈머가 직접
-  구성해야 하고, `hooks/commit-msg`/`hooks/pre-commit`/`hooks/pre-push`를 그대로
-  호출하는 방식으로 재사용할 수 있습니다.
+- **push 단계는 아예 훅하지 않습니다.** git-format은 `commit-msg`/`pre-commit`/
+  `post-commit`(커밋 단계)까지만 다루고, `git push`는 평범한 push입니다(decision-12) —
+  테스트/빌드 실행이나 `--no-verify` 탐지 같은 것도 없습니다. 로컬 훅은 애초에
+  `rm -rf .git/hooks`로도 완전히 우회 가능하므로, git-format의 보장은 "우회
+  불가능"이 아니라 "정상적인 사용에서 흔적을 남긴다"는 것뿐입니다. push 단계까지
+  막는 서버사이드 백스톱(예: CI 필수 status check, 서버 pre-receive 훅)은 이
+  프로젝트 범위 밖입니다 — git-format은 클라이언트측 훅만 제공합니다(decision-11).
+  필요하면 컨슈머가 직접 구성해야 하고, `hooks/commit-msg`/`hooks/pre-commit`을
+  그대로 호출하는 방식으로 재사용할 수 있습니다.
 - **`post-commit`이 커밋 해시를 amend로 바꿀 수 있습니다.** Verify-Bypassed나 AI 귀속
   트레일러가 붙을 때마다 커밋이 한 번 더 amend됩니다 — 커밋 해시를 미리 캐싱하는
   외부 도구가 있다면 이 점을 인지해야 합니다.
@@ -349,8 +341,6 @@ git-format/
 - **라이선스가 두 가지입니다.** git-format 자체는 MIT지만, `docs/references/pro-git/`에
   vendoring한 Pro Git 원문은 **CC BY-NC-SA 3.0(비영리)**이라 상업적으로 재배포하면
   안 됩니다 — [`docs/references/pro-git/VENDORING.md`](./docs/references/pro-git/VENDORING.md) 참고.
-- **`.gitformat-build/`는 커밋하지 말 것.** C/C++ 프로젝트라면 컨슈머 저장소의
-  `.gitignore`에 `.gitformat-build/`를 추가하세요.
 
 ## 🚧 한계 및 향후 검토 과제
 
@@ -361,10 +351,10 @@ git-format/
   Git Bash 같은 POSIX 호환 셸이 필요합니다.
 - **지원 언어는 TS/Python/Java/C·C++/SQL 5종으로 고정돼 있습니다.** 확대 계획은
   없습니다.
-- **서버사이드/CI 기반 push 백스톱은 의도적으로 이 프로젝트 범위 밖입니다
-  (decision-11).** git-format은 클라이언트측 훅만 다룹니다 — 필요하면 컨슈머가
-  자체 CI나 서버 pre-receive 훅에서 `hooks/commit-msg` 등을 직접 호출해 구성해야
-  합니다.
+- **push 단계 검증(테스트/빌드 포함)은 의도적으로 이 프로젝트 범위 밖입니다**
+  (decision-11, decision-12). git-format은 커밋 단계(`commit-msg`/`pre-commit`/
+  `post-commit`)까지만 다룹니다 — 필요하면 컨슈머가 자체 CI나 서버 pre-receive
+  훅에서 `hooks/commit-msg`/`hooks/pre-commit`을 직접 호출해 구성해야 합니다.
 - **커밋 이력을 반정형 데이터로 남기는 것까지가 이 프로젝트의 범위입니다.** 그
   데이터를 실제로 파싱하거나 학습용으로 가공하는 도구는 포함돼 있지 않습니다.
 - **비-Claude-Code AI 도구의 `AI-Model` 값은 자가신고 수준입니다.** Claude Code처럼

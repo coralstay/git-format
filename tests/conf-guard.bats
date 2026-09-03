@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
-# GF-77: GF-76에서 CONF를 읽는 8개 파일에 추가한 "gitformat.conf 읽기 검증
-# 가드"는 tests/consistency.bats로 8개 파일의 가드 블록이 텍스트로 동일한지만
+# GF-77: GF-76에서 CONF를 읽는 파일들에 추가한 "gitformat.conf 읽기 검증
+# 가드"는 tests/consistency.bats로 그 파일들의 가드 블록이 텍스트로 동일한지만
 # 검증되고 있었다. 실제로 conf가 깨진 상태에서 각 파일을 직접 실행해 exit
 # 0이 아니고 명확한 에러 메시지가 나오는지 런타임으로도 검증한다. 진짜
 # 저장소의 hooks/gitformat.conf는 절대 건드리지 않고, 매 테스트마다 hooks/를
@@ -40,11 +40,6 @@ assert_conf_guard_fires() {
 
 @test "pre-commit: conf가 깨지면 명확한 에러로 즉시 멈춘다" {
   run sh "${HOOKS_COPY}/pre-commit"
-  assert_conf_guard_fires
-}
-
-@test "pre-push: conf가 깨지면 명확한 에러로 즉시 멈춘다" {
-  run sh "${HOOKS_COPY}/pre-push"
   assert_conf_guard_fires
 }
 

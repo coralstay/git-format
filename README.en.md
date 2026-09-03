@@ -45,7 +45,7 @@ repositories share one commit convention.
 ## 🤔 Why this exists
 
 In projects split across multiple languages (TS, C/C++, Java, Python, SQL,
-etc.), commit conventions and pre-commit/pre-push checks tend to be
+etc.), commit conventions and pre-commit checks tend to be
 inconsistent or missing per repository, and `git commit --no-verify` leaves
 no trace when it bypasses those checks. Instead of installing a different
 linter per language or maintaining a separate commit-convention doc per team,
@@ -183,16 +183,9 @@ git log -1
     Hooks-Commit: b5bf03a
 ```
 
-### 6. push — the heavier checks run here
-
-```sh
-git push
-```
-
-`pre-push` runs tests/builds using the same language detection (`npm test`/
-`npm run build` for TS, `pytest` for Python, `mvn verify`/`./gradlew check`
-for Java, etc. — see [🪝 What the hooks do](#-what-the-hooks-do)). If a
-needed tool is missing, that language's check is silently skipped.
+git-format only covers the commit stage — `git push` goes through no hook at
+all (decision-12). If you need push-stage checks, you'll have to set those up
+yourself, in CI or server-side (see [⚠️ Caveats](#️-caveats)).
 
 ## 🗂️ What this repo creates or changes
 
@@ -211,7 +204,6 @@ never files. No source file is touched.
 | File/dir | Location | When | Notes |
 |---|---|---|---|
 | `.gitformat-verified` | `<target repo>/.git/` | Created when `pre-commit` passes, deleted shortly after by `post-commit` | Temporary marker, does not persist between commits |
-| `.gitformat-build/` | Consumer repo root | When C/C++ `pre-push` runs a cmake build | Not meant to be committed; add to `.gitignore` |
 | `template/hooks/*` | Inside this git-format clone's own `template/` | When running `install.sh --global` | Symlinks pointing at the clone's location, not committed (`.gitignore`) |
 
 **When the commit itself changes**: `post-commit` conditionally appends
@@ -259,7 +251,6 @@ this format and the type list as comments.
 |---|---|
 | `commit-msg` | Validates `[type][subsystem]` format, requires a blank line before a body, verifies `Fixes:` hashes exist, enforces a Task-Id in the branch name, checks that AI-Model exists/is whitelisted (for non-Claude-Code AI tools) |
 | `pre-commit` | Detects the language (`package.json` / `pyproject.toml`·`requirements.txt` / `pom.xml`·`build.gradle*` / `CMakeLists.txt`·`Makefile` / `.sqlfluff`·tracked `*.sql`), then runs `hooks/checks/<lang>.sh` for lint/compile/format checks |
-| `pre-push` | Same language detection, for tests/full builds (heavier checks deferred here) |
 | `post-commit` | Detects `--no-verify` bypass + auto-inserts AI attribution/Task-Id/Signed-off-by footer trailers |
 
 If a tool a language check needs (npm, ruff/flake8, mvn/gradle,
@@ -267,11 +258,10 @@ clang-format, cmake, sqlfluff, etc.) isn't installed, that check is silently
 skipped — if the project doesn't use that language at all, nothing happens.
 
 **SQL** (decision-6): if a `.sqlfluff` config file exists or any `.sql` file
-is tracked, lints with [sqlfluff](https://sqlfluff.com/). `pre-commit` only
-checks staged `.sql` files; `pre-push` checks the whole repository. Dialect
-configuration is left to the project's own `.sqlfluff` — git-format doesn't
-force one (falls back to the generic default `ansi` if `.sqlfluff` is
-absent).
+is tracked, lints staged `.sql` files with [sqlfluff](https://sqlfluff.com/)
+(`pre-commit`). Dialect configuration is left to the project's own
+`.sqlfluff` — git-format doesn't force one (falls back to the generic
+default `ansi` if `.sqlfluff` is absent).
 
 ## 🏷️ Task-Id branch enforcement
 
@@ -342,7 +332,6 @@ git-format/
 ├── hooks/                  # the actual hooks core.hooksPath points at
 │   ├── commit-msg
 │   ├── pre-commit
-│   ├── pre-push
 │   ├── post-commit
 │   ├── gitformat.conf      # internal defaults in one place (git config format)
 │   └── checks/{ts,python,java,cpp,sql}.sh
@@ -362,17 +351,17 @@ git-format/
 - **`core.hooksPath` completely replaces local hooks.** If `.git/hooks/`
   already had other hooks in use, check for conflicts before running
   install.sh.
-- **`git push --no-verify` can't be detected.** Git has no local hook that
-  unconditionally runs after push (unlike `commit`), so the `--no-verify`
-  trick used for commit-msg/pre-commit doesn't apply at push time. Local
-  hooks can always be bypassed entirely anyway (e.g. `rm -rf .git/hooks`) —
-  so this was never a guarantee of "can't be bypassed," only that "normal
-  usage leaves a trace." A server-side backstop that blocks at push time
-  (e.g. a required CI status check, a server-side pre-receive hook) is out
-  of scope for this project — git-format only ships client-side hooks
-  (decision-11). If you need one, build it yourself; it can reuse
-  `hooks/commit-msg`/`hooks/pre-commit`/`hooks/pre-push` by calling them
-  directly.
+- **Push stage isn't hooked at all.** git-format only covers the commit
+  stage (`commit-msg`/`pre-commit`/`post-commit`) — `git push` goes through
+  no hook (decision-12), so there's no test/build run and no `--no-verify`
+  detection at push time either. Local hooks can always be bypassed entirely
+  anyway (e.g. `rm -rf .git/hooks`) — so this was never a guarantee of
+  "can't be bypassed," only that "normal usage leaves a trace." A
+  server-side backstop that blocks at push time (e.g. a required CI status
+  check, a server-side pre-receive hook) is out of scope for this project —
+  git-format only ships client-side hooks (decision-11). If you need one,
+  build it yourself; it can reuse `hooks/commit-msg`/`hooks/pre-commit` by
+  calling them directly.
 - **`post-commit` can change the commit hash via amend.** Every time a
   Verify-Bypassed or AI attribution trailer is added, the commit gets
   amended once more — be aware of this if you have external tooling that
@@ -386,8 +375,6 @@ git-format/
   **CC BY-NC-SA 3.0 (non-commercial)** and must not be redistributed
   commercially — see
   [`docs/references/pro-git/VENDORING.md`](./docs/references/pro-git/VENDORING.md).
-- **Don't commit `.gitformat-build/`.** For C/C++ projects, add
-  `.gitformat-build/` to the consumer repo's `.gitignore`.
 
 ## 🚧 Limitations and open questions
 
@@ -398,10 +385,12 @@ git-format/
   shell (WSL, Git Bash) is required.
 - **Supported languages are fixed at TS/Python/Java/C·C++/SQL.** There's no
   plan to add more.
-- **A server-side/CI push backstop is intentionally out of scope for this
-  project (decision-11).** git-format only deals with client-side hooks —
-  if you need one, you build it yourself, calling `hooks/commit-msg` etc.
-  from your own CI or server-side pre-receive hook.
+- **Push-stage checks (including tests/builds) are intentionally out of
+  scope for this project** (decision-11, decision-12). git-format only
+  covers the commit stage (`commit-msg`/`pre-commit`/`post-commit`) — if
+  you need push-stage checks, you build them yourself, calling
+  `hooks/commit-msg`/`hooks/pre-commit` from your own CI or server-side
+  pre-receive hook.
 - **Structuring commit history as semi-structured data is as far as this
   project's scope goes.** A tool that actually parses or turns that data
   into training data isn't included.

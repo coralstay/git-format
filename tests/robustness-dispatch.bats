@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# GF-24: pre-commit/pre-push 디스패처 견고성 테스트 (페어와이즈/오류추정) - decision-8
+# GF-24: pre-commit 디스패처 견고성 테스트 (페어와이즈/오류추정) - decision-8
 # 표준 인증이 아니라 실제 버그 이력(GF-16, GF-39)에 근거한 실용적 테스트.
 
 load 'helpers/git-format'
@@ -48,20 +48,6 @@ teardown() {
   run git commit -m "[feat] sql breaks alone"
   [ "$status" -ne 0 ]
   [[ "$output" == *"python: ruff check ."* ]]
-}
-
-# ── 오류추정: 손상된 매니페스트 / 도구 없이 마커만 존재 ───────────────
-
-@test "[오류추정] package.json이 손상된 JSON이어도 pre-push의 test 스크립트 감지는 안전하게 건너뛴다" {
-  printf '{ this is not valid json' > package.json
-  run sh "${GITFORMAT_ROOT}/hooks/pre-push"
-  [ "$status" -eq 0 ]
-}
-
-@test "[오류추정] CMakeLists.txt는 있지만 cmake가 PATH에 없으면 pre-push가 조용히 건너뛴다" {
-  touch CMakeLists.txt
-  PATH="$(path_without cmake)" run sh "${GITFORMAT_ROOT}/hooks/pre-push"
-  [ "$status" -eq 0 ]
 }
 
 # ── GF-16 회귀: template/(심볼릭 링크) 경유 설치에서 checks/ resolve ──
