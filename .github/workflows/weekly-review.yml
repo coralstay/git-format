@@ -1,0 +1,80 @@
+name: weekly-review
+
+# 매주 저장소 전체를 다시 읽어 종합 리뷰(기능/비기능/아키텍처/데이터흐름/
+# decision 역사/테스트커버리지/발견사항/권고)를 docs/reviews/에 커밋한다.
+# 대화형 세션에서 쓰는 /review-full 슬래시 커맨드(.claude/commands/review-full.md,
+# gitignore 대상이라 저장소엔 없음)와 같은 절차를 따르되, 이 워크플로는
+# 무인 실행이라 claude.ai Artifact를 발행할 수 없어(대화형 세션 전용 기능)
+# 결과를 Markdown 파일 커밋으로 남긴다(GF-93).
+#
+# 필요 시크릿: ANTHROPIC_API_KEY
+#   GitHub 저장소 -> Settings -> Secrets and variables -> Actions ->
+#   New repository secret -> Name: ANTHROPIC_API_KEY, Value: console.anthropic.com
+#   에서 발급한 API 키. 이 시크릿이 없으면 이 워크플로는 실행 시 실패한다.
+#
+# 알려진 제약: GitHub Actions의 schedule 트리거는 저장소가 60일 이상 활동이
+# 없으면 GitHub이 자동으로 비활성화한다 - 그 경우 Actions 탭에서 워크플로를
+# 다시 켜거나 workflow_dispatch로 수동 실행해야 한다.
+on:
+  schedule:
+    - cron: '0 0 * * 1'  # 매주 월요일 00:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Claude Code 종합 리뷰 생성 + 커밋
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          use_commit_signing: true
+          prompt: |
+            이 저장소(git-format)를 처음부터 다시 읽어 종합 리뷰 리포트를 작성하고,
+            docs/reviews/weekly-$(date -u +%Y-%m-%d).md 로 저장한 뒤 커밋 후 푸시하라.
+            (파일명의 날짜는 실제 오늘 날짜로 치환할 것.)
+
+            반드시 다음을 실제로 다시 읽고 실행해서 검증할 것 - 과거 리뷰나 기억에
+            의존해 추측하지 말 것:
+            - hooks/*, hooks/checks/*.sh, install.sh, .gitmessage 전체
+            - tests/*.bats, tests/helpers/*.bash (전체 목록과 @test 제목)
+            - backlog/decisions/*.md 전체 본문(상태 필드가 아니라 본문에서
+              "대체함/superseded" 언급을 직접 확인), backlog task list --plain
+            - .github/workflows/*.yml, README.md, README.en.md, LICENSE
+            - shellcheck -s sh hooks/commit-msg hooks/pre-commit hooks/post-commit
+              hooks/checks/*.sh install.sh 를 실제로 실행
+            - bats tests/ 를 실제로 실행(bats-core가 설치돼 있지 않으면 먼저 설치)
+
+            리포트는 다음 9개 섹션 구조를 고정으로 따르되, 내용은 이번에 다시 읽은
+            현재 상태를 기준으로 새로 작성한다:
+            1. 프로그램 개요
+            2. 기능 상세 (커밋 파이프라인을 시간순으로, 각 훅/체크 스크립트가
+               정확히 뭘 하는지)
+            3. 비기능 요구사항 · 설계 원칙
+            4. 아키텍처 · 파일 관계도 (표)
+            5. 데이터 흐름 (mermaid는 GitHub이 렌더링하지 않으므로 여기서는
+               ```text 코드 블록의 화살표 다이어그램이나 표로 표현할 것 -
+               HTML/mermaid를 그대로 쓰지 말 것)
+            6. 설계 결정의 역사 (decision 파일을 실제로 읽어 대체 계보 재구성)
+            7. 테스트 커버리지 (파일별 테스트 수/초점 표)
+            8. 발견 사항 (실제로 실행/grep해서 검증한 것만, 심각도 critical/high/
+               medium/low 표기. 확인 안 된 추측은 쓰지 말 것)
+            9. 권고 사항 (우선순위순)
+
+            docs/reviews/에 지난 리포트가 있으면 참고해 형식 일관성은 유지하되,
+            이번 리포트도 그 시점 상태 기준으로 완전하게 새로 작성할 것(차이점만
+            적는 diff 리포트가 아님).
+
+            커밋 메시지는 이 저장소 컨벤션을 따를 것: "[docs][review] 주간 종합
+            리뷰 <날짜>" 형식, 본문에 이번에 실행한 검증(shellcheck/bats 결과)을
+            한 줄 요약으로 남길 것.
+          claude_args: |
+            --max-turns 40
