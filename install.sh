@@ -58,6 +58,18 @@ sync_template() {
     [ -f "$h" ] || continue
     ln -sf "$h" "${TEMPLATE_DIR}/hooks/$(basename "$h")"
   done
+  # hooks/에서 삭제된 파일에 대응하는 template/hooks/의 예전 심볼릭 링크를
+  # 지운다. hooks/*가 줄어들면(예: GF-86의 hooks/pre-push 삭제) 위 루프는
+  # 새로 만들 뿐 지우지 않으므로, 그대로 두면 대상 없는 깨진 심볼릭 링크가
+  # 영구히 남는다. template/hooks/는 이 함수가 전적으로 관리하는 산출물
+  # 디렉터리이고 심볼릭 링크만 들어있다는 불변조건이 있으므로(GF-9), 이름이
+  # hooks/에 더 이상 대응하지 않는 심볼릭 링크는 안전하게 지울 수 있다.
+  for link in "${TEMPLATE_DIR}"/hooks/*; do
+    [ -L "$link" ] || continue
+    name="$(basename "$link")"
+    [ -f "${HOOKS_DIR}/${name}" ] && continue
+    rm -f "$link"
+  done
 }
 
 # 전역 init.templateDir(decision-2): 앞으로 git init/clone하는 모든 새 저장소에
