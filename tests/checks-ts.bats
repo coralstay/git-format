@@ -26,7 +26,7 @@ teardown() {
 { "scripts": { "lint": "exit 0" } }
 EOF
   git add package.json
-  run git commit -m "feat(ts): lint script succeeds"
+  run git commit -m "[feat][ts] lint script succeeds"
   [ "$status" -eq 0 ]
   [[ "$output" == *"ts: npm run lint"* ]]
 }
@@ -36,14 +36,14 @@ EOF
 { "scripts": { "lint": "exit 1" } }
 EOF
   git add package.json
-  run git commit -m "feat(ts): lint script fails"
+  run git commit -m "[feat][ts] lint script fails"
   [ "$status" -ne 0 ]
 }
 
 @test "package.json에 lint 스크립트가 없으면 건너뛴다" {
   echo '{}' > package.json
   git add package.json
-  run git commit -m "feat(ts): no lint script"
+  run git commit -m "[feat][ts] no lint script"
   [ "$status" -eq 0 ]
   [[ "$output" == *"lint 스크립트가 없어 건너뜀"* ]]
 }
@@ -53,7 +53,7 @@ EOF
 { "scripts": { "lint": "exit 1" } }
 EOF
   git add package.json
-  PATH="$(path_without npm)" run git commit -m "feat(ts): no npm on PATH"
+  PATH="$(path_without npm)" run git commit -m "[feat][ts] no npm on PATH"
   [ "$status" -eq 0 ]
 }
 
@@ -62,7 +62,7 @@ EOF
   echo '{ "compilerOptions": { "strict": true } }' > tsconfig.json
   echo 'const x: number = 1;' > clean.ts
   git add package.json tsconfig.json clean.ts
-  run git commit -m "feat(ts): add tsconfig"
+  run git commit -m "[feat][ts] add tsconfig"
   [ "$status" -eq 0 ]
   [[ "$output" == *"tsc --noEmit"* ]]
 }
@@ -72,7 +72,7 @@ EOF
   echo '{ "compilerOptions": { "strict": true } }' > tsconfig.json
   echo 'const x: number = "not a number";' > broken.ts
   git add package.json tsconfig.json broken.ts
-  run git commit -m "feat(ts): add type error"
+  run git commit -m "[feat][ts] add type error"
   [ "$status" -ne 0 ]
 }
 
@@ -85,7 +85,7 @@ EOF
   echo '{ "compilerOptions": { "strict": true } }' > tsconfig.json
   echo 'const x: number = 1;' > clean.ts
   git add package.json tsconfig.json clean.ts
-  PATH="$(path_without tsc)" run git commit -m "feat(ts): no tsc anywhere"
+  PATH="$(path_without tsc)" run git commit -m "[feat][ts] no tsc anywhere"
   [ "$status" -eq 0 ]
   [[ "$output" == *"tsconfig.json은 있지만 tsc를 찾을 수 없어 건너뜀"* ]]
 }

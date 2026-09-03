@@ -34,7 +34,7 @@ teardown() {
   git checkout -q -b 'GF-1-$(touch${IFS}pwned-a)'
   echo hi > a.txt
   git add a.txt
-  run git commit -m "feat: subshell in branch name"
+  run git commit -m "[feat] subshell in branch name"
   [ "$status" -eq 0 ]
   [ ! -e pwned-a ]
   MSG="$(git log -1 --pretty=%B)"
@@ -45,7 +45,7 @@ teardown() {
   git checkout -q -b 'GF-1-`touch${IFS}pwned-b`'
   echo hi > a.txt
   git add a.txt
-  run git commit -m "feat: backtick in branch name"
+  run git commit -m "[feat] backtick in branch name"
   [ "$status" -eq 0 ]
   [ ! -e pwned-b ]
 }
@@ -54,7 +54,7 @@ teardown() {
   git checkout -q -b 'GF-1-;touch-pwned-c|touch-pwned-d&&touch-pwned-e'
   echo hi > a.txt
   git add a.txt
-  run git commit -m "feat: shell operators in branch name"
+  run git commit -m "[feat] shell operators in branch name"
   [ "$status" -eq 0 ]
   [ ! -e pwned-c ]
   [ ! -e pwned-d ]
@@ -69,7 +69,7 @@ teardown() {
   git checkout -q -b 'GF-2-injection'
   echo hi > a.txt
   git add a.txt
-  run git commit -m "$(printf 'feat: 복합 페이로드\n\n$(touch pwned-f)\n`touch pwned-g`\n; touch pwned-h | touch pwned-i')"
+  run git commit -m "$(printf '[feat] 복합 페이로드\n\n$(touch pwned-f)\n`touch pwned-g`\n; touch pwned-h | touch pwned-i')"
   [ "$status" -eq 0 ]
   [ ! -e pwned-f ]; [ ! -e pwned-g ]; [ ! -e pwned-h ]; [ ! -e pwned-i ]
   MSG="$(git log -1 --pretty=%B)"
@@ -81,7 +81,7 @@ teardown() {
   echo hi > a.txt
   git add a.txt
   BAD_MSG="$(mktemp)"
-  printf 'feat: broken \xff\xfe bytes\n' > "$BAD_MSG"
+  printf '[feat] broken \xff\xfe bytes\n' > "$BAD_MSG"
   run git commit -F "$BAD_MSG"
   [ "$status" -eq 0 ]
   MSG="$(git log -1 --pretty=%B)"
@@ -94,7 +94,7 @@ teardown() {
   echo hi > a.txt
   git add a.txt
   long_body="$(printf 'y%.0s' $(seq 1 20000))"
-  run git commit -m "$(printf 'feat: 긴 본문\n\n%s' "$long_body")"
+  run git commit -m "$(printf '[feat] 긴 본문\n\n%s' "$long_body")"
   [ "$status" -eq 0 ]
   MSG="$(git log -1 --pretty=%B)"
   [[ "$MSG" == *"Task-Id: GF-4"* ]]

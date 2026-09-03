@@ -33,7 +33,7 @@ assert_conf_guard_fires() {
 }
 
 @test "commit-msg: conf가 깨지면 명확한 에러로 즉시 멈춘다" {
-  echo "feat: test" > msgfile
+  echo "[feat] test" > msgfile
   run sh "${HOOKS_COPY}/commit-msg" msgfile
   assert_conf_guard_fires
 }

@@ -73,6 +73,8 @@ TRAILER_AI_MODEL="$(git config --file "$CONF" --get gitformat.trailer.aiModel)"
 readonly TRAILER_AI_MODEL
 TRAILER_HOOKS_COMMIT="$(git config --file "$CONF" --get gitformat.trailer.hooksCommit)"
 readonly TRAILER_HOOKS_COMMIT
+TRAILER_SIGNED_OFF_BY="$(git config --file "$CONF" --get gitformat.trailer.signedOffBy)"
+readonly TRAILER_SIGNED_OFF_BY
 AI_TOOL_CLAUDE_CODE="$(git config --file "$CONF" --get gitformat.aiToolClaudeCode)"
 readonly AI_TOOL_CLAUDE_CODE
 CO_AUTHORED_BY_VALUE="$(git config --file "$CONF" --get gitformat.coAuthoredBy)"
@@ -201,6 +203,15 @@ fi
 if HOOKS_COMMIT="$(git -C "$HOOK_DIR" rev-parse --short HEAD 2>/dev/null)" \
   && ! trailer_exists "$TRAILER_HOOKS_COMMIT" "${HOOKS_COMMIT}"; then
   set -- "$@" --trailer "${TRAILER_HOOKS_COMMIT}: ${HOOKS_COMMIT}"
+fi
+
+# Signed-off-by(리누스/DCO 스타일): 커미터 정보를 `git commit -s`와 동일한 방식으로
+# 모든 커밋에 자동 삽입한다. AI 여부와 무관하며, 사람이 직접 입력하게 강제하지 않는다.
+SIGNED_OFF_BY_VALUE="$(git log -1 --format='%cn <%ce>')"
+readonly SIGNED_OFF_BY_VALUE
+if [ -n "$SIGNED_OFF_BY_VALUE" ] \
+  && ! trailer_exists "$TRAILER_SIGNED_OFF_BY" "$SIGNED_OFF_BY_VALUE"; then
+  set -- "$@" --trailer "${TRAILER_SIGNED_OFF_BY}: ${SIGNED_OFF_BY_VALUE}"
 fi
 
 if [ "$#" -gt 0 ]; then

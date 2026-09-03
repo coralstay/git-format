@@ -1,6 +1,7 @@
 #!/usr/bin/env bats
 # GF-25: post-commit 상태전이/동시성 견고성 테스트 (상태전이/결함주입) - decision-8
 # 표준 인증이 아니라 실제 버그 이력(GF-31, GF-33)에 근거한 실용적 테스트.
+# GF-82: 서브젝트를 [type][subsystem] 프리픽스로 전환하면서 관련 테스트도 갱신.
 
 load 'helpers/git-format'
 
@@ -18,17 +19,26 @@ teardown() {
   [ ! -f .git/.gitformat-verified ]
   echo hi > a.txt
   git add a.txt
-  run git commit -m "feat: normal commit"
+  run git commit -m "[feat] normal commit"
   [ "$status" -eq 0 ]
   [ ! -f .git/.gitformat-verified ]
   MSG="$(git log -1 --pretty=%B)"
   [[ "$MSG" != *"Verify-Bypassed"* ]]
 }
 
+@test "[GF-82] 정상 커밋에 Signed-off-by가 커미터 정보로 자동 삽입된다" {
+  echo hi > a.txt
+  git add a.txt
+  run git commit -m "[feat] signed off commit"
+  [ "$status" -eq 0 ]
+  MSG="$(git log -1 --pretty=%B)"
+  [[ "$MSG" == *"Signed-off-by: bats <bats@example.com>"* ]]
+}
+
 @test "[상태전이] --no-verify로 커밋하면 마커가 없어 Verify-Bypassed: true가 post-commit에서 붙는다" {
   echo hi > a.txt
   git add a.txt
-  run git commit --no-verify -m "feat: bypass verification"
+  run git commit --no-verify -m "[feat] bypass verification"
   [ "$status" -eq 0 ]
   [ ! -f .git/.gitformat-verified ]
   MSG="$(git log -1 --pretty=%B)"
@@ -50,7 +60,7 @@ teardown() {
   echo hi > a.txt
   git add a.txt
   HOME="$FAKE_HOME" AI_AGENT="claude-code_2-1-0" CLAUDE_CODE_SESSION_ID="fake-session" \
-    run git commit -m "feat: broken transcript"
+    run git commit -m "[feat] broken transcript"
   [ "$status" -eq 0 ]
   MSG="$(git log -1 --pretty=%B)"
   [[ "$MSG" != *"AI-Model:"* ]]
@@ -63,7 +73,7 @@ teardown() {
   echo hi > a.txt
   git add a.txt
   PATH="$(path_without jq)" AI_AGENT="claude-code_2-1-0" CLAUDE_CODE_SESSION_ID="fake-session" \
-    run git commit -m "feat: no jq on PATH"
+    run git commit -m "[feat] no jq on PATH"
   [ "$status" -eq 0 ]
 }
 
@@ -71,7 +81,7 @@ teardown() {
   echo hi > a.txt
   git add a.txt
   HOME="/nonexistent-gitformat-home-$$" AI_AGENT="claude-code_2-1-0" CLAUDE_CODE_SESSION_ID="fake-session" \
-    run git commit -m "feat: broken HOME"
+    run git commit -m "[feat] broken HOME"
   [ "$status" -eq 0 ]
 }
 
@@ -80,6 +90,6 @@ teardown() {
 @test "[재귀가드] --no-verify + AI 트레일러가 붙는 커밋도 유한 시간 안에 끝난다" {
   echo hi > a.txt
   git add a.txt
-  AI_AGENT="other-tool_1-0" run timeout 10 git commit --no-verify -m "feat: recursion guard check"
+  AI_AGENT="other-tool_1-0" run timeout 10 git commit --no-verify -m "[feat] recursion guard check"
   [ "$status" -eq 0 ]
 }

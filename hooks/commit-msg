@@ -93,12 +93,42 @@ readonly TYPES
 SUBJECT_LINE="$(grep -v '^#' "$MSG_FILE" | sed -n '1p')"
 readonly SUBJECT_LINE
 
-if ! printf '%s' "$SUBJECT_LINE" | grep -qE "^(${TYPES})(\([a-zA-Z0-9_.-]+\))?!?: .+"; then
-  echo "commit-msg: 커밋 메시지가 Conventional Commits 형식이 아닙니다." >&2
-  echo "  형식: <type>[(scope)][!]: <description>" >&2
+if ! printf '%s' "$SUBJECT_LINE" | grep -qE "^\[(${TYPES})\](\[[a-zA-Z0-9_.-]+\])? .+"; then
+  echo "commit-msg: 커밋 메시지가 [type][subsystem] 형식이 아닙니다." >&2
+  echo "  형식: [type][subsystem] <description>  (subsystem 생략 가능: [type] <description>)" >&2
   echo "  허용 type: feat fix docs style refactor perf test build ci chore revert" >&2
-  echo "  예: fix(parser): 빈 입력 처리" >&2
+  echo "  예: [fix][parser] 빈 입력 처리" >&2
   exit 1
+fi
+
+# 본문/트레일러가 있으면 제목과의 사이에 빈 줄이 필요하다(리누스 스타일). 주석 줄은
+# 제외하고, 두 번째 non-comment 줄이 존재하는데 비어있지 않으면(=제목 바로 다음
+# 줄에 내용이 이어지면, 그게 한 줄짜리 본문이든 여러 줄이든) 거부한다.
+CONTENT="$(grep -v '^#' "$MSG_FILE")"
+readonly CONTENT
+LINE2="$(printf '%s\n' "$CONTENT" | sed -n '2p')"
+readonly LINE2
+if [ -n "$LINE2" ]; then
+  echo "commit-msg: 본문/트레일러가 있으면 제목과의 사이에 빈 줄이 필요합니다." >&2
+  echo "  형식: [type][subsystem] <description>" >&2
+  echo "  (빈 줄)" >&2
+  echo "  <본문 또는 트레일러>" >&2
+  exit 1
+fi
+
+# Fixes: <hash> 트레일러는 강제하지 않지만(원인 커밋을 항상 알 수 있는 건 아님),
+# 있으면 참조 해시가 저장소에 실재하는 커밋인지 검증한다 - 오타/잘못된 참조를 잡는다.
+TRAILER_FIXES="$(git config --file "$CONF" --get gitformat.trailer.fixes)"
+readonly TRAILER_FIXES
+FIXES_LINE="$(printf '%s\n' "$CONTENT" | grep -E "^${TRAILER_FIXES}: " | head -n 1 || true)"
+readonly FIXES_LINE
+if [ -n "$FIXES_LINE" ]; then
+  FIXES_HASH="$(printf '%s' "$FIXES_LINE" | sed -E "s/^${TRAILER_FIXES}: ([^ ]+).*/\\1/")"
+  readonly FIXES_HASH
+  if ! git rev-parse --quiet --verify "${FIXES_HASH}^{commit}" >/dev/null 2>&1; then
+    echo "commit-msg: ${TRAILER_FIXES}: 트레일러가 가리키는 커밋(${FIXES_HASH})을 찾을 수 없습니다." >&2
+    exit 1
+  fi
 fi
 
 # Task-Id 브랜치 강제: <prefix>-<번호> 패턴이 브랜치명에 없으면 커밋을 거부한다.

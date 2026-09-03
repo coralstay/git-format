@@ -18,7 +18,7 @@ teardown() {
   mkdir -p migrations
   echo "SELECT 1;" > migrations/001.sql
   git add migrations/001.sql
-  run git commit -m "feat(db): add migration"
+  run git commit -m "[feat][db] add migration"
   [ "$status" -eq 0 ]
 }
 
@@ -26,7 +26,7 @@ teardown() {
   mkdir -p migrations
   printf 'select   *,,, from bad(((' > migrations/broken.sql
   git add migrations/broken.sql
-  run git commit -m "feat(db): add broken migration"
+  run git commit -m "[feat][db] add broken migration"
   [ "$status" -ne 0 ]
 }
 
@@ -38,7 +38,7 @@ EOF
   mkdir -p migrations
   echo "SELECT 1;" > migrations/001.sql
   git add .sqlfluff migrations/001.sql
-  run git commit -m "feat(db): postgres dialect"
+  run git commit -m "[feat][db] postgres dialect"
   [ "$status" -eq 0 ]
 }
 
@@ -46,6 +46,6 @@ EOF
   mkdir -p migrations
   echo "SELECT 1;" > migrations/001.sql
   git add migrations/001.sql
-  PATH="$(path_without sqlfluff)" run git commit -m "feat(db): no sqlfluff on PATH"
+  PATH="$(path_without sqlfluff)" run git commit -m "[feat][db] no sqlfluff on PATH"
   [ "$status" -eq 0 ]
 }

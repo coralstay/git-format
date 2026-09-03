@@ -21,7 +21,7 @@ teardown() {
   mkdir -p migrations
   echo "SELECT 1;" > migrations/001.sql
   git add package.json pyproject.toml clean.py migrations/001.sql
-  run git commit -m "feat: multi-lang clean"
+  run git commit -m "[feat] multi-lang clean"
   [ "$status" -eq 0 ]
   [[ "$output" == *"ts: package.json에 lint 스크립트가 없어 건너뜀"* ]]
   [[ "$output" == *"python: ruff check ."* ]]
@@ -35,7 +35,7 @@ teardown() {
   mkdir -p migrations
   echo "SELECT 1;" > migrations/001.sql
   git add package.json pyproject.toml unused.py migrations/001.sql
-  run git commit -m "feat: python breaks the chain"
+  run git commit -m "[feat] python breaks the chain"
   [ "$status" -ne 0 ]
 }
 
@@ -45,7 +45,7 @@ teardown() {
   mkdir -p migrations
   printf 'select   *,,, from bad(((' > migrations/broken.sql
   git add pyproject.toml clean.py migrations/broken.sql
-  run git commit -m "feat: sql breaks alone"
+  run git commit -m "[feat] sql breaks alone"
   [ "$status" -ne 0 ]
   [[ "$output" == *"python: ruff check ."* ]]
 }
@@ -86,7 +86,7 @@ teardown() {
   touch pyproject.toml
   echo "import os" > unused.py
   git add pyproject.toml unused.py
-  run git commit -m "feat(py): add unused import"
+  run git commit -m "[feat][py] add unused import"
   [ "$status" -ne 0 ]
   [[ "$output" == *"python: ruff check ."* ]]
 

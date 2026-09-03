@@ -8,7 +8,7 @@ load 'helpers/git-format'
 @test "gitformat.conf의 커밋 타입 목록과 .gitmessage에 적힌 타입 목록이 일치한다 (GF-68)" {
   CONF_TYPES="$(git config --file "${GITFORMAT_ROOT}/hooks/gitformat.conf" \
     --get-all gitformat.type | sort)"
-  MSG_TYPES="$(sed -n '/type 목록/,/scope (선택)/p' "${GITFORMAT_ROOT}/.gitmessage" \
+  MSG_TYPES="$(sed -n '/type 목록/,/subsystem (선택)/p' "${GITFORMAT_ROOT}/.gitmessage" \
     | grep -E '^#   [a-z]+' | awk '{print $2}' | sort)"
   [ -n "$CONF_TYPES" ]
   [ -n "$MSG_TYPES" ]
@@ -41,7 +41,9 @@ load 'helpers/git-format'
     gitformat.trailer.aiTool \
     gitformat.trailer.aiToolVersion \
     gitformat.trailer.coAuthoredBy \
+    gitformat.trailer.fixes \
     gitformat.trailer.hooksCommit \
+    gitformat.trailer.signedOffBy \
     gitformat.trailer.taskId \
     gitformat.trailer.verifyBypassed \
     gitformat.type \

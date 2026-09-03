@@ -36,7 +36,7 @@ public class Hello {
 }
 EOF
   git add pom.xml src
-  run git commit -m "feat(java): add hello world"
+  run git commit -m "[feat][java] add hello world"
   [ "$status" -eq 0 ]
 }
 
@@ -47,7 +47,7 @@ public class Hello {
 }
 EOF
   git add pom.xml src
-  run git commit -m "feat(java): add broken hello"
+  run git commit -m "[feat][java] add broken hello"
   [ "$status" -ne 0 ]
 }
 
@@ -58,6 +58,6 @@ public class Hello {
 }
 EOF
   git add pom.xml src
-  PATH="$(path_without mvn)" run git commit -m "feat(java): no mvn on PATH"
+  PATH="$(path_without mvn)" run git commit -m "[feat][java] no mvn on PATH"
   [ "$status" -eq 0 ]
 }

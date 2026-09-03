@@ -12,10 +12,10 @@ teardown() {
   cleanup_isolated_repo
 }
 
-@test "Conventional Commits 형식의 커밋은 통과한다" {
+@test "[type][subsystem] 형식의 커밋은 통과한다" {
   echo hi > a.txt
   git add a.txt
-  run git commit -m "feat: smoke test"
+  run git commit -m "[feat] smoke test"
   [ "$status" -eq 0 ]
 }
 
