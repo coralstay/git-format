@@ -1,9 +1,10 @@
 ---
 id: GF-90
 title: gh CLI 기반 GitHub Issues 트리아지 워크플로 설계
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-09-03 11:40'
+updated_date: '2026-09-03 11:41'
 labels: []
 milestone: m-1
 dependencies: []
@@ -23,3 +24,9 @@ GitHub Issues(공개 사용자 리포트)와 backlog.md(내부 태스크 관리,
 - [ ] #3 이슈에 라벨/댓글/종료를 다는 책임과 절차(사람이 직접 vs Claude가 gh CLI로 대신 수행)가 정리된다
 - [ ] #4 Claude와 함께 반복적으로 트리아지를 돌릴 방법(스킬/슬래시 커맨드 등)이 프로토타입되거나, 프로토타입 없이 수동 워크플로만으로 시작할지 결정된다
 <!-- AC:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+사용자 결정: gh CLI 기반 GitHub Issues 트리아지 도입을 하지 않기로 함. 이유는 대화에서 별도로 설명되지 않았고, 사용자가 '도입은 하지 않는걸로'라고만 확정함. 워크플로 설계/프로토타입 없이 결정으로 종료하며, AC 1~4는 객관적 검증 증거가 없어 미체크 상태로 남긴다.
+<!-- SECTION:FINAL_SUMMARY:END -->
