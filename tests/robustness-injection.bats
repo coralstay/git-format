@@ -90,11 +90,16 @@ teardown() {
 }
 
 @test "[커밋메시지] 매우 긴 라인이 섞여도 트레일러 삽입이 깨지지 않는다" {
+  # 이 테스트의 목적은 post-commit의 interpret-trailers 삽입이 매우 긴 라인
+  # 앞에서 깨지지 않는지 확인하는 것이지, GF-83의 본문 줄 길이(72자) 검증
+  # 자체를 테스트하는 게 아니다 - 20000자 라인은 그 검증에 걸리므로
+  # --no-verify로 commit-msg/pre-commit을 건너뛰고 post-commit(항상 실행됨)
+  # 경로만 검증한다.
   git checkout -q -b 'GF-4-longline'
   echo hi > a.txt
   git add a.txt
   long_body="$(printf 'y%.0s' $(seq 1 20000))"
-  run git commit -m "$(printf '[feat] 긴 본문\n\n%s' "$long_body")"
+  run git commit --no-verify -m "$(printf '[feat] 긴 본문\n\n%s' "$long_body")"
   [ "$status" -eq 0 ]
   MSG="$(git log -1 --pretty=%B)"
   [[ "$MSG" == *"Task-Id: GF-4"* ]]

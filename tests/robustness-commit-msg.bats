@@ -49,10 +49,10 @@ teardown() {
   [ "$status" -ne 0 ]
 }
 
-@test "[경계값] 매우 긴 subject도 형식만 맞으면 통과한다" {
+@test "[GF-83] 매우 긴 subject는 형식이 맞아도 길이 제한(50자)으로 거부된다" {
   long_desc="$(printf 'x%.0s' $(seq 1 5000))"
   run git commit -m "[feat] ${long_desc}"
-  [ "$status" -eq 0 ]
+  [ "$status" -ne 0 ]
 }
 
 @test "[경계값] Task-Id 번호가 0이어도 브랜치 패턴은 통과한다" {
@@ -137,12 +137,14 @@ teardown() {
 # ── 구문테스트: 셸 메타문자 / 개행 / 제어문자 ─────────────────────────
 
 @test "[구문테스트] 커밋 메시지에 셸 메타문자가 있어도 실행되지 않고 안전하게 처리된다" {
-  run git commit -m '[feat] $(touch pwned-1) `touch pwned-2` ; touch pwned-3 | touch pwned-4'
+  # subject 길이 제한(GF-83, 50자)에 걸리지 않도록 짧은 파일명을 쓴다 -
+  # 이 테스트의 목적은 셸 인젝션 방지 확인이지 길이 검증이 아니다.
+  run git commit -m '[feat] $(touch p1) `touch p2`;touch p3|touch p4'
   [ "$status" -eq 0 ]
-  [ ! -e pwned-1 ]
-  [ ! -e pwned-2 ]
-  [ ! -e pwned-3 ]
-  [ ! -e pwned-4 ]
+  [ ! -e p1 ]
+  [ ! -e p2 ]
+  [ ! -e p3 ]
+  [ ! -e p4 ]
 }
 
 @test "[구문테스트] 커밋 메시지 본문에 개행이 있어도 정상 처리된다" {
@@ -186,5 +188,49 @@ teardown() {
 
 @test "[GF-82] Fixes: 트레일러가 없어도 통과한다 (강제 아님)" {
   run git commit -m "[fix] no fixes trailer"
+  [ "$status" -eq 0 ]
+}
+
+# ── subject 길이 / 본문 줄 길이 검증 (GF-83) ──────────────────────────
+
+@test "[GF-83] subject가 정확히 50자면 통과한다 (경계값)" {
+  desc="$(printf 'x%.0s' $(seq 1 43))"
+  run git commit -m "[feat] ${desc}"
+  [ "$status" -eq 0 ]
+}
+
+@test "[GF-83] subject가 51자면 거부된다 (경계값)" {
+  desc="$(printf 'x%.0s' $(seq 1 44))"
+  run git commit -m "[feat] ${desc}"
+  [ "$status" -ne 0 ]
+}
+
+@test "[GF-83] 글자 수는 바이트가 아니라 유니코드 문자 단위로 센다 - 한글 27자(67바이트)는 통과한다" {
+  desc="$(printf '가%.0s' $(seq 1 20))"
+  run git commit -m "[feat] ${desc}"
+  [ "$status" -eq 0 ]
+}
+
+@test "[GF-83] 한글이어도 문자 수 자체가 50자를 넘으면 거부된다 (52자)" {
+  desc="$(printf '가%.0s' $(seq 1 45))"
+  run git commit -m "[feat] ${desc}"
+  [ "$status" -ne 0 ]
+}
+
+@test "[GF-83] 본문 줄이 정확히 72자면 통과한다 (경계값)" {
+  body="$(printf 'x%.0s' $(seq 1 72))"
+  run git commit -m "$(printf '[feat] 제목\n\n%s' "$body")"
+  [ "$status" -eq 0 ]
+}
+
+@test "[GF-83] 본문 줄이 73자면 거부된다 (경계값)" {
+  body="$(printf 'x%.0s' $(seq 1 73))"
+  run git commit -m "$(printf '[feat] 제목\n\n%s' "$body")"
+  [ "$status" -ne 0 ]
+}
+
+@test "[GF-83] 등록된 트레일러 토큰으로 시작하는 줄은 72자를 넘어도 통과한다" {
+  long_desc="$(printf 'y%.0s' $(seq 1 70))"
+  run git commit -m "$(printf '[feat] 제목\n\nBREAKING CHANGE: %s' "$long_desc")"
   [ "$status" -eq 0 ]
 }
