@@ -340,7 +340,7 @@ git-format/
 ├── install.sh
 ├── tests/                    # bats-core tests (dev only, decision-8)
 ├── docs/
-│   └── references/          # vendored external specs (conventional-commits, Pro Git)
+│   └── references/          # conventional-commits summary/translation (no verbatim vendoring, decision-14)
 ├── .github/workflows/        # test.yml only - this repo's own dev CI (shellcheck+bats);
 │                              #   no server-side verification is shipped to consumers (decision-11)
 └── backlog/                  # this repo's own dev management (decisions, tasks)
@@ -370,14 +370,6 @@ git-format/
   If the `AI_AGENT` env var is detected but `gitformat.aiModel` hasn't been
   set, `commit-msg` rejects the commit (see
   [🔧 Customization](#-customization)).
-- **There are multiple licenses.** git-format itself is MIT, but the vendored
-  Pro Git text in `docs/references/pro-git/` is
-  **CC BY-NC-SA 3.0 (non-commercial)** and must not be redistributed
-  commercially — see
-  [`docs/references/pro-git/VENDORING.md`](./docs/references/pro-git/VENDORING.md).
-  The vendored Google Shell Style Guide in `docs/references/google-shellguide/`
-  is **CC BY 3.0** (attribution only, no non-commercial restriction) — see
-  [`docs/references/google-shellguide/VENDORING.md`](./docs/references/google-shellguide/VENDORING.md).
 
 ## 🚧 Limitations and open questions
 
@@ -403,8 +395,5 @@ git-format/
 
 ## 📄 License
 
-MIT — full text: [`LICENSE`](./LICENSE)
-
-> ⚠️ `docs/references/pro-git/` is the one exception, under CC BY-NC-SA 3.0
-> (non-commercial) — see
-> [`VENDORING.md`](./docs/references/pro-git/VENDORING.md).
+MIT — full text: [`LICENSE`](./LICENSE). The whole repo is under one
+license — no external documents are vendored verbatim (decision-14).

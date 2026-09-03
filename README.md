@@ -313,7 +313,7 @@ git-format/
 ├── install.sh
 ├── tests/                    # bats-core 테스트(dev 전용, decision-8)
 ├── docs/
-│   └── references/          # 외부 스펙 vendoring(conventional-commits, Pro Git)
+│   └── references/          # conventional-commits 요약 번역(원문 vendoring 없음, decision-14)
 ├── .github/workflows/        # test.yml - 이 저장소 자신의 dev용 CI(shellcheck+bats)뿐,
 │                              #   컨슈머에게 제공하는 서버사이드 검증 기능은 없음(decision-11)
 └── backlog/                  # 이 저장소 자체 개발 관리(decision, task)
@@ -338,12 +338,6 @@ git-format/
 - **비-Claude-Code AI 도구는 설정 없이 커밋이 막힐 수 있습니다.** `AI_AGENT` 환경변수가
   감지되는데 `gitformat.aiModel`을 안 정했다면 `commit-msg`가 거부합니다([🔧 커스터마이즈](#-커스터마이즈)
   참고).
-- **라이선스가 여러 개입니다.** git-format 자체는 MIT지만, `docs/references/pro-git/`에
-  vendoring한 Pro Git 원문은 **CC BY-NC-SA 3.0(비영리)**이라 상업적으로 재배포하면
-  안 됩니다 — [`docs/references/pro-git/VENDORING.md`](./docs/references/pro-git/VENDORING.md) 참고.
-  `docs/references/google-shellguide/`에 vendoring한 Google Shell Style Guide는
-  **CC BY 3.0**(저작자 표시만 요구, 비영리 제한 없음)입니다 —
-  [`docs/references/google-shellguide/VENDORING.md`](./docs/references/google-shellguide/VENDORING.md) 참고.
 
 ## 🚧 한계 및 향후 검토 과제
 
@@ -366,7 +360,5 @@ git-format/
 
 ## 📄 라이선스
 
-MIT — 전문: [`LICENSE`](./LICENSE)
-
-> ⚠️ `docs/references/pro-git/`만은 예외로 CC BY-NC-SA 3.0(비영리)입니다 —
-> [`VENDORING.md`](./docs/references/pro-git/VENDORING.md) 참고.
+MIT — 전문: [`LICENSE`](./LICENSE). 저장소 전체가 단일 라이선스입니다 —
+외부 문서를 원문 그대로 저장소에 담지 않습니다(decision-14).
