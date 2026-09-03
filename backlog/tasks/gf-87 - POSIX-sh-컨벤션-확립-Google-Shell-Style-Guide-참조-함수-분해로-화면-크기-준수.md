@@ -1,0 +1,26 @@
+---
+id: GF-87
+title: 'POSIX sh 컨벤션 확립: Google Shell Style Guide 참조 + 함수 분해로 화면 크기 준수'
+status: To Do
+assignee: []
+created_date: '2026-09-03 11:25'
+labels: []
+milestone: m-0
+dependencies: []
+ordinal: 85000
+---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+훅 파일은 유지하되(훅 1개 = 파일 1개, decision-9의 '훅 간 로직 비공유' 원칙 유지) 화면 크기를 넘는 commit-msg(211줄)/post-commit(224줄)을 함수 단위로 분해해 리뷰어가 한 화면 안에서 각 검증/트레일러 단위를 이해할 수 있게 한다. 컨벤션 판단 기준으로 Google Shell Style Guide(CC BY 3.0)를 오프라인 참조용으로 vendoring한다.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 docs/references/google-shellguide/에 Google Shell Style Guide가 vendoring되고 VENDORING.md로 출처/라이선스(CC BY 3.0)가 문서화된다
+- [ ] #2 hooks/commit-msg가 validate_format/validate_fixes_trailer/enforce_task_id_branch/enforce_ai_model_gate 등 이름 있는 함수로 분해되고, 각 함수가 한 화면(약 50줄) 안에 들어온다
+- [ ] #3 hooks/post-commit이 detect_verify_bypass/trailer_task_id/trailer_ai_attribution/trailer_signed_off_by 등 이름 있는 함수로 분해되고, 각 함수가 한 화면 안에 들어온다
+- [ ] #4 리팩터 후에도 파일당 정확히 1개 훅이라는 배포 단위는 그대로 유지된다(멀티파일 분리 없음)
+- [ ] #5 리팩터 후 tests/ 전체 bats 스위트와 shellcheck -s sh가 통과한다
+<!-- AC:END -->
