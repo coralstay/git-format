@@ -345,12 +345,9 @@ git-format/
 ├── install.sh
 ├── tests/                    # bats-core tests (dev only, decision-8)
 ├── docs/
-│   ├── references/          # conventional-commits summary/translation (no verbatim vendoring, decision-14)
-│   └── reviews/             # weekly comprehensive reviews committed by weekly-review.yml (GF-93)
-├── .github/workflows/        # test.yml - this repo's own dev CI (shellcheck+bats);
-│                              #   no server-side verification is shipped to consumers (decision-11).
-│                              #   weekly-review.yml - commits a weekly comprehensive review to
-│                              #   docs/reviews/ (GF-93, also a dev-only tool, not a consumer feature)
+│   └── references/          # conventional-commits summary/translation (no verbatim vendoring, decision-14)
+├── .github/workflows/        # test.yml only - this repo's own dev CI (shellcheck+bats);
+│                              #   no server-side verification is shipped to consumers (decision-11)
 └── backlog/                  # this repo's own dev management (decisions, tasks)
 ```
 

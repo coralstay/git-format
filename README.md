@@ -316,12 +316,9 @@ git-format/
 ├── install.sh
 ├── tests/                    # bats-core 테스트(dev 전용, decision-8)
 ├── docs/
-│   ├── references/          # conventional-commits 요약 번역(원문 vendoring 없음, decision-14)
-│   └── reviews/             # weekly-review.yml이 매주 커밋하는 종합 리뷰 기록(GF-93)
-├── .github/workflows/        # test.yml - 이 저장소 자신의 dev용 CI(shellcheck+bats),
-│                              #   컨슈머에게 제공하는 서버사이드 검증 기능은 없음(decision-11).
-│                              #   weekly-review.yml - 매주 종합 리뷰를 docs/reviews/에 커밋(GF-93,
-│                              #   이것도 컨슈머 대상 기능이 아니라 이 저장소 자신의 개발 도구)
+│   └── references/          # conventional-commits 요약 번역(원문 vendoring 없음, decision-14)
+├── .github/workflows/        # test.yml - 이 저장소 자신의 dev용 CI(shellcheck+bats)뿐,
+│                              #   컨슈머에게 제공하는 서버사이드 검증 기능은 없음(decision-11)
 └── backlog/                  # 이 저장소 자체 개발 관리(decision, task)
 ```
 
