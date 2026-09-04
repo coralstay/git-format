@@ -12,7 +12,7 @@ setup() {
 }
 
 teardown() {
-  rm -rf "$TARGET_REPO" "${FAKE_HOME:-}"
+  rm -rf "$TARGET_REPO" "${FAKE_HOME:-}" "${FAKE_ROOT:-}"
 }
 
 # ── 비대화형 환경 ─────────────────────────────────────────────────
@@ -54,6 +54,39 @@ teardown() {
   # (이 값이 우연히 이미 로컬 머신에 설정돼 있을 수도 있으니, 최소한 FAKE_HOME
   # 쪽 설정이 실제로 반영됐는지를 직접 확인한다.)
   [ "$(git config --file "${FAKE_HOME}/.gitconfig" --get init.templateDir)" = "${GITFORMAT_ROOT}/template" ]
+}
+
+# ── 정리: 삭제된 훅의 template/hooks 심볼릭 링크 정리 (GF-92) ──────
+# GF-86(decision-12)에서 hooks/pre-push를 삭제했지만 template/hooks/pre-push
+# 심볼릭 링크는 지워지지 않고 대상 없는 채로 남았다(sync_template()이 새로
+# 생기는 파일만 링크하고, 없어진 파일의 예전 링크는 정리하지 않았기 때문).
+# 실제 hooks/ 파일을 지우는 테스트이므로, 이 저장소 자신이 아니라 격리된
+# GITFORMAT_ROOT 사본(FAKE_ROOT)에서 진행한다.
+@test "[정리] hooks/에서 파일이 삭제된 뒤 --global을 재실행하면 template/hooks의 대응 심볼릭 링크도 삭제된다" {
+  FAKE_HOME="$(mktemp -d)"
+  FAKE_ROOT="$(mktemp -d)"
+  cp -R "${GITFORMAT_ROOT}/hooks" "${FAKE_ROOT}/hooks"
+  cp "${GITFORMAT_ROOT}/install.sh" "${FAKE_ROOT}/install.sh"
+  cp "${GITFORMAT_ROOT}/.gitmessage" "${FAKE_ROOT}/.gitmessage"
+
+  run env HOME="$FAKE_HOME" "${FAKE_ROOT}/install.sh" --global
+  [ "$status" -eq 0 ]
+  [ -L "${FAKE_ROOT}/template/hooks/pre-commit" ]
+  [ -L "${FAKE_ROOT}/template/hooks/commit-msg" ]
+
+  # hooks/에서 파일 하나를 지운다 (GF-86의 hooks/pre-push 삭제 상황 재현)
+  rm "${FAKE_ROOT}/hooks/pre-commit"
+
+  run env HOME="$FAKE_HOME" "${FAKE_ROOT}/install.sh" --global
+  [ "$status" -eq 0 ]
+
+  # 삭제된 파일에 대응하는 심볼릭 링크는 사라져야 한다 (깨진 링크로도 남으면 안 됨)
+  [ ! -e "${FAKE_ROOT}/template/hooks/pre-commit" ]
+  [ ! -L "${FAKE_ROOT}/template/hooks/pre-commit" ]
+
+  # 여전히 존재하는 훅의 심볼릭 링크는 그대로 유지된다
+  [ -L "${FAKE_ROOT}/template/hooks/commit-msg" ]
+  [ -L "${FAKE_ROOT}/template/hooks/post-commit" ]
 }
 
 # ── 에러 메시지: 잘못된 인자 ──────────────────────────────────────

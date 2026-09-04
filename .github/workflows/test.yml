@@ -23,7 +23,7 @@ jobs:
       # 두 셸 스타일 가이드의 표기 관례만 참고하고 문법은 POSIX만 유지하기로
       # 함). 이 스텝을 지우거나 `-s bash`로 바꾸면 그 정책이 깨진다.
       - name: ShellCheck (POSIX 준수 게이트, decision-9)
-        run: shellcheck -s sh hooks/commit-msg hooks/pre-commit hooks/pre-push hooks/post-commit hooks/checks/*.sh install.sh
+        run: shellcheck -s sh hooks/commit-msg hooks/pre-commit hooks/post-commit hooks/checks/*.sh install.sh
 
   bats:
     runs-on: ubuntu-latest
