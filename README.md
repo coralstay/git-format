@@ -51,14 +51,14 @@ npm/pip 같은 별도 런타임 없이, `core.hooksPath` · `commit.template` ·
 
 ## 🎯 목적
 
-| | 이점 |
-|---|---|
-| ✅ | 리누스 토발즈(리눅스 커널) 스타일 커밋 규칙(`[type][subsystem]` 프리픽스 + "왜"에 집중하는 본문 + 원자적 커밋)을 언어와 무관하게 동일하게 강제합니다. |
-| 🧩 | 별도 런타임(Node/Python 등) 의존성 없이 `core.hooksPath`, `init.templateDir`, `commit.template`, git hooks, `git interpret-trailers` 같은 **git 자체 기능**만으로 동작합니다 — 언어별 lint 도구(npm/ruff/clang-format/mvn/sqlfluff 등)는 있으면 쓰고 없으면 조용히 건너뜁니다. |
-| 🕵️ | `git commit --no-verify`로 검사를 우회해도 커밋 이력 자체에 프로그래밍적으로 흔적(`Verify-Bypassed: true`)이 남게 합니다. |
-| 🤖 | AI 코딩 에이전트가 만든 커밋에 어떤 도구/모델이 관여했는지, 신뢰 수준을 구분해서 footer에 남깁니다. |
-| 🧠 | **커밋/git 이력을 반정형(semi-structured) 데이터로 구조화**해, 이 데이터를 LLM 학습이나 그 밖의 학습 용도로 재사용할 수 있게 합니다. Claude 같은 도구가 `git status`·`git log`만 보고도 변경 의도·검증 여부·작업 단위(Task-Id)까지 정확히 문맥을 파악할 수 있도록 돕습니다. |
-| 👀 | 위와 같은 이유로, **사람이 읽을 때의 가독성**도 함께 좋아집니다. 형식이 일관되면 사람도 LLM도 `git log` 한 번으로 "무엇을, 왜, 어떻게 검증하고 바꿨는지"를 바로 읽어낼 수 있습니다. |
+|     | 이점                                                                                                                                                                                                                                                                           |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ✅  | 리누스 토발즈(리눅스 커널) 스타일 커밋 규칙(`[type][subsystem]` 프리픽스 + "왜"에 집중하는 본문 + 원자적 커밋)을 언어와 무관하게 동일하게 강제합니다.                                                                                                                          |
+| 🧩  | 별도 런타임(Node/Python 등) 의존성 없이 `core.hooksPath`, `init.templateDir`, `commit.template`, git hooks, `git interpret-trailers` 같은 **git 자체 기능**만으로 동작합니다 — 언어별 lint 도구(npm/ruff/clang-format/mvn/sqlfluff 등)는 있으면 쓰고 없으면 조용히 건너뜁니다. |
+| 🕵️  | `git commit --no-verify`로 검사를 우회해도 커밋 이력 자체에 프로그래밍적으로 흔적(`Verify-Bypassed: true`)이 남게 합니다.                                                                                                                                                      |
+| 🤖  | AI 코딩 에이전트가 만든 커밋에 어떤 도구/모델이 관여했는지, 신뢰 수준을 구분해서 footer에 남깁니다.                                                                                                                                                                            |
+| 🧠  | **커밋/git 이력을 반정형(semi-structured) 데이터로 구조화**해, 이 데이터를 LLM 학습이나 그 밖의 학습 용도로 재사용할 수 있게 합니다. Claude 같은 도구가 `git status`·`git log`만 보고도 변경 의도·검증 여부·작업 단위(Task-Id)까지 정확히 문맥을 파악할 수 있도록 돕습니다.    |
+| 👀  | 위와 같은 이유로, **사람이 읽을 때의 가독성**도 함께 좋아집니다. 형식이 일관되면 사람도 LLM도 `git log` 한 번으로 "무엇을, 왜, 어떻게 검증하고 바꿨는지"를 바로 읽어낼 수 있습니다.                                                                                            |
 
 > 설계 배경과 각 결정의 이유는 [`backlog/decisions/`](./backlog/decisions)에, 작업 단위는
 > [`backlog/tasks/`](./backlog/tasks)에 기록돼 있습니다. `backlog board`로 진행 상황을 볼 수 있습니다.
@@ -164,6 +164,7 @@ lint/형식 검사는 건너뛰지만 이력에 흔적이 남습니다:
 ```sh
 git log -1
 ```
+
 ```
     [chore] 급한 핫픽스
 
@@ -182,19 +183,19 @@ CI나 서버측으로 구성해야 합니다([⚠️ 주의점](#️-주의점) 
 **설치 시 컨슈머 저장소에서 바뀌는 것** — 파일이 아니라 git 설정뿐입니다. 어떤 소스
 파일도 건드리지 않습니다.
 
-| 대상 | 명령 | 효과 |
-|---|---|---|
-| 로컬(대상 저장소) | `git config core.hooksPath <git-format>/hooks` | `.git/hooks/`의 기존 로컬 훅을 완전히 대체 |
-| 로컬(대상 저장소) | `git config commit.template <git-format>/.gitmessage` | 커밋 에디터에 스켈레톤 표시 |
-| 전역(`--global`) | `git config --global init.templateDir <git-format>/template` | 이후 모든 신규 저장소에 자동 적용 |
-| 전역(`--global`) | `git config --global commit.template <git-format>/.gitmessage` | 위와 동일, 전역 기본값 |
+| 대상              | 명령                                                           | 효과                                       |
+| ----------------- | -------------------------------------------------------------- | ------------------------------------------ |
+| 로컬(대상 저장소) | `git config core.hooksPath <git-format>/hooks`                 | `.git/hooks/`의 기존 로컬 훅을 완전히 대체 |
+| 로컬(대상 저장소) | `git config commit.template <git-format>/.gitmessage`          | 커밋 에디터에 스켈레톤 표시                |
+| 전역(`--global`)  | `git config --global init.templateDir <git-format>/template`   | 이후 모든 신규 저장소에 자동 적용          |
+| 전역(`--global`)  | `git config --global commit.template <git-format>/.gitmessage` | 위와 동일, 전역 기본값                     |
 
 **실행 중 새로 생기는 파일**
 
-| 파일/디렉터리 | 위치 | 언제 | 비고 |
-|---|---|---|---|
-| `.gitformat-verified` | `<대상 저장소>/.git/` | `pre-commit` 통과 시 생성, `post-commit`이 곧 삭제 | 커밋 사이에 남지 않는 임시 마커 |
-| `template/hooks/*` | 이 git-format 클론 자신의 `template/` 안 | `install.sh --global` 실행 시 | 클론 위치를 가리키는 심볼릭 링크, 커밋 안 됨(`.gitignore`) |
+| 파일/디렉터리         | 위치                                     | 언제                                               | 비고                                                       |
+| --------------------- | ---------------------------------------- | -------------------------------------------------- | ---------------------------------------------------------- |
+| `.gitformat-verified` | `<대상 저장소>/.git/`                    | `pre-commit` 통과 시 생성, `post-commit`이 곧 삭제 | 커밋 사이에 남지 않는 임시 마커                            |
+| `template/hooks/*`    | 이 git-format 클론 자신의 `template/` 안 | `install.sh --global` 실행 시                      | 클론 위치를 가리키는 심볼릭 링크, 커밋 안 됨(`.gitignore`) |
 
 **커밋 자체가 바뀌는 경우**: `post-commit`이 조건에 따라 `git commit --amend`로
 방금 만든 커밋의 footer에 트레일러를 추가합니다(아래 [🕵️ `--no-verify` 우회 탐지](#️---no-verify-우회-탐지),
@@ -232,11 +233,11 @@ CI나 서버측으로 구성해야 합니다([⚠️ 주의점](#️-주의점) 
 
 ## 🪝 훅이 하는 일
 
-| 훅 | 하는 일 |
-|---|---|
-| `commit-msg` | `[type][subsystem]` 형식 검증, 제목 50자/본문 줄 72자 길이 검증(트레일러 줄 예외), 본문 있으면 빈 줄 강제, `Fixes:` 해시 존재 검증, 브랜치명 Task-Id 강제, (non-Claude-Code AI 도구의) AI-Model 존재/화이트리스트 검증 |
-| `pre-commit` | 언어 감지(`package.json`/`pyproject.toml`·`requirements.txt`/`pom.xml`·`build.gradle*`/`CMakeLists.txt`·`Makefile`/`.sqlfluff`·추적된 `*.sql`) 후 `hooks/checks/<lang>.sh`로 lint/컴파일/포맷 검사 |
-| `post-commit` | `--no-verify` 우회 탐지 + AI 귀속/Task-Id/Signed-off-by footer 트레일러 자동 삽입 |
+| 훅            | 하는 일                                                                                                                                                                                                                |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `commit-msg`  | `[type][subsystem]` 형식 검증, 제목 50자/본문 줄 72자 길이 검증(트레일러 줄 예외), 본문 있으면 빈 줄 강제, `Fixes:` 해시 존재 검증, 브랜치명 Task-Id 강제, (non-Claude-Code AI 도구의) AI-Model 존재/화이트리스트 검증 |
+| `pre-commit`  | 언어 감지(`package.json`/`pyproject.toml`·`requirements.txt`/`pom.xml`·`build.gradle*`/`CMakeLists.txt`·`Makefile`/`.sqlfluff`·추적된 `*.sql`) 후 `hooks/checks/<lang>.sh`로 lint/컴파일/포맷 검사                     |
+| `post-commit` | `--no-verify` 우회 탐지 + AI 귀속/Task-Id/Signed-off-by footer 트레일러 자동 삽입                                                                                                                                      |
 
 언어별 체크에 필요한 도구(npm, ruff/flake8, mvn/gradle, clang-format, cmake, sqlfluff 등)가
 없으면 해당 검사만 조용히 건너뜁니다 — 프로젝트에 해당 언어가 없으면 아무 일도 하지 않습니다.
@@ -273,13 +274,13 @@ dialect 설정은 프로젝트의 `.sqlfluff`에 맡기고 git-format은 강제�
 AI 코딩 에이전트가 커밋했다면 아래 트레일러가 자동으로 붙습니다. 신뢰 수준이 트레일러마다
 다르다는 걸 알아두는 게 중요합니다.
 
-| 트레일러 | 값 출처 | 신뢰 수준 |
-|---|---|---|
-| `AI-Tool`, `AI-Tool-Version` | `AI_AGENT` 환경변수(Claude Code 프로세스가 하위 프로세스에 주입) | 강제 — LLM이 스스로 만든 값이 아님 |
-| `AI-Model` | **Claude Code**: 세션 트랜스크립트(`~/.claude/projects/<slug>/<session>.jsonl`)의 `message.model` — Anthropic API 응답을 그대로 기록한 값. **그 외 도구**: `git config gitformat.aiModel`(commit-msg가 존재/화이트리스트를 강제) | Claude Code는 서버 발급 사실 / 그 외는 존재+형식만 강제, 진실성은 검증 불가 |
-| `Co-Authored-By` | `AI-Tool`이 `claude-code`일 때만 자동 삽입 | 자동 |
-| `Hooks-Commit` | 이 git-format 클론 자체의 `git rev-parse --short HEAD` | 완전 자동, 모든 커밋에 적용(AI 여부 무관) |
-| `Signed-off-by` | 커미터 정보(`git log -1 --format='%cn <%ce>'`) | 완전 자동, 모든 커밋에 적용(AI 여부 무관, `git commit -s`와 동일 방식, decision-10) |
+| 트레일러                     | 값 출처                                                                                                                                                                                                                          | 신뢰 수준                                                                           |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `AI-Tool`, `AI-Tool-Version` | `AI_AGENT` 환경변수(Claude Code 프로세스가 하위 프로세스에 주입)                                                                                                                                                                 | 강제 — LLM이 스스로 만든 값이 아님                                                  |
+| `AI-Model`                   | **Claude Code**: 세션 트랜스크립트(`~/.claude/projects/<slug>/<session>.jsonl`)의 `message.model` — Anthropic API 응답을 그대로 기록한 값. **그 외 도구**: `git config gitformat.aiModel`(commit-msg가 존재/화이트리스트를 강제) | Claude Code는 서버 발급 사실 / 그 외는 존재+형식만 강제, 진실성은 검증 불가         |
+| `Co-Authored-By`             | `AI-Tool`이 `claude-code`일 때만 자동 삽입                                                                                                                                                                                       | 자동                                                                                |
+| `Hooks-Commit`               | 이 git-format 클론 자체의 `git rev-parse --short HEAD`                                                                                                                                                                           | 완전 자동, 모든 커밋에 적용(AI 여부 무관)                                           |
+| `Signed-off-by`              | 커미터 정보(`git log -1 --format='%cn <%ce>'`)                                                                                                                                                                                   | 완전 자동, 모든 커밋에 적용(AI 여부 무관, `git commit -s`와 동일 방식, decision-10) |
 
 `CLAUDE_CODE_SESSION_ID`는 `AI-Model` 조회를 위해 트랜스크립트 파일 경로를 찾는 데만
 내부적으로 쓰이고, 값 자체가 커밋 footer에 남지는 않습니다 — 세션 식별자를 공개 저장소
@@ -315,8 +316,6 @@ git-format/
 ├── .gitmessage               # commit.template
 ├── install.sh
 ├── tests/                    # bats-core 테스트(dev 전용, decision-8)
-├── docs/
-│   └── references/          # conventional-commits 요약 번역(원문 vendoring 없음, decision-14)
 ├── .github/workflows/        # test.yml - 이 저장소 자신의 dev용 CI(shellcheck+bats)뿐,
 │                              #   컨슈머에게 제공하는 서버사이드 검증 기능은 없음(decision-11)
 └── backlog/                  # 이 저장소 자체 개발 관리(decision, task)
