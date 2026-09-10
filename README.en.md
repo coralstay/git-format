@@ -54,14 +54,14 @@ setup using **native git features** only.
 
 ## 🎯 Goals
 
-| | Benefit |
-|---|---|
-| ✅ | Enforces a Linus Torvalds (Linux kernel) style commit convention (`[type][subsystem]` prefix + a body that focuses on "why" + atomic commits) the same way regardless of language. |
-| 🧩 | Works with no separate runtime (Node/Python/etc.) — only `core.hooksPath`, `init.templateDir`, `commit.template`, git hooks, and `git interpret-trailers`. Per-language lint tools (npm/ruff/clang-format/mvn/sqlfluff/etc.) are used if present and silently skipped otherwise. |
-| 🕵️ | Even when `git commit --no-verify` bypasses checks, a programmatic trace (`Verify-Bypassed: true`) is left in the commit history itself. |
-| 🤖 | For commits made by AI coding agents, records which tool/model was involved, with a footer that distinguishes the trust level of each value. |
-| 🧠 | **Structures commit/git history as semi-structured data** so it can be reused for LLM training or other learning purposes. Helps tools like Claude read `git status`/`git log` alone and accurately infer intent, verification status, and the work unit (Task-Id). |
-| 👀 | For the same reason, **human readability** improves too. A consistent format lets both people and LLMs read "what changed, why, and how it was verified" from a single `git log`. |
+|     | Benefit                                                                                                                                                                                                                                                                          |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ✅  | Enforces a Linus Torvalds (Linux kernel) style commit convention (`[type][subsystem]` prefix + a body that focuses on "why" + atomic commits) the same way regardless of language.                                                                                               |
+| 🧩  | Works with no separate runtime (Node/Python/etc.) — only `core.hooksPath`, `init.templateDir`, `commit.template`, git hooks, and `git interpret-trailers`. Per-language lint tools (npm/ruff/clang-format/mvn/sqlfluff/etc.) are used if present and silently skipped otherwise. |
+| 🕵️  | Even when `git commit --no-verify` bypasses checks, a programmatic trace (`Verify-Bypassed: true`) is left in the commit history itself.                                                                                                                                         |
+| 🤖  | For commits made by AI coding agents, records which tool/model was involved, with a footer that distinguishes the trust level of each value.                                                                                                                                     |
+| 🧠  | **Structures commit/git history as semi-structured data** so it can be reused for LLM training or other learning purposes. Helps tools like Claude read `git status`/`git log` alone and accurately infer intent, verification status, and the work unit (Task-Id).              |
+| 👀  | For the same reason, **human readability** improves too. A consistent format lets both people and LLMs read "what changed, why, and how it was verified" from a single `git log`.                                                                                                |
 
 > Design background and the reasoning behind each decision are in
 > [`backlog/decisions/`](./backlog/decisions); work units are in
@@ -174,6 +174,7 @@ Lint/format checks are skipped, but a trace is left in the history:
 ```sh
 git log -1
 ```
+
 ```
     [chore] 급한 핫픽스
 
@@ -192,19 +193,19 @@ yourself, in CI or server-side (see [⚠️ Caveats](#️-caveats)).
 **What changes in the consumer repository on install** — only git config,
 never files. No source file is touched.
 
-| Target | Command | Effect |
-|---|---|---|
-| Local (target repo) | `git config core.hooksPath <git-format>/hooks` | Fully replaces any existing local hooks in `.git/hooks/` |
-| Local (target repo) | `git config commit.template <git-format>/.gitmessage` | Shows the skeleton in the commit editor |
-| Global (`--global`) | `git config --global init.templateDir <git-format>/template` | Applied automatically to every new repo from now on |
-| Global (`--global`) | `git config --global commit.template <git-format>/.gitmessage` | Same as above, as the global default |
+| Target              | Command                                                        | Effect                                                   |
+| ------------------- | -------------------------------------------------------------- | -------------------------------------------------------- |
+| Local (target repo) | `git config core.hooksPath <git-format>/hooks`                 | Fully replaces any existing local hooks in `.git/hooks/` |
+| Local (target repo) | `git config commit.template <git-format>/.gitmessage`          | Shows the skeleton in the commit editor                  |
+| Global (`--global`) | `git config --global init.templateDir <git-format>/template`   | Applied automatically to every new repo from now on      |
+| Global (`--global`) | `git config --global commit.template <git-format>/.gitmessage` | Same as above, as the global default                     |
 
 **Files created at runtime**
 
-| File/dir | Location | When | Notes |
-|---|---|---|---|
-| `.gitformat-verified` | `<target repo>/.git/` | Created when `pre-commit` passes, deleted shortly after by `post-commit` | Temporary marker, does not persist between commits |
-| `template/hooks/*` | Inside this git-format clone's own `template/` | When running `install.sh --global` | Symlinks pointing at the clone's location, not committed (`.gitignore`) |
+| File/dir              | Location                                       | When                                                                     | Notes                                                                   |
+| --------------------- | ---------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| `.gitformat-verified` | `<target repo>/.git/`                          | Created when `pre-commit` passes, deleted shortly after by `post-commit` | Temporary marker, does not persist between commits                      |
+| `template/hooks/*`    | Inside this git-format clone's own `template/` | When running `install.sh --global`                                       | Symlinks pointing at the clone's location, not committed (`.gitignore`) |
 
 **When the commit itself changes**: `post-commit` conditionally appends
 trailers to the footer of the commit you just made, via `git commit --amend`
@@ -252,11 +253,11 @@ this format and the type list as comments.
 
 ## 🪝 What the hooks do
 
-| Hook | What it does |
-|---|---|
-| `commit-msg` | Validates `[type][subsystem]` format, checks subject (50 chars) / body line (72 chars) length (trailer lines exempt), requires a blank line before a body, verifies `Fixes:` hashes exist, enforces a Task-Id in the branch name, checks that AI-Model exists/is whitelisted (for non-Claude-Code AI tools) |
-| `pre-commit` | Detects the language (`package.json` / `pyproject.toml`·`requirements.txt` / `pom.xml`·`build.gradle*` / `CMakeLists.txt`·`Makefile` / `.sqlfluff`·tracked `*.sql`), then runs `hooks/checks/<lang>.sh` for lint/compile/format checks |
-| `post-commit` | Detects `--no-verify` bypass + auto-inserts AI attribution/Task-Id/Signed-off-by footer trailers |
+| Hook          | What it does                                                                                                                                                                                                                                                                                                |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `commit-msg`  | Validates `[type][subsystem]` format, checks subject (50 chars) / body line (72 chars) length (trailer lines exempt), requires a blank line before a body, verifies `Fixes:` hashes exist, enforces a Task-Id in the branch name, checks that AI-Model exists/is whitelisted (for non-Claude-Code AI tools) |
+| `pre-commit`  | Detects the language (`package.json` / `pyproject.toml`·`requirements.txt` / `pom.xml`·`build.gradle*` / `CMakeLists.txt`·`Makefile` / `.sqlfluff`·tracked `*.sql`), then runs `hooks/checks/<lang>.sh` for lint/compile/format checks                                                                      |
+| `post-commit` | Detects `--no-verify` bypass + auto-inserts AI attribution/Task-Id/Signed-off-by footer trailers                                                                                                                                                                                                            |
 
 If a tool a language check needs (npm, ruff/flake8, mvn/gradle,
 clang-format, cmake, sqlfluff, etc.) isn't installed, that check is silently
@@ -298,13 +299,13 @@ commit history itself, so bypasses can be checked with `git log` alone.
 If an AI coding agent made the commit, the trailers below are added
 automatically. It matters that the trust level differs per trailer.
 
-| Trailer | Value source | Trust level |
-|---|---|---|
-| `AI-Tool`, `AI-Tool-Version` | `AI_AGENT` env var (injected into subprocesses by the Claude Code process) | Enforced — not a value the LLM made up itself |
-| `AI-Model` | **Claude Code**: `message.model` from the session transcript (`~/.claude/projects/<slug>/<session>.jsonl`) — the value the Anthropic API actually returned, recorded as-is. **Other tools**: `git config gitformat.aiModel` (commit-msg enforces that it exists and is whitelisted) | Claude Code: a server-issued fact / Others: only presence+format enforced, truthfulness unverifiable |
-| `Co-Authored-By` | Auto-inserted only when `AI-Tool` is `claude-code` | Automatic |
-| `Hooks-Commit` | `git rev-parse --short HEAD` of this git-format clone itself | Fully automatic, applied to every commit regardless of AI involvement |
-| `Signed-off-by` | Committer identity (`git log -1 --format='%cn <%ce>'`) | Fully automatic, applied to every commit regardless of AI involvement (same mechanism as `git commit -s`, decision-10) |
+| Trailer                      | Value source                                                                                                                                                                                                                                                                        | Trust level                                                                                                            |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `AI-Tool`, `AI-Tool-Version` | `AI_AGENT` env var (injected into subprocesses by the Claude Code process)                                                                                                                                                                                                          | Enforced — not a value the LLM made up itself                                                                          |
+| `AI-Model`                   | **Claude Code**: `message.model` from the session transcript (`~/.claude/projects/<slug>/<session>.jsonl`) — the value the Anthropic API actually returned, recorded as-is. **Other tools**: `git config gitformat.aiModel` (commit-msg enforces that it exists and is whitelisted) | Claude Code: a server-issued fact / Others: only presence+format enforced, truthfulness unverifiable                   |
+| `Co-Authored-By`             | Auto-inserted only when `AI-Tool` is `claude-code`                                                                                                                                                                                                                                  | Automatic                                                                                                              |
+| `Hooks-Commit`               | `git rev-parse --short HEAD` of this git-format clone itself                                                                                                                                                                                                                        | Fully automatic, applied to every commit regardless of AI involvement                                                  |
+| `Signed-off-by`              | Committer identity (`git log -1 --format='%cn <%ce>'`)                                                                                                                                                                                                                              | Fully automatic, applied to every commit regardless of AI involvement (same mechanism as `git commit -s`, decision-10) |
 
 `CLAUDE_CODE_SESSION_ID` is used internally only to locate the transcript
 file path for the `AI-Model` lookup — the value itself is never left in the
@@ -344,8 +345,6 @@ git-format/
 ├── .gitmessage               # commit.template
 ├── install.sh
 ├── tests/                    # bats-core tests (dev only, decision-8)
-├── docs/
-│   └── references/          # conventional-commits summary/translation (no verbatim vendoring, decision-14)
 ├── .github/workflows/        # test.yml only - this repo's own dev CI (shellcheck+bats);
 │                              #   no server-side verification is shipped to consumers (decision-11)
 └── backlog/                  # this repo's own dev management (decisions, tasks)
