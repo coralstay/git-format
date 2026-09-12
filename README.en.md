@@ -202,10 +202,11 @@ never files. No source file is touched.
 
 **Files created at runtime**
 
-| File/dir              | Location                                       | When                                                                     | Notes                                                                   |
-| --------------------- | ---------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
-| `.gitformat-verified` | `<target repo>/.git/`                          | Created when `pre-commit` passes, deleted shortly after by `post-commit` | Temporary marker, does not persist between commits                      |
-| `template/hooks/*`    | Inside this git-format clone's own `template/` | When running `install.sh --global`                                       | Symlinks pointing at the clone's location, not committed (`.gitignore`) |
+| File/dir                  | Location                                       | When                                                                     | Notes                                                                                             |
+| ------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `.gitformat-verified`     | `<target repo>/.git/`                          | Created when `pre-commit` passes, deleted shortly after by `post-commit` | Temporary marker, does not persist between commits                                                |
+| `.gitformat-token-cursor` | `<target repo>/.git/`                          | Updated by `post-commit` on every Claude Code commit                     | Cursor (cumulative line count) for the `Tokens-Used`/`Tool-Calls` delta, persists between commits |
+| `template/hooks/*`        | Inside this git-format clone's own `template/` | When running `install.sh --global`                                       | Symlinks pointing at the clone's location, not committed (`.gitignore`)                           |
 
 **When the commit itself changes**: `post-commit` conditionally appends
 trailers to the footer of the commit you just made, via `git commit --amend`
@@ -303,14 +304,25 @@ automatically. It matters that the trust level differs per trailer.
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `AI-Tool`, `AI-Tool-Version` | `AI_AGENT` env var (injected into subprocesses by the Claude Code process)                                                                                                                                                                                                          | Enforced — not a value the LLM made up itself                                                                          |
 | `AI-Model`                   | **Claude Code**: `message.model` from the session transcript (`~/.claude/projects/<slug>/<session>.jsonl`) — the value the Anthropic API actually returned, recorded as-is. **Other tools**: `git config gitformat.aiModel` (commit-msg enforces that it exists and is whitelisted) | Claude Code: a server-issued fact / Others: only presence+format enforced, truthfulness unverifiable                   |
+| `Tokens-Used`                | **Claude Code only**: sum of `message.usage` (input/output/cache tokens) from the same session transcript — only the range added since the previous commit (a delta, not cumulative; see below)                                                                                     | Server-issued fact (not self-reported), Claude Code only                                                               |
+| `Tool-Calls`                 | **Claude Code only**: count of `tool_use` content blocks in assistant messages over the same range                                                                                                                                                                                  | Server-issued fact (not self-reported), Claude Code only                                                               |
 | `Co-Authored-By`             | Auto-inserted only when `AI-Tool` is `claude-code`                                                                                                                                                                                                                                  | Automatic                                                                                                              |
 | `Hooks-Commit`               | `git rev-parse --short HEAD` of this git-format clone itself                                                                                                                                                                                                                        | Fully automatic, applied to every commit regardless of AI involvement                                                  |
 | `Signed-off-by`              | Committer identity (`git log -1 --format='%cn <%ce>'`)                                                                                                                                                                                                                              | Fully automatic, applied to every commit regardless of AI involvement (same mechanism as `git commit -s`, decision-10) |
 
 `CLAUDE_CODE_SESSION_ID` is used internally only to locate the transcript
-file path for the `AI-Model` lookup — the value itself is never left in the
-commit footer, so a session identifier doesn't end up permanently in a
-public repository's history.
+file path for the `AI-Model`/`Tokens-Used`/`Tool-Calls` lookups — the value
+itself is never left in the commit footer, so a session identifier doesn't
+end up permanently in a public repository's history.
+
+`Tokens-Used`/`Tool-Calls` account for the fact that a single session can
+produce many commits, so they track **the delta since the previous commit,
+not the session's cumulative total**. A cursor file at
+`<target repo>/.git/.gitformat-token-cursor` remembers how many transcript
+lines have already been processed, and the next commit only re-reads lines
+after that point. If the transcript/jq/session-id lookup fails for any
+reason, both trailers are silently skipped just like `AI-Model`, and in that
+case the cursor file is not updated either.
 
 ## 🔧 Customization
 
