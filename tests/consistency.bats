@@ -45,6 +45,8 @@ load 'helpers/git-format'
     gitformat.trailer.hooksCommit \
     gitformat.trailer.signedOffBy \
     gitformat.trailer.taskId \
+    gitformat.trailer.tokensUsed \
+    gitformat.trailer.toolCalls \
     gitformat.trailer.verifyBypassed \
     gitformat.type \
   ; do
