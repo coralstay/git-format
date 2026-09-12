@@ -66,6 +66,13 @@ if ! git config --file "$CONF" --list >/dev/null 2>&1; then
 fi
 MARKER="${GIT_DIR}/$(git config --file "$CONF" --get gitformat.markerFile)"
 readonly MARKER
+# Tokens-Used/Tool-Calls 델타 커서(decision-5 확장). .gitformat-verified와 같은
+# "커밋 간 git-미추적 상태 파일" 관례를 따르되, 이 파일은 삭제되지 않고
+# trailer_tokens_used()가 매번 최신 트랜스크립트 줄 수로 덮어쓴다. 파일명은
+# gitformat.conf로 빼지 않는다 - 컨슈머가 오버라이드할 이유가 없는 순수 내부
+# 구현 세부사항이라 다른 trailer 키 이름들과 성격이 다르다.
+CURSOR="${GIT_DIR}/.gitformat-token-cursor"
+readonly CURSOR
 
 TRAILER_VERIFY_BYPASSED="$(git config --file "$CONF" --get gitformat.trailer.verifyBypassed)"
 readonly TRAILER_VERIFY_BYPASSED
@@ -79,6 +86,10 @@ TRAILER_CO_AUTHORED_BY="$(git config --file "$CONF" --get gitformat.trailer.coAu
 readonly TRAILER_CO_AUTHORED_BY
 TRAILER_AI_MODEL="$(git config --file "$CONF" --get gitformat.trailer.aiModel)"
 readonly TRAILER_AI_MODEL
+TRAILER_TOKENS_USED="$(git config --file "$CONF" --get gitformat.trailer.tokensUsed)"
+readonly TRAILER_TOKENS_USED
+TRAILER_TOOL_CALLS="$(git config --file "$CONF" --get gitformat.trailer.toolCalls)"
+readonly TRAILER_TOOL_CALLS
 TRAILER_HOOKS_COMMIT="$(git config --file "$CONF" --get gitformat.trailer.hooksCommit)"
 readonly TRAILER_HOOKS_COMMIT
 TRAILER_SIGNED_OFF_BY="$(git config --file "$CONF" --get gitformat.trailer.signedOffBy)"
@@ -227,6 +238,78 @@ trailer_ai_model() {
   fi
 }
 
+# Tokens-Used/Tool-Calls(decision-5 확장): trailer_ai_model()과 같은 트랜스크립트를
+# 같은 gating으로 읽되, message.usage(Anthropic API 응답을 그대로 기록한 값이라
+# 자가신고가 아님)를 합산하고 tool_use 콘텐츠 블록 개수를 센다. 한 세션에서
+# 커밋이 여러 번 나오므로 세션 누적치를 매번 반복하면 의미가 없어, CURSOR
+# 파일에 "이미 처리한 트랜스크립트 줄 수"를 저장해두고 그 이후 구간만 델타로
+# 집계한다. 이 함수 안의 실패 지점(트랜스크립트 없음/jq 실패/커서 파싱 불가
+# 등)은 모두 return으로 조용히 빠져나가며, 이 경우 CURSOR를 갱신하지 않는다 -
+# 실제로 아무것도 읽지 못했으므로 다음 커밋이 같은 지점부터 다시 시도해야
+# 한다. trailer_ai_tool()이 채운 AI_TOOL_ID를 재사용한다.
+trailer_tokens_used() {
+  if [ "$AI_TOOL_ID" != "$AI_TOOL_CLAUDE_CODE" ] \
+    || [ -z "${CLAUDE_CODE_SESSION_ID:-}" ] || ! command -v jq >/dev/null 2>&1; then
+    return 0
+  fi
+
+  PROJECT_SLUG="$(printf '%s' "$PWD" | tr '/' '-')"
+  TRANSCRIPT="${HOME}/.claude/projects/${PROJECT_SLUG}/${CLAUDE_CODE_SESSION_ID}.jsonl"
+  [ -f "$TRANSCRIPT" ] || return 0
+
+  TOTAL_LINES_RAW="$(wc -l < "$TRANSCRIPT" 2>/dev/null || printf '%s' '')"
+  [ -n "$TOTAL_LINES_RAW" ] || return 0
+  # shellcheck disable=SC2086 # wc -l 출력의 선행 공백(BSD/GNU 패딩 차이)을 외부
+  # 명령(tr) 없이 word-splitting으로 제거하는 의도적 unquoted 확장.
+  set -- $TOTAL_LINES_RAW
+  TOTAL_LINES="$1"
+  case "$TOTAL_LINES" in
+    ''|*[!0-9]*) return 0 ;;
+  esac
+
+  # 커서 파일이 없거나(최초 실행) 손상됐으면 0으로 취급 - 이건 조회 자체의
+  # 실패가 아니라 "아직 아무 줄도 처리한 적 없음"과 동치이므로 return하지 않는다.
+  CURSOR_COUNT="$(cat "$CURSOR" 2>/dev/null || printf '%s' '')"
+  case "$CURSOR_COUNT" in
+    ''|*[!0-9]*) CURSOR_COUNT=0 ;;
+  esac
+
+  NEW_ENTRIES=""
+  if [ "$TOTAL_LINES" -gt "$CURSOR_COUNT" ]; then
+    NEW_ENTRIES="$(tail -n "+$((CURSOR_COUNT + 1))" "$TRANSCRIPT" 2>/dev/null || printf '%s' '')"
+  fi
+
+  # tokens 합산과 tool_use 개수를 jq 한 번으로 같이 뽑아 "토큰수 호출수" 한
+  # 줄을 만든다 - jq 실패(트랜스크립트 손상 등)는 마지막 fallback으로 흡수돼
+  # USAGE_LINE이 빈 문자열이 되고, 그러면 커서를 갱신하지 않고 조용히 생략한다.
+  USAGE_LINE="$(printf '%s\n' "$NEW_ENTRIES" | jq -s -r '
+      ([.[] | select(.type=="assistant") | .message.usage
+          | ((.input_tokens // 0) + (.output_tokens // 0)
+             + (.cache_creation_input_tokens // 0) + (.cache_read_input_tokens // 0))]
+        | add // 0) as $tokens
+      | ([.[] | select(.type=="assistant") | .message.content[]? | select(.type=="tool_use")]
+        | length) as $calls
+      | "\($tokens) \($calls)"
+    ' 2>/dev/null || printf '%s' '')"
+  [ -n "$USAGE_LINE" ] || return 0
+  # shellcheck disable=SC2086 # jq 출력("토큰수 호출수" 한 줄)을 word-splitting으로
+  # 두 값으로 분리하는 의도적 unquoted 확장.
+  set -- $USAGE_LINE
+  TOKENS_SUM="$1"
+  TOOL_CALL_COUNT="$2"
+
+  # 여기까지 왔으면 트랜스크립트를 실제로 읽어 처리했으므로, 합산값이 0이어도
+  # 커서는 항상 갱신한다 - 그래야 다음 커밋이 같은 구간을 중복 집계하지 않는다.
+  printf '%s' "$TOTAL_LINES" > "$CURSOR"
+
+  if [ "$TOKENS_SUM" -gt 0 ] && ! trailer_exists "$TRAILER_TOKENS_USED" "$TOKENS_SUM"; then
+    queue_trailer "$TRAILER_TOKENS_USED" "$TOKENS_SUM"
+  fi
+  if [ "$TOOL_CALL_COUNT" -gt 0 ] && ! trailer_exists "$TRAILER_TOOL_CALLS" "$TOOL_CALL_COUNT"; then
+    queue_trailer "$TRAILER_TOOL_CALLS" "$TOOL_CALL_COUNT"
+  fi
+}
+
 # Hooks-Commit(decision-5): 이 커밋을 검증한 git-format 훅 코드 자체의 커밋 해시.
 # 수동 버전 문자열 대신 훅 스크립트가 위치한 저장소의 HEAD를 그대로 읽으므로 항상
 # 정확하다. hooks/가 git-format 클론 안에 있지 않으면(예: 훅만 복사해 배포한 경우)
@@ -253,6 +336,7 @@ detect_verify_bypass
 trailer_task_id
 trailer_ai_tool
 trailer_ai_model
+trailer_tokens_used
 trailer_hooks_commit
 trailer_signed_off_by
 
