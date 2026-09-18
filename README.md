@@ -49,6 +49,16 @@ npm/pip 같은 별도 런타임 없이, `core.hooksPath` · `commit.template` ·
 설치하게 하거나 팀마다 커밋 컨벤션 문서를 따로 유지하는 대신, **git 자체 기능**만으로
 하나의 저장소를 여러 프로젝트가 공유해서 쓸 수 있게 하는 것이 의도입니다.
 
+여기에 더해, 사람이 아니라 AI 코딩 에이전트(특히 Claude Code)가 커밋을 만드는 경우가
+늘면서, 그 커밋 하나하나가 실제로/예상으로 얼마나 많은 토큰을 소비했는지 정량적으로
+남기고 싶다는 목적이 추가됐습니다. 지금은 Claude Code로 한정돼 있지만, 다른 AI 코딩
+도구도 같은 종류의 로컬 채널(세션 상관관계 + 서버 발급 usage 로그)을 제공하면 그대로
+확장할 수 있는 구조를 지향합니다. **다만 이 부분은 아직 실험 단계입니다.** 지금 쓰는
+방법(세션 트랜스크립트에서 직전 커밋 이후 구간만 델타로 합산)은 "이 커밋을 만드는 데
+정확히 필요했던 토큰"이 아니라 "그 시간 동안 세션에서 오간 토큰"을 대신 쓰는 근사치이고,
+그 사이에 이 커밋과 무관한 탐색/대화가 섞이면 실제보다 부풀려질 수 있습니다. 더 정확한
+귀속 방법을 계속 찾고 있습니다.
+
 ## 🎯 목적
 
 |     | 이점                                                                                                                                                                                                                                                                           |
@@ -57,6 +67,7 @@ npm/pip 같은 별도 런타임 없이, `core.hooksPath` · `commit.template` ·
 | 🧩  | 별도 런타임(Node/Python 등) 의존성 없이 `core.hooksPath`, `init.templateDir`, `commit.template`, git hooks, `git interpret-trailers` 같은 **git 자체 기능**만으로 동작합니다 — 언어별 lint 도구(npm/ruff/clang-format/mvn/sqlfluff 등)는 있으면 쓰고 없으면 조용히 건너뜁니다. |
 | 🕵️  | `git commit --no-verify`로 검사를 우회해도 커밋 이력 자체에 프로그래밍적으로 흔적(`Verify-Bypassed: true`)이 남게 합니다.                                                                                                                                                      |
 | 🤖  | AI 코딩 에이전트가 만든 커밋에 어떤 도구/모델이 관여했는지, 신뢰 수준을 구분해서 footer에 남깁니다.                                                                                                                                                                            |
+| 📊  | AI가 만든 커밋 각각에 대해 실제로 소비된 토큰량을 (가능한 한) 정량적으로 기록합니다. 지금은 Claude Code 전용이고, 측정 방법론 자체가 아직 실험적입니다 — 한계는 아래 [Tokens-Used/Tool-Calls](#-ai-귀속-footer) 설명 참고.                                                     |
 | 🧠  | **커밋/git 이력을 반정형(semi-structured) 데이터로 구조화**해, 이 데이터를 LLM 학습이나 그 밖의 학습 용도로 재사용할 수 있게 합니다. Claude 같은 도구가 `git status`·`git log`만 보고도 변경 의도·검증 여부·작업 단위(Task-Id)까지 정확히 문맥을 파악할 수 있도록 돕습니다.    |
 | 👀  | 위와 같은 이유로, **사람이 읽을 때의 가독성**도 함께 좋아집니다. 형식이 일관되면 사람도 LLM도 `git log` 한 번으로 "무엇을, 왜, 어떻게 검증하고 바꿨는지"를 바로 읽어낼 수 있습니다.                                                                                            |
 
@@ -195,7 +206,7 @@ CI나 서버측으로 구성해야 합니다([⚠️ 주의점](#️-주의점) 
 | 파일/디렉터리             | 위치                                     | 언제                                               | 비고                                                                    |
 | ------------------------- | ---------------------------------------- | -------------------------------------------------- | ----------------------------------------------------------------------- |
 | `.gitformat-verified`     | `<대상 저장소>/.git/`                    | `pre-commit` 통과 시 생성, `post-commit`이 곧 삭제 | 커밋 사이에 남지 않는 임시 마커                                         |
-| `.gitformat-token-cursor` | `<대상 저장소>/.git/`                    | Claude Code 커밋마다 `post-commit`이 갱신          | `Tokens-Used`/`Tool-Calls` 델타 계산용 커서(누적 줄 수), 커밋 간 유지됨 |
+| `.gitformat-token-cursor` | `<대상 저장소>/.git/`                    | Claude Code 실측 성공 시에만 `post-commit`이 갱신(`unavailable`일 때는 갱신 안 함) | `Tokens-Used`/`Tool-Calls` 델타 계산용 커서(누적 줄 수), 커밋 간 유지됨 |
 | `template/hooks/*`        | 이 git-format 클론 자신의 `template/` 안 | `install.sh --global` 실행 시                      | 클론 위치를 가리키는 심볼릭 링크, 커밋 안 됨(`.gitignore`)              |
 
 **커밋 자체가 바뀌는 경우**: `post-commit`이 조건에 따라 `git commit --amend`로
@@ -279,8 +290,8 @@ AI 코딩 에이전트가 커밋했다면 아래 트레일러가 자동으로 �
 | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | `AI-Tool`, `AI-Tool-Version` | `AI_AGENT` 환경변수(Claude Code 프로세스가 하위 프로세스에 주입)                                                                                                                                                                 | 강제 — LLM이 스스로 만든 값이 아님                                                  |
 | `AI-Model`                   | **Claude Code**: 세션 트랜스크립트(`~/.claude/projects/<slug>/<session>.jsonl`)의 `message.model` — Anthropic API 응답을 그대로 기록한 값. **그 외 도구**: `git config gitformat.aiModel`(commit-msg가 존재/화이트리스트를 강제) | Claude Code는 서버 발급 사실 / 그 외는 존재+형식만 강제, 진실성은 검증 불가         |
-| `Tokens-Used`                | **Claude Code 전용**: 같은 세션 트랜스크립트에서 `message.usage`(input/output/cache 토큰) 합계 — 이전 커밋 이후 새로 추가된 구간만(누적 아님, 아래 참고)                                                                         | 서버 발급 사실(자가신고 아님), Claude Code 전용                                     |
-| `Tool-Calls`                 | **Claude Code 전용**: 같은 구간에서 assistant 메시지의 `tool_use` 콘텐츠 블록 개수                                                                                                                                               | 서버 발급 사실(자가신고 아님), Claude Code 전용                                     |
+| `Tokens-Used`                | AI-Tool이 감지된 모든 커밋에 붙습니다. **Claude Code**: 같은 세션 트랜스크립트에서 `message.usage`(input/output/cache 토큰) 합계 — 이전 커밋 이후 새로 추가된 구간만(누적 아님, 아래 참고). **그 외 도구/실패 시**: `unavailable (사유)` (아래 참고)                          | 서버 발급 사실(자가신고 아님, Claude Code 한정) / 그 외는 실측 채널 없음            |
+| `Tool-Calls`                 | 같은 구간에서 assistant 메시지의 `tool_use` 콘텐츠 블록 개수 — 출처/한계는 `Tokens-Used`와 동일                                                                                                                                  | 서버 발급 사실(자가신고 아님, Claude Code 한정) / 그 외는 실측 채널 없음            |
 | `Co-Authored-By`             | `AI-Tool`이 `claude-code`일 때만 자동 삽입                                                                                                                                                                                       | 자동                                                                                |
 | `Hooks-Commit`               | 이 git-format 클론 자체의 `git rev-parse --short HEAD`                                                                                                                                                                           | 완전 자동, 모든 커밋에 적용(AI 여부 무관)                                           |
 | `Signed-off-by`              | 커미터 정보(`git log -1 --format='%cn <%ce>'`)                                                                                                                                                                                   | 완전 자동, 모든 커밋에 적용(AI 여부 무관, `git commit -s`와 동일 방식, decision-10) |
@@ -292,8 +303,14 @@ AI 코딩 에이전트가 커밋했다면 아래 트레일러가 자동으로 �
 `Tokens-Used`/`Tool-Calls`는 한 세션에서 커밋이 여러 번 나올 수 있다는 점을 감안해
 **세션 누적치가 아니라 이전 커밋 이후의 델타**만 집계합니다. `<대상 저장소>/.git/.gitformat-token-cursor`
 파일에 "이미 처리한 트랜스크립트 줄 수"를 기억해뒀다가 다음 커밋에서 그 이후 줄만
-다시 읽습니다. 트랜스크립트/jq/세션ID 조회가 조금이라도 실패하면 `AI-Model`과 동일하게
-조용히 생략되고, 이 경우 커서 파일도 갱신되지 않습니다.
+다시 읽습니다.
+
+측정에 실패하면 `unavailable (사유 슬러그)`로 명시 기록합니다(사유:
+`no-session-id`/`jq-not-installed`/`transcript-not-found`/`transcript-unreadable`/
+`transcript-parse-failed`/`no-usage-channel`). 커서는 실측 성공 시에만 갱신하고, 실제로
+읽어서 합산한 값이 0이면 `0`으로 그대로 기록합니다(생략하지 않음). **주의**: 이 값은
+"이 커밋에 정확히 필요했던 토큰"이 아니라 "직전 커밋 이후 세션에서 소비된 토큰"의
+근사치입니다 — 측정 방법론 자체가 아직 실험적이며 계속 개선할 예정입니다.
 
 ## 🔧 커스터마이즈
 

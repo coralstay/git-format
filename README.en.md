@@ -52,6 +52,19 @@ linter per language or maintaining a separate commit-convention doc per team,
 the intent is for one repository to let multiple projects share the same
 setup using **native git features** only.
 
+On top of that, as AI coding agents (Claude Code in particular) increasingly
+make commits instead of humans, a goal was added to record, quantitatively,
+how many tokens each of those commits actually cost (or is estimated to have
+cost). Right now this is limited to Claude Code, but the structure is meant
+to extend to other AI coding tools once they offer the same kind of local
+channel (session correlation + server-issued usage logs). **That said, this
+part is still experimental.** The method currently used (summing only the
+session-transcript range added since the previous commit) is a proxy for
+"tokens spent in the session during that window," not a rigorous measurement
+of "the tokens this exact commit needed" — if unrelated exploration or
+conversation happens in that window, the number can be inflated. A more
+accurate attribution method is still being sought.
+
 ## 🎯 Goals
 
 |     | Benefit                                                                                                                                                                                                                                                                          |
@@ -60,6 +73,7 @@ setup using **native git features** only.
 | 🧩  | Works with no separate runtime (Node/Python/etc.) — only `core.hooksPath`, `init.templateDir`, `commit.template`, git hooks, and `git interpret-trailers`. Per-language lint tools (npm/ruff/clang-format/mvn/sqlfluff/etc.) are used if present and silently skipped otherwise. |
 | 🕵️  | Even when `git commit --no-verify` bypasses checks, a programmatic trace (`Verify-Bypassed: true`) is left in the commit history itself.                                                                                                                                         |
 | 🤖  | For commits made by AI coding agents, records which tool/model was involved, with a footer that distinguishes the trust level of each value.                                                                                                                                     |
+| 📊  | Records, as quantitatively as possible, the tokens actually spent on each AI-made commit. Currently Claude Code only, and the measurement methodology itself is still experimental — see the limitations under [Tokens-Used/Tool-Calls](#-ai-attribution-footer) below.          |
 | 🧠  | **Structures commit/git history as semi-structured data** so it can be reused for LLM training or other learning purposes. Helps tools like Claude read `git status`/`git log` alone and accurately infer intent, verification status, and the work unit (Task-Id).              |
 | 👀  | For the same reason, **human readability** improves too. A consistent format lets both people and LLMs read "what changed, why, and how it was verified" from a single `git log`.                                                                                                |
 
@@ -205,7 +219,7 @@ never files. No source file is touched.
 | File/dir                  | Location                                       | When                                                                     | Notes                                                                                             |
 | ------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
 | `.gitformat-verified`     | `<target repo>/.git/`                          | Created when `pre-commit` passes, deleted shortly after by `post-commit` | Temporary marker, does not persist between commits                                                |
-| `.gitformat-token-cursor` | `<target repo>/.git/`                          | Updated by `post-commit` on every Claude Code commit                     | Cursor (cumulative line count) for the `Tokens-Used`/`Tool-Calls` delta, persists between commits |
+| `.gitformat-token-cursor` | `<target repo>/.git/`                          | Updated by `post-commit` only on a successful Claude Code measurement (not updated when `unavailable`) | Cursor (cumulative line count) for the `Tokens-Used`/`Tool-Calls` delta, persists between commits |
 | `template/hooks/*`        | Inside this git-format clone's own `template/` | When running `install.sh --global`                                       | Symlinks pointing at the clone's location, not committed (`.gitignore`)                           |
 
 **When the commit itself changes**: `post-commit` conditionally appends
@@ -304,8 +318,8 @@ automatically. It matters that the trust level differs per trailer.
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `AI-Tool`, `AI-Tool-Version` | `AI_AGENT` env var (injected into subprocesses by the Claude Code process)                                                                                                                                                                                                          | Enforced — not a value the LLM made up itself                                                                          |
 | `AI-Model`                   | **Claude Code**: `message.model` from the session transcript (`~/.claude/projects/<slug>/<session>.jsonl`) — the value the Anthropic API actually returned, recorded as-is. **Other tools**: `git config gitformat.aiModel` (commit-msg enforces that it exists and is whitelisted) | Claude Code: a server-issued fact / Others: only presence+format enforced, truthfulness unverifiable                   |
-| `Tokens-Used`                | **Claude Code only**: sum of `message.usage` (input/output/cache tokens) from the same session transcript — only the range added since the previous commit (a delta, not cumulative; see below)                                                                                     | Server-issued fact (not self-reported), Claude Code only                                                               |
-| `Tool-Calls`                 | **Claude Code only**: count of `tool_use` content blocks in assistant messages over the same range                                                                                                                                                                                  | Server-issued fact (not self-reported), Claude Code only                                                               |
+| `Tokens-Used`                | Added for every commit where an AI-Tool is detected. **Claude Code**: sum of `message.usage` (input/output/cache tokens) from the same session transcript — only the range added since the previous commit (a delta, not cumulative; see below). **Other tools/on failure**: `unavailable (reason)` (see below)                | Server-issued fact (not self-reported) for Claude Code / no measurement channel for other tools                        |
+| `Tool-Calls`                 | Count of `tool_use` content blocks in assistant messages over the same range — same source/limitations as `Tokens-Used`                                                                                                                                                             | Server-issued fact (not self-reported) for Claude Code / no measurement channel for other tools                        |
 | `Co-Authored-By`             | Auto-inserted only when `AI-Tool` is `claude-code`                                                                                                                                                                                                                                  | Automatic                                                                                                              |
 | `Hooks-Commit`               | `git rev-parse --short HEAD` of this git-format clone itself                                                                                                                                                                                                                        | Fully automatic, applied to every commit regardless of AI involvement                                                  |
 | `Signed-off-by`              | Committer identity (`git log -1 --format='%cn <%ce>'`)                                                                                                                                                                                                                              | Fully automatic, applied to every commit regardless of AI involvement (same mechanism as `git commit -s`, decision-10) |
@@ -320,9 +334,16 @@ produce many commits, so they track **the delta since the previous commit,
 not the session's cumulative total**. A cursor file at
 `<target repo>/.git/.gitformat-token-cursor` remembers how many transcript
 lines have already been processed, and the next commit only re-reads lines
-after that point. If the transcript/jq/session-id lookup fails for any
-reason, both trailers are silently skipped just like `AI-Model`, and in that
-case the cursor file is not updated either.
+after that point.
+
+If measurement fails, it is recorded explicitly as `unavailable (reason
+slug)` (reasons: `no-session-id`/`jq-not-installed`/`transcript-not-found`/
+`transcript-unreadable`/`transcript-parse-failed`/`no-usage-channel`). The
+cursor is only updated on a successful measurement, and a genuine sum of 0
+is recorded as `0` as-is (never omitted). **Caveat**: this value is not "the
+tokens this exact commit needed" but a proxy for "tokens spent in the session
+since the previous commit" — the measurement methodology itself is still
+experimental and expected to keep improving.
 
 ## 🔧 Customization
 
