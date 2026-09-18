@@ -238,37 +238,64 @@ trailer_ai_model() {
   fi
 }
 
-# Tokens-Used/Tool-Calls(decision-5 확장): trailer_ai_model()과 같은 트랜스크립트를
-# 같은 gating으로 읽되, message.usage(Anthropic API 응답을 그대로 기록한 값이라
-# 자가신고가 아님)를 합산하고 tool_use 콘텐츠 블록 개수를 센다. 한 세션에서
-# 커밋이 여러 번 나오므로 세션 누적치를 매번 반복하면 의미가 없어, CURSOR
-# 파일에 "이미 처리한 트랜스크립트 줄 수"를 저장해두고 그 이후 구간만 델타로
-# 집계한다. 이 함수 안의 실패 지점(트랜스크립트 없음/jq 실패/커서 파싱 불가
-# 등)은 모두 return으로 조용히 빠져나가며, 이 경우 CURSOR를 갱신하지 않는다 -
-# 실제로 아무것도 읽지 못했으므로 다음 커밋이 같은 지점부터 다시 시도해야
-# 한다. trailer_ai_tool()이 채운 AI_TOOL_ID를 재사용한다.
-trailer_tokens_used() {
-  if [ "$AI_TOOL_ID" != "$AI_TOOL_CLAUDE_CODE" ] \
-    || [ -z "${CLAUDE_CODE_SESSION_ID:-}" ] || ! command -v jq >/dev/null 2>&1; then
+# Tokens-Used/Tool-Calls(decision-5 확장, GF-97 amendment): trailer_ai_model()과
+# 같은 트랜스크립트를 message.usage(Anthropic API 응답을 그대로 기록한 값이라
+# 자가신고가 아님)를 합산하고 tool_use 콘텐츠 블록 개수를 세는 데 쓴다. 한
+# 세션에서 커밋이 여러 번 나오므로 세션 누적치를 매번 반복하면 의미가 없어,
+# CURSOR 파일에 "이미 처리한 트랜스크립트 줄 수"를 저장해두고 그 이후 구간만
+# 델타로 집계한다.
+#
+# 세션 트랜스크립트를 실제로 읽어 usage를 합산할 수 있으면 MEASUREMENT_STATUS=ok와
+# TOKENS_SUM/TOOL_CALL_COUNT 전역을 채운다. 실패하면 MEASUREMENT_STATUS=unavailable +
+# MEASUREMENT_REASON(실패 지점을 가리키는 짧은 슬러그)만 남기고 TOKENS_SUM/
+# TOOL_CALL_COUNT는 건드리지 않으며 CURSOR도 갱신하지 않는다 - 다음 커밋이 같은
+# 지점부터 재시도한다. 항상 return 0으로 끝난다 - 실패 여부/사유는 exit code가
+# 아니라 MEASUREMENT_STATUS/MEASUREMENT_REASON 문자열로만 판단한다(trailer_ai_model()의
+# AI_MODEL="" 상태-변수 관례를 사유까지 남기도록 확장한 것).
+#
+# 주의(README/decision-5 참고): 이 함수가 계산하는 값은 "이 커밋을 만드는 데
+# 정확히 필요했던 토큰"이 아니라 "직전 커밋 이후 이 세션에서 소비된 토큰"의
+# 근사치다 - 그 구간에 이 커밋과 무관한 대화/탐색이 섞이면 과대평가될 수 있다.
+# 더 정확한 귀속 방법은 아직 찾는 중이다(실험적 기능). 호출 여부 자체는
+# trailer_tokens_used()가 AI_TOOL_ID로 판단하므로 이 함수는 그 값을 참조하지 않는다.
+measure_claude_code_token_usage() {
+  MEASUREMENT_STATUS="unavailable"
+  MEASUREMENT_REASON=""
+
+  if [ -z "${CLAUDE_CODE_SESSION_ID:-}" ]; then
+    MEASUREMENT_REASON="no-session-id"
+    return 0
+  fi
+  if ! command -v jq >/dev/null 2>&1; then
+    MEASUREMENT_REASON="jq-not-installed"
     return 0
   fi
 
   PROJECT_SLUG="$(printf '%s' "$PWD" | tr '/' '-')"
   TRANSCRIPT="${HOME}/.claude/projects/${PROJECT_SLUG}/${CLAUDE_CODE_SESSION_ID}.jsonl"
-  [ -f "$TRANSCRIPT" ] || return 0
+  if [ ! -f "$TRANSCRIPT" ]; then
+    MEASUREMENT_REASON="transcript-not-found"
+    return 0
+  fi
 
   TOTAL_LINES_RAW="$(wc -l < "$TRANSCRIPT" 2>/dev/null || printf '%s' '')"
-  [ -n "$TOTAL_LINES_RAW" ] || return 0
+  if [ -z "$TOTAL_LINES_RAW" ]; then
+    MEASUREMENT_REASON="transcript-unreadable"
+    return 0
+  fi
   # shellcheck disable=SC2086 # wc -l 출력의 선행 공백(BSD/GNU 패딩 차이)을 외부
   # 명령(tr) 없이 word-splitting으로 제거하는 의도적 unquoted 확장.
   set -- $TOTAL_LINES_RAW
   TOTAL_LINES="$1"
   case "$TOTAL_LINES" in
-    ''|*[!0-9]*) return 0 ;;
+    ''|*[!0-9]*)
+      MEASUREMENT_REASON="transcript-unreadable"
+      return 0
+      ;;
   esac
 
   # 커서 파일이 없거나(최초 실행) 손상됐으면 0으로 취급 - 이건 조회 자체의
-  # 실패가 아니라 "아직 아무 줄도 처리한 적 없음"과 동치이므로 return하지 않는다.
+  # 실패가 아니라 "아직 아무 줄도 처리한 적 없음"과 동치이므로 실패로 취급하지 않는다.
   CURSOR_COUNT="$(cat "$CURSOR" 2>/dev/null || printf '%s' '')"
   case "$CURSOR_COUNT" in
     ''|*[!0-9]*) CURSOR_COUNT=0 ;;
@@ -281,7 +308,7 @@ trailer_tokens_used() {
 
   # tokens 합산과 tool_use 개수를 jq 한 번으로 같이 뽑아 "토큰수 호출수" 한
   # 줄을 만든다 - jq 실패(트랜스크립트 손상 등)는 마지막 fallback으로 흡수돼
-  # USAGE_LINE이 빈 문자열이 되고, 그러면 커서를 갱신하지 않고 조용히 생략한다.
+  # USAGE_LINE이 빈 문자열이 되고, 그러면 커서를 갱신하지 않고 실패 사유를 남긴다.
   USAGE_LINE="$(printf '%s\n' "$NEW_ENTRIES" | jq -s -r '
       ([.[] | select(.type=="assistant") | .message.usage
           | ((.input_tokens // 0) + (.output_tokens // 0)
@@ -291,7 +318,10 @@ trailer_tokens_used() {
         | length) as $calls
       | "\($tokens) \($calls)"
     ' 2>/dev/null || printf '%s' '')"
-  [ -n "$USAGE_LINE" ] || return 0
+  if [ -z "$USAGE_LINE" ]; then
+    MEASUREMENT_REASON="transcript-parse-failed"
+    return 0
+  fi
   # shellcheck disable=SC2086 # jq 출력("토큰수 호출수" 한 줄)을 word-splitting으로
   # 두 값으로 분리하는 의도적 unquoted 확장.
   set -- $USAGE_LINE
@@ -301,12 +331,46 @@ trailer_tokens_used() {
   # 여기까지 왔으면 트랜스크립트를 실제로 읽어 처리했으므로, 합산값이 0이어도
   # 커서는 항상 갱신한다 - 그래야 다음 커밋이 같은 구간을 중복 집계하지 않는다.
   printf '%s' "$TOTAL_LINES" > "$CURSOR"
+  MEASUREMENT_STATUS="ok"
+  return 0
+}
 
-  if [ "$TOKENS_SUM" -gt 0 ] && ! trailer_exists "$TRAILER_TOKENS_USED" "$TOKENS_SUM"; then
-    queue_trailer "$TRAILER_TOKENS_USED" "$TOKENS_SUM"
+# trailer_tokens_used(): AI_TOOL_ID로 분기하는 디스패처(GF-97). 사람 커밋
+# (AI_TOOL_ID가 빈 값)은 트레일러를 전혀 붙이지 않는다(기존 동작 유지).
+# claude-code는 measure_claude_code_token_usage()의 실측 결과를 쓴다. 그 외
+# 감지된 AI 도구는 아직 서버발급 usage를 읽을 로컬 채널이 없으므로(decision-15)
+# 항상 "unavailable (no-usage-channel)"을 남긴다 - 나중에 새 채널이 생기면 이
+# case에 분기 하나만 추가하면 된다(trailer_ai_tool()의 AI_TOOL_ID 케이스 분기
+# 관례를 따름). 측정해서 나온 0은 "unavailable"과 구분되는 정당한 값이므로
+# -gt 0 가드 없이 그대로 기록한다.
+trailer_tokens_used() {
+  case "$AI_TOOL_ID" in
+    "")
+      return 0
+      ;;
+    "$AI_TOOL_CLAUDE_CODE")
+      measure_claude_code_token_usage
+      if [ "$MEASUREMENT_STATUS" = "ok" ]; then
+        TOKENS_VALUE="$TOKENS_SUM"
+        CALLS_VALUE="$TOOL_CALL_COUNT"
+      else
+        TOKENS_VALUE="unavailable (${MEASUREMENT_REASON})"
+        CALLS_VALUE="unavailable (${MEASUREMENT_REASON})"
+      fi
+      ;;
+    *)
+      # 그 외 감지된 AI 도구: 아직 서버발급 usage를 읽을 로컬 채널이 없다
+      # (decision-15). 향후 새 도구를 지원하려면 여기에 케이스를 추가한다.
+      TOKENS_VALUE="unavailable (no-usage-channel)"
+      CALLS_VALUE="unavailable (no-usage-channel)"
+      ;;
+  esac
+
+  if ! trailer_exists "$TRAILER_TOKENS_USED" "$TOKENS_VALUE"; then
+    queue_trailer "$TRAILER_TOKENS_USED" "$TOKENS_VALUE"
   fi
-  if [ "$TOOL_CALL_COUNT" -gt 0 ] && ! trailer_exists "$TRAILER_TOOL_CALLS" "$TOOL_CALL_COUNT"; then
-    queue_trailer "$TRAILER_TOOL_CALLS" "$TOOL_CALL_COUNT"
+  if ! trailer_exists "$TRAILER_TOOL_CALLS" "$CALLS_VALUE"; then
+    queue_trailer "$TRAILER_TOOL_CALLS" "$CALLS_VALUE"
   fi
 }
 
