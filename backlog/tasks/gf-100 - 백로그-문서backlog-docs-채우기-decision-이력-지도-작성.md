@@ -1,9 +1,11 @@
 ---
 id: GF-100
 title: 백로그 문서(backlog/docs) 채우기 + decision 이력 지도 작성
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@cpu-once'
 created_date: '2026-09-19 05:17'
+updated_date: '2026-09-19 05:26'
 labels: []
 dependencies:
   - GF-99
@@ -26,3 +28,14 @@ GF-99가 README.md를 3섹션(왜/무엇을/훅 생애주기)으로 대폭 줄�
 - [ ] #3 README.md의 "무엇을 만들었는가" 또는 "훅 생애주기" 섹션 끝에 backlog/docs의 관련 문서로 가는 링크가 최소 하나 있다
 - [ ] #4 backlog doctor가 새 문서 추가 후에도 클린하다(중복 ID 없음)
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. 7개 backlog doc 생성(guide 타입): 설치 가이드/커밋 메시지 규칙 상세/AI 귀속 트레일러 레퍼런스/커스터마이즈 가이드/저장소 구조/주의점과 한계/실사용 예시 워크스루 - GF-99 이전 README(git show 11e874a:README.md) 원문을 요약 없이 그대로 옮김
+2. decision 이력 지도 doc 신규 작성 - decision 15개 전부 커버, 대체체인 6개 표, tasks/completed/archive 라이프사이클 설명
+3. README.md에 backlog/docs 링크 한 줄 추가(무엇을 만들었는가 또는 훅 생애주기 섹션 끝)
+4. backlog doctor로 중복 ID 없음 확인
+5. shellcheck+bats 재확인
+6. AC 4개 검증 후 Done
+<!-- SECTION:PLAN:END -->
