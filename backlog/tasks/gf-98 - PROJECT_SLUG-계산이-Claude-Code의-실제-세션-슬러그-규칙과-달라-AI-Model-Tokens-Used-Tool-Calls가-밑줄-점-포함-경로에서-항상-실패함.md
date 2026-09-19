@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-18 16:21'
-updated_date: '2026-09-19 01:25'
+updated_date: '2026-09-19 01:41'
 labels: []
 milestone: m-2
 dependencies: []
@@ -45,3 +45,9 @@ GF-97(같은 함수를 다루는 unavailable+사유 명시 기능)과 밀접하�
 4. 이 저장소 자신에서 실커밋 하나 만들어 AI-Model/Tokens-Used/Tool-Calls가 실제로 채워지는지 수동 확인, 근거를 구현 노트에 남김.
 5. shellcheck -s sh hooks/post-commit 클린 확인.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+AC3 근거: (1) 실제 머신에서 tr -c 'A-Za-z0-9' '-' 를 $HOME=/Users/flynn_macpro 를 포함한 실제 프로젝트 경로(/Users/flynn_macpro/githubs/git-format)에 적용한 결과가 Claude Code가 실제로 만든 ~/.claude/projects/ 디렉터리명(-Users-flynn-macpro-githubs-git-format)과 정확히 일치함을 확인. 반면 수정 전 알고리즘(tr '/' '-')은 -Users-flynn_macpro-githubs-git-format(밑줄 보존)를 만들어 실제 디렉터리와 어긋남 - 버그와 수정 둘 다 실측 재현. (2) gf-98-worktree에서 FAKE_HOME + 수정된 알고리즘으로 계산한 SLUG 위치에 트랜스크립트를 배치하고 실제 git commit(HOME 오버라이드, bats 아님)을 만들어 AI-Model: claude-manual-verify / Tokens-Used: 168 / Tool-Calls: 2 트레일러가 크래프팅한 값과 정확히 일치함을 확인 - 검증 후 해당 임시 커밋은 git reset --hard로 되돌림(히스토리에는 남기지 않음, 근거는 이 노트에 기록).
+<!-- SECTION:NOTES:END -->
