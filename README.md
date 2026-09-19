@@ -55,16 +55,17 @@ mvn/sqlfluff 등)는 있으면 쓰고 없으면 조용히 건너뛰도록 만들
 
 `git commit`을 실행하면 아래 순서로 훅이 개입한다는 점을 말씀드립니다.
 
-1. **`pre-commit`** — 스테이징된 파일로 언어를 감지해(`package.json`/`pyproject.toml`·
-   `requirements.txt`/`pom.xml`·`build.gradle*`/`CMakeLists.txt`·`Makefile`/`.sqlfluff`·
-   추적된 `*.sql`) `hooks/checks/<lang>.sh`로 lint/컴파일/포맷 검사를 돌립니다(SQL은
-   sqlfluff, decision-6). 통과하면 검증 마커를 남깁니다.
-2. **`commit-msg`** — 커밋 메시지가 `[type][subsystem] <description>` 형식인지, 제목
+1. **[`pre-commit`](hooks/pre-commit)** — 스테이징된 파일로 언어를 감지해(`package.json`/
+   `pyproject.toml`·`requirements.txt`/`pom.xml`·`build.gradle*`/`CMakeLists.txt`·
+   `Makefile`/`.sqlfluff`·추적된 `*.sql`) [`hooks/checks/<lang>.sh`](hooks/checks/)로
+   lint/컴파일/포맷 검사를 돌립니다(SQL은 sqlfluff, decision-6). 통과하면 검증
+   마커를 남깁니다.
+2. **[`commit-msg`](hooks/commit-msg)** — 커밋 메시지가 `[type][subsystem] <description>` 형식인지, 제목
    50자/본문 줄 72자 이내인지, 본문이 있으면 빈 줄이 있는지, 브랜치명에
    Task-Id(`GF-<번호>`, decision-4)가 있는지, (non-Claude-Code AI 도구라면) `AI-Model`이
    화이트리스트에 있는지 검증합니다. 여기서 거부되면 커밋 자체가 만들어지지 않습니다.
 3. **(커밋 생성)** — 둘 다 통과하면 git이 실제로 커밋을 만듭니다.
-4. **`post-commit`** — `pre-commit`/`commit-msg`와 달리 `--no-verify`로도 건너뛸 수
+4. **[`post-commit`](hooks/post-commit)** — `pre-commit`/`commit-msg`와 달리 `--no-verify`로도 건너뛸 수
    없고, exit code가 커밋 결과에 영향을 주지도 못한다는 점을 [공식
    문서](https://git-scm.com/docs/githooks)로도 확인하실 수 있습니다 — git이 항상 실행을
    보장하는 이 훅에서, `pre-commit`이 남긴 검증 마커가 없으면(= `--no-verify`로 건너뛴
