@@ -222,7 +222,7 @@ trailer_ai_model() {
 
   if [ "$AI_TOOL_ID" = "$AI_TOOL_CLAUDE_CODE" ] \
     && [ -n "${CLAUDE_CODE_SESSION_ID:-}" ] && command -v jq >/dev/null 2>&1; then
-    PROJECT_SLUG="$(printf '%s' "$PWD" | tr '/' '-')"
+    PROJECT_SLUG="$(printf '%s' "$PWD" | tr -c 'A-Za-z0-9' '-')"
     TRANSCRIPT="${HOME}/.claude/projects/${PROJECT_SLUG}/${CLAUDE_CODE_SESSION_ID}.jsonl"
     if [ -f "$TRANSCRIPT" ]; then
       AI_MODEL="$(tail -n 200 "$TRANSCRIPT" 2>/dev/null \
@@ -271,7 +271,7 @@ measure_claude_code_token_usage() {
     return 0
   fi
 
-  PROJECT_SLUG="$(printf '%s' "$PWD" | tr '/' '-')"
+  PROJECT_SLUG="$(printf '%s' "$PWD" | tr -c 'A-Za-z0-9' '-')"
   TRANSCRIPT="${HOME}/.claude/projects/${PROJECT_SLUG}/${CLAUDE_CODE_SESSION_ID}.jsonl"
   if [ ! -f "$TRANSCRIPT" ]; then
     MEASUREMENT_REASON="transcript-not-found"
