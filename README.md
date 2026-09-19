@@ -38,9 +38,6 @@ npm/pip 같은 별도 런타임 없이, `core.hooksPath` · `commit.template` ·
 남기는 것도 같은 목적의 연장선입니다 — 다만 이 측정 방법론은 아직 실험 단계입니다
 (자세한 내용은 아래 [훅 생애주기](#-훅-생애주기마다-어떤-훅이-동작하는가) 참고).
 
-> 설계 배경과 각 결정의 이유는 [`backlog/decisions/`](./backlog/decisions)에, 작업 단위는
-> [`backlog/tasks/`](./backlog/tasks)에 기록돼 있습니다. `backlog board`로 진행 상황을 볼 수 있습니다.
-
 ## 🛠️ 무엇을 만들었는가
 
 POSIX sh 훅 3개(`hooks/pre-commit`, `hooks/commit-msg`, `hooks/post-commit`) + 설정
@@ -49,32 +46,6 @@ POSIX sh 훅 3개(`hooks/pre-commit`, `hooks/commit-msg`, `hooks/post-commit`) +
 `init.templateDir` · `git interpret-trailers` 같은 git 내장 메커니즘만 쓰고, npm/pip
 같은 별도 런타임 의존성이 없습니다 — 언어별 lint 도구(npm/ruff/clang-format/mvn/sqlfluff
 등)는 있으면 쓰고 없으면 조용히 건너뜁니다.
-
-### 기존 저장소에 적용
-
-```sh
-git clone https://github.com/amosQP/git-format.git ~/git-format   # 원하는 위치에 한 번만 클론
-cd ~/my-project
-~/git-format/install.sh
-```
-
-대상 디렉터리를 인자로 줘도 됩니다: `~/git-format/install.sh ~/my-project`.
-
-### 앞으로 만들 모든 새 저장소에 자동 적용
-
-```sh
-~/git-format/install.sh --global
-```
-
-`git init`/`git clone`을 실행할 때마다 훅과 커밋 템플릿이 자동으로 심어집니다
-(`init.templateDir`). 대화형 터미널에서 인자 없이 실행하면 이 적용 여부를 물어보고,
-`--global`/`--no-global`로 비대화형 지정도 가능합니다.
-
-라이선스는 MIT입니다(전문: [`LICENSE`](./LICENSE)) — 저장소 전체가 단일 라이선스이며,
-외부 문서를 원문 그대로 저장소에 vendoring하지 않습니다(decision-14).
-
-설치 상세, 커밋 메시지 규칙 전문, AI 귀속 트레일러 전체 표, 커스터마이즈, 저장소
-구조, 주의점·한계 등 더 자세한 내용은 [`backlog/docs/`](./backlog/docs)에 있습니다.
 
 ## 🪝 훅 생애주기마다 어떤 훅이 동작하는가
 
@@ -121,3 +92,35 @@ Hooks-Commit: b5bf03a
 
 git-format은 커밋 단계까지만 다룹니다 — `git push`는 아무 훅도 거치지 않는 평범한
 push입니다(decision-12).
+
+## 🚀 설치 방법
+
+### 기존 저장소에 적용
+
+```sh
+git clone https://github.com/amosQP/git-format.git ~/git-format   # 원하는 위치에 한 번만 클론
+cd ~/my-project
+~/git-format/install.sh
+```
+
+대상 디렉터리를 인자로 줘도 됩니다: `~/git-format/install.sh ~/my-project`.
+
+### 앞으로 만들 모든 새 저장소에 자동 적용
+
+```sh
+~/git-format/install.sh --global
+```
+
+`git init`/`git clone`을 실행할 때마다 훅과 커밋 템플릿이 자동으로 심어집니다
+(`init.templateDir`). 대화형 터미널에서 인자 없이 실행하면 이 적용 여부를 물어보고,
+`--global`/`--no-global`로 비대화형 지정도 가능합니다.
+
+## 📚 더 자세한 내용이 궁금하시다면
+
+- **설치 상세, 커밋 메시지 규칙 전문, AI 귀속 트레일러 표, 커스터마이즈, 저장소 구조,
+  주의점·한계**는 `backlog doc list`에서 확인할 수 있습니다.
+- **설계 배경과 각 결정 이유**(decision-1~15)는 `backlog decision list`에서 확인할
+  수 있습니다.
+- **작업 단위와 진행 상황**은 `backlog board`에서 확인할 수 있습니다.
+- **라이선스**는 MIT입니다(전문: [`LICENSE`](./LICENSE)) — 외부 문서를 원문 그대로
+  vendoring하지 않습니다(decision-14).
