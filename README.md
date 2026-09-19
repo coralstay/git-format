@@ -53,7 +53,46 @@ mvn/sqlfluff 등)는 있으면 쓰고 없으면 조용히 건너뛰도록 만들
 
 > 공식 문서: [githooks(5)](https://git-scm.com/docs/githooks)
 
-`git commit`을 실행하면 아래 순서로 훅이 개입한다는 점을 말씀드립니다.
+git이 공식적으로 제공하는 훅은 총 28개입니다. 이 중 git-format이 실제로 구현해
+연결한 것은 커밋 단계의 3개(`pre-commit`/`commit-msg`/`post-commit`)뿐이라는 점을
+표로 정리해 드립니다. 훅 이름을 누르시면 실제 소스 파일로 이동합니다.
+
+| 훅 | 실행 시점 | git-format 연결 |
+| --- | --- | --- |
+| `applypatch-msg` | `git am` 패치 적용 전 커밋 메시지 검증/수정 | — |
+| `pre-applypatch` | `git am` 패치 적용 후 커밋 전 작업 트리 검사 | — |
+| `post-applypatch` | `git am` 패치 적용·커밋 완료 후 알림 | — |
+| **`pre-commit`** | `git commit` 커밋 전 코드 검사 | [`hooks/pre-commit`](hooks/pre-commit) |
+| `pre-merge-commit` | `git merge` 완료 후 커밋 메시지 입력 전 | — |
+| `prepare-commit-msg` | 기본 커밋 메시지 준비 후 에디터 시작 전 | — |
+| **`commit-msg`** | 커밋 메시지 형식 검증/수정 | [`hooks/commit-msg`](hooks/commit-msg) |
+| **`post-commit`** | 커밋 완료 후 알림(git이 항상 실행을 보장) | [`hooks/post-commit`](hooks/post-commit) |
+| `pre-rebase` | `git rebase` 전, 특정 브랜치 리베이스 방지 | — |
+| `post-checkout` | `git checkout`/`switch` 후 작업 트리 업데이트 후 | — |
+| `post-merge` | `git merge`/`pull` 완료 후 | — |
+| `pre-push` | `git push` 전, 푸시 거부 가능 | — |
+| `pre-receive` | (서버측) 참조 업데이트 시작 전 | — |
+| `update` | (서버측) 참조별 업데이트 전, 강제 푸시 방지 | — |
+| `proc-receive` | (서버측) 특정 참조 업데이트 처리 | — |
+| `post-receive` | (서버측) 모든 참조 업데이트 완료 후, 알림/배포 | — |
+| `post-update` | (서버측) 모든 참조 업데이트 후, HTTP 정보 갱신 | — |
+| `reference-transaction` | 참조 업데이트 트랜잭션 모니터링 | — |
+| `push-to-checkout` | push가 현재 체크아웃 브랜치를 업데이트할 때 | — |
+| `pre-auto-gc` | `git gc --auto` 전 | — |
+| `post-rewrite` | `commit --amend`/`rebase` 등 커밋 재작성 후 | — |
+| `sendemail-validate` | `git send-email` 발송 전 패치 검증 | — |
+| `fsmonitor-watchman` | watchman 연동 파일 변경 모니터링 | — |
+| `p4-pre-submit` | `git-p4 submit` 전 | — |
+| `p4-prepare-changelist` | p4 기본 체인지리스트 준비 후 | — |
+| `p4-changelist` | p4 체인지리스트 메시지 편집 후 | — |
+| `p4-post-changelist` | p4 제출 완료 후 | — |
+| `post-index-change` | 인덱스 write 시 | — |
+
+git-format은 push 단계(`pre-push` 이후)와 서버측 훅은 다루지 않습니다 — 커밋
+단계까지만 다룬다는 원칙(decision-11, decision-12) 때문입니다.
+
+`git commit`을 실행하면 연결된 3개 훅이 아래 순서로 개입한다는 점을 이어서
+말씀드립니다.
 
 1. **[`pre-commit`](hooks/pre-commit)** — 스테이징된 파일로 언어를 감지해(`package.json`/
    `pyproject.toml`·`requirements.txt`/`pom.xml`·`build.gradle*`/`CMakeLists.txt`·
