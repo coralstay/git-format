@@ -339,10 +339,8 @@ measure_claude_code_token_usage() {
 # (AI_TOOL_ID가 빈 값)은 트레일러를 전혀 붙이지 않는다(기존 동작 유지).
 # claude-code는 measure_claude_code_token_usage()의 실측 결과를 쓴다. 그 외
 # 감지된 AI 도구는 아직 서버발급 usage를 읽을 로컬 채널이 없으므로(decision-15)
-# 항상 "unavailable (no-usage-channel)"을 남긴다 - 나중에 새 채널이 생기면 이
-# case에 분기 하나만 추가하면 된다(trailer_ai_tool()의 AI_TOOL_ID 케이스 분기
-# 관례를 따름). 측정해서 나온 0은 "unavailable"과 구분되는 정당한 값이므로
-# -gt 0 가드 없이 그대로 기록한다.
+# 항상 "unavailable (no-usage-channel)"을 남긴다. 측정해서 나온 0은
+# "unavailable"과 구분되는 정당한 값이므로 -gt 0 가드 없이 그대로 기록한다.
 trailer_tokens_used() {
   case "$AI_TOOL_ID" in
     "")
@@ -360,7 +358,7 @@ trailer_tokens_used() {
       ;;
     *)
       # 그 외 감지된 AI 도구: 아직 서버발급 usage를 읽을 로컬 채널이 없다
-      # (decision-15). 향후 새 도구를 지원하려면 여기에 케이스를 추가한다.
+      # (decision-15).
       TOKENS_VALUE="unavailable (no-usage-channel)"
       CALLS_VALUE="unavailable (no-usage-channel)"
       ;;
