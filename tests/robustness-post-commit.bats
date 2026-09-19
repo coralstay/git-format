@@ -249,6 +249,48 @@ teardown() {
   rm -rf "$FAKE_HOME"
 }
 
+# ── PROJECT_SLUG: Claude Code 실제 세션 슬러그 규칙(GF-98) ────────────
+# Claude Code가 ~/.claude/projects/ 아래 세션 디렉터리를 만들 때 쓰는 실제
+# 규칙은 "영숫자가 아닌 모든 문자를 하이픈으로 치환"(tr -c 'A-Za-z0-9' '-')
+# 이다. 기존 GF-96/GF-97 테스트들은 SLUG를 tr '/' '-'로 계산해 훅의 버그를
+# 그대로 흉내내고 있어(둘 다 틀렸으니 우연히 일치) 이 버그를 못 잡는다.
+# 이 테스트는 저장소 최상위 디렉터리 이름 자체에 밑줄/점을 넣어(하위
+# 디렉터리에 넣어도 소용없다 - git hook은 항상 worktree 최상위를 PWD로
+# 실행된다는 것을 실측 확인함) 두 알고리즘이 반드시 갈리게 만든다.
+@test "[GF-98] 저장소 경로에 밑줄/점이 있어도 Claude Code 실제 슬러그 규칙으로 트랜스크립트를 찾아 AI-Model/Tokens-Used/Tool-Calls가 채워진다" {
+  if ! command -v jq >/dev/null 2>&1; then
+    skip "jq가 로컬에 없어 이 케이스를 검증할 수 없음"
+  fi
+
+  NESTED_REPO="${TEST_REPO}/repo_with.dot_and_underscore"
+  mkdir -p "$NESTED_REPO"
+  cd "$NESTED_REPO" || return 1
+  git init -q
+  git config commit.gpgsign false
+  git config user.email "bats@example.com"
+  git config user.name "bats"
+  git config core.hooksPath "${GITFORMAT_ROOT}/hooks"
+
+  FAKE_HOME="$(mktemp -d)"
+  SLUG="$(printf '%s' "$PWD" | tr -c 'A-Za-z0-9' '-')"
+  mkdir -p "${FAKE_HOME}/.claude/projects/${SLUG}"
+  TRANSCRIPT="${FAKE_HOME}/.claude/projects/${SLUG}/fake-session.jsonl"
+  printf '%s\n' '{"type":"assistant","message":{"model":"claude-slug-fix-test","usage":{"input_tokens":10,"output_tokens":5},"content":[{"type":"tool_use","name":"bash"}]}}' \
+    > "$TRANSCRIPT"
+
+  echo hi > a.txt
+  git add a.txt
+  HOME="$FAKE_HOME" AI_AGENT="claude-code_2-1-0" CLAUDE_CODE_SESSION_ID="fake-session" \
+    run git commit -m "[feat] underscore dot path slug"
+  [ "$status" -eq 0 ]
+  MSG="$(git log -1 --pretty=%B)"
+  [[ "$MSG" == *"AI-Model: claude-slug-fix-test"* ]]
+  [[ "$MSG" == *"Tokens-Used: 15"* ]]
+  [[ "$MSG" == *"Tool-Calls: 1"* ]]
+
+  rm -rf "$FAKE_HOME"
+}
+
 # ── 재귀가드: _GITFORMAT_AMEND_GUARD가 무한루프를 막는지 ─────────────
 
 @test "[재귀가드] --no-verify + AI 트레일러가 붙는 커밋도 유한 시간 안에 끝난다" {
