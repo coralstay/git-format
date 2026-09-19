@@ -49,6 +49,8 @@ POSIX sh 훅 3개(`hooks/pre-commit`, `hooks/commit-msg`, `hooks/post-commit`) +
 
 ## 🪝 훅 생애주기마다 어떤 훅이 동작하는가
 
+> 공식 문서: [githooks(5)](https://git-scm.com/docs/githooks)
+
 `git commit`을 실행하면 아래 순서로 훅이 개입합니다.
 
 1. **`pre-commit`** — 스테이징된 파일로 언어를 감지해(`package.json`/`pyproject.toml`·
@@ -60,7 +62,9 @@ POSIX sh 훅 3개(`hooks/pre-commit`, `hooks/commit-msg`, `hooks/post-commit`) +
    Task-Id(`GF-<번호>`, decision-4)가 있는지, (non-Claude-Code AI 도구라면) `AI-Model`이
    화이트리스트에 있는지 검증합니다. 여기서 거부되면 커밋 자체가 만들어지지 않습니다.
 3. **(커밋 생성)** — 둘 다 통과하면 git이 실제로 커밋을 만듭니다.
-4. **`post-commit`** — git이 항상 실행을 보장하는 이 훅에서, `pre-commit`이 남긴
+4. **`post-commit`** — `pre-commit`/`commit-msg`와 달리 `--no-verify`로도 건너뛸 수
+   없고, exit code가 커밋 결과에 영향을 주지도 못합니다([공식 문서](https://git-scm.com/docs/githooks)
+   참고) — git이 항상 실행을 보장하는 이 훅에서, `pre-commit`이 남긴
    검증 마커가 없으면(= `--no-verify`로 건너뛴 경우) `Verify-Bypassed: true`를
    `git commit --amend`로 프로그래밍적으로 삽입합니다(decision-3). 그리고 `Task-Id`,
    `Signed-off-by`(decision-10), `Hooks-Commit`과, AI 에이전트가 커밋했다면 아래
