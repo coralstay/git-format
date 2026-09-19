@@ -3,10 +3,10 @@ id: GF-98
 title: >-
   PROJECT_SLUG 계산이 Claude Code의 실제 세션 슬러그 규칙과 달라
   AI-Model/Tokens-Used/Tool-Calls가 밑줄/점 포함 경로에서 항상 실패함
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-18 16:21'
-updated_date: '2026-09-18 18:31'
+updated_date: '2026-09-19 01:25'
 labels: []
 milestone: m-2
 dependencies: []
@@ -35,3 +35,13 @@ GF-97(같은 함수를 다루는 unavailable+사유 명시 기능)과 밀접하�
 - [ ] #3 이 저장소 자신에서 실커밋을 하나 만들어 AI-Model/Tokens-Used/Tool-Calls가 실제로 채워지는지 수동 확인하고 구현 노트에 근거를 남긴다
 - [ ] #4 shellcheck -s sh hooks/post-commit 와 bats tests/ 전체가 경고/실패 없이 통과한다
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. tests/robustness-post-commit.bats에 실패하는 테스트 추가: 저장소 최상위 디렉터리 이름 자체에 밑줄/점을 포함시켜(하위 디렉터리는 훅 PWD에 영향 없음 - 훅은 항상 worktree root에서 실행됨을 실측 확인) tr -c A-Za-z0-9 - 로 계산한 SLUG로 FAKE_HOME 트랜스크립트를 배치하고 AI-Model/Tokens-Used/Tool-Calls가 실값으로 채워지는지 검증. bats로 RED 확인.
+2. hooks/post-commit의 trailer_ai_model()과 measure_claude_code_token_usage() 두 PROJECT_SLUG 라인을 tr -c A-Za-z0-9 - 로 수정.
+3. 같은 테스트 재실행해 GREEN 확인, bats tests/ 전체 재실행해 회귀 없는지 확인.
+4. 이 저장소 자신에서 실커밋 하나 만들어 AI-Model/Tokens-Used/Tool-Calls가 실제로 채워지는지 수동 확인, 근거를 구현 노트에 남김.
+5. shellcheck -s sh hooks/post-commit 클린 확인.
+<!-- SECTION:PLAN:END -->
