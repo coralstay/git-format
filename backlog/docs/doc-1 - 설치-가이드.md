@@ -3,7 +3,7 @@ id: doc-1
 title: 설치 가이드
 type: guide
 created_date: '2026-09-19 05:27'
-updated_date: '2026-09-19 05:27'
+updated_date: '2026-09-19 09:33'
 ---
 ## 🚀 설치
 
@@ -49,6 +49,6 @@ cd ~/my-project
 | `template/hooks/*`        | 이 git-format 클론 자신의 `template/` 안 | `install.sh --global` 실행 시                      | 클론 위치를 가리키는 심볼릭 링크, 커밋 안 됨(`.gitignore`)              |
 
 **커밋 자체가 바뀌는 경우**: `post-commit`이 조건에 따라 `git commit --amend`로
-방금 만든 커밋의 footer에 트레일러를 추가합니다(아래 [🕵️ `--no-verify` 우회 탐지](#️---no-verify-우회-탐지),
-[🤖 AI 귀속 footer](#-ai-귀속-footer) 참고) — 이 경우 커밋 해시가 한 번 더 바뀝니다. 기존 소스 파일
-내용은 건드리지 않습니다.
+방금 만든 커밋의 footer에 트레일러를 추가합니다(README의 "훅 생애주기" 섹션과
+doc-3 "AI 귀속 트레일러 레퍼런스" 참고) — 이 경우 커밋 해시가 한 번 더 바뀝니다.
+기존 소스 파일 내용은 건드리지 않습니다.

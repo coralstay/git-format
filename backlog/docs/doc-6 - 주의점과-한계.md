@@ -3,7 +3,7 @@ id: doc-6
 title: 주의점과 한계
 type: guide
 created_date: '2026-09-19 05:27'
-updated_date: '2026-09-19 05:27'
+updated_date: '2026-09-19 09:33'
 ---
 ## ⚠️ 주의점
 
@@ -22,8 +22,8 @@ updated_date: '2026-09-19 05:27'
   트레일러가 붙을 때마다 커밋이 한 번 더 amend됩니다 — 커밋 해시를 미리 캐싱하는
   외부 도구가 있다면 이 점을 인지해야 합니다.
 - **비-Claude-Code AI 도구는 설정 없이 커밋이 막힐 수 있습니다.** `AI_AGENT` 환경변수가
-  감지되는데 `gitformat.aiModel`을 안 정했다면 `commit-msg`가 거부합니다([🔧 커스터마이즈](#-커스터마이즈)
-  참고).
+  감지되는데 `gitformat.aiModel`을 안 정했다면 `commit-msg`가 거부합니다(doc-4
+  "커스터마이즈 가이드" 참고).
 
 ## 🚧 한계 및 향후 검토 과제
 

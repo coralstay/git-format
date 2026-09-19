@@ -3,7 +3,7 @@ id: doc-7
 title: 실사용 예시 워크스루
 type: guide
 created_date: '2026-09-19 05:27'
-updated_date: '2026-09-19 05:27'
+updated_date: '2026-09-19 09:34'
 ---
 ## 📌 실제 사용법
 
@@ -38,7 +38,7 @@ git commit
    [git-format] ts: npm run lint
    ```
 2. **`commit-msg`**가 방금 쓴 커밋 메시지 제목과 브랜치명을 검사합니다.
-   `commit.template`이 설정돼 있으면 에디터에 [📝 커밋 메시지 규칙](#-커밋-메시지-규칙)의
+   `commit.template`이 설정돼 있으면 에디터에 doc-2 "커밋 메시지 규칙 상세"의
    형식 안내가 주석으로 미리 채워져 있습니다. 형식에 안 맞으면:
    ```
    commit-msg: 커밋 메시지가 [type][subsystem] 형식이 아닙니다.
@@ -54,7 +54,7 @@ git commit
    ```
 3. 둘 다 통과하면 커밋이 만들어지고, **`post-commit`**이 `Task-Id`/`Hooks-Commit`
    등 트레일러를 자동으로 붙입니다(내부적으로 `git commit --amend` 1회 실행 —
-   [🕵️ `--no-verify` 우회 탐지](#️---no-verify-우회-탐지) 참고).
+   README의 "훅 생애주기" 섹션 참고).
 
 ### 4. 결과 확인
 
@@ -71,7 +71,7 @@ git log -1
 ```
 
 AI 코딩 에이전트로 커밋했다면 `AI-Tool`/`AI-Model`/`Co-Authored-By` 등이
-더 붙습니다 — [🤖 AI 귀속 footer](#-ai-귀속-footer) 참고.
+더 붙습니다 — doc-3 "AI 귀속 트레일러 레퍼런스" 참고.
 
 ### 5. 급할 때 `--no-verify`로 건너뛰기
 
@@ -96,4 +96,4 @@ git log -1
 
 git-format은 커밋 단계까지만 다룹니다 — `git push`는 아무 훅도 거치지 않는
 평범한 push입니다(decision-12). push 단계 검증이 필요하면 컨슈머가 직접
-CI나 서버측으로 구성해야 합니다([⚠️ 주의점](#️-주의점) 참고).
+CI나 서버측으로 구성해야 합니다(doc-6 "주의점과 한계" 참고).
