@@ -1,11 +1,11 @@
 ---
 id: GF-112
 title: 'Python 전환 마무리: hooks readme 2종 + 전체 검증'
-status: To Do
+status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-09-24 09:24'
-updated_date: '2026-09-24 14:19'
+updated_date: '2026-09-24 18:20'
 labels:
   - python-migration
   - ci
@@ -68,6 +68,8 @@ GF-109, GF-110, GF-111이 전부 완료된 뒤에만 가능하다(GF-108은 완�
 - [ ] #3 hooks/checks/readme.md가 신설되어 pre-commit의 마커 기반 언어 감지·sys.executable 호출 디스패치 메커니즘과 5개 언어별 스크립트의 역할·외부 도구 의존성을 설명한다
 - [ ] #4 bats tests/ 전체가 통과하고, 인터프리터 기동 지연시간을 sh 대비 실측한다(체감 문제가 확인될 때만 -S 플래그/지연 import 적용, 선제 최적화 금지)
 - [ ] #5 수동 스모크 테스트로 install.sh 템플릿 경로(template/hooks/* 심볼릭 링크)를 실제로 태워 (a) 정상 커밋 성공 (b) 형식 위반 거부 (c) --no-verify 시 Verify-Bypassed 소급 삽입 (d) AI 귀속 트레일러 삽입을 확인한다 - bats의 make_isolated_repo()는 core.hooksPath 직접 지정만 써서 심볼릭 링크 해석 경로를 검증하지 못하므로 필수
+- [ ] #6 GF-111에서 이월: transcript-parse-failed를 검증하는 bats 케이스를 추가한다. GF-111 AC #4가 고정한 '한 줄이라도 파싱 실패하면 배치 전체 실패, 커서 미갱신' 동작을 지금은 스위트가 보호하지 않는다(손으로만 확인됨)
+- [ ] #7 GF-111에서 이월: jq 제거로 더 이상 발생하지 않는 unavailable (jq-not-installed) 슬러그가 README.md와 backlog/docs/doc-3의 사유 목록에 남아 있다. 두 곳을 실제 사유 목록과 맞춘다(decision-5/doc-9의 과거 기록은 이력이므로 건드리지 않는다)
 <!-- AC:END -->
 
 ## Definition of Done
