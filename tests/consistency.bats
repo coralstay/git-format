@@ -1,7 +1,12 @@
 #!/usr/bin/env bats
 # 여러 파일에 "값은 같아야 하지만 로직/문서는 공유하지 않는" 항목들이 실제로
 # 일치하는지 검증한다(런타임 결합 없이 테스트로만 drift를 잡는다는 게 이
-# 프로젝트의 설계 원칙 - decision-8/decision-9 참고).
+# 프로젝트의 설계 원칙 - decision-8 참고).
+#
+# 여기 남은 두 건은 구현 언어와 무관한 설정/문서 값의 일치만 본다. 훅 소스를
+# 텍스트로 떠서 사본끼리 비교하던 검사(resolve_self, TASK_PREFIX/BRANCH 블록,
+# conf 읽기 가드)는 구현 언어에 묶인 검사라 GF-108에서 전부 삭제했다 - 같은
+# 회귀는 각 훅을 실제로 실행해 결과를 보는 행위 검증 테스트가 잡는다.
 
 load 'helpers/git-format'
 
@@ -56,86 +61,4 @@ load 'helpers/git-format'
       false
     fi
   done
-}
-
-@test "resolve_self() 3개 사본이 글자 그대로 동일하다 (GF-62/GF-72)" {
-  # commit-msg/pre-commit/post-commit은 각자 독립적으로 resolve_self()를 갖고
-  # 있다(로직은 공유하지 않는다는 설계 원칙, decision-9). 이 함수 자체는 지금
-  # 3곳 모두 동일해야 하고, 한 곳만 고치고 나머지를 빠뜨리면(GF-16류) 이
-  # 테스트가 잡는다. 새 파일에 resolve_self를 추가할 때는 이 목록도 같이
-  # 갱신해야 한다. checks/*는 Python으로 포팅되면서 realpath를 쓰게 되어
-  # resolve_self 자체가 없다(GF-108).
-  files="${GITFORMAT_ROOT}/hooks/commit-msg
-${GITFORMAT_ROOT}/hooks/pre-commit
-${GITFORMAT_ROOT}/hooks/post-commit"
-
-  reference=""
-  while IFS= read -r f; do
-    body="$(awk '/^resolve_self\(\) \{/,/^\}/' "$f")"
-    if [ -z "$body" ]; then
-      echo "resolve_self()를 찾을 수 없음: $f" >&2
-      false
-    fi
-    if [ -z "$reference" ]; then
-      reference="$body"
-    elif [ "$body" != "$reference" ]; then
-      echo "resolve_self()가 다름: $f" >&2
-      false
-    fi
-  done <<EOF
-$files
-EOF
-}
-
-@test "TASK_PREFIX/BRANCH 계산 블록이 commit-msg와 post-commit에서 동일하다 (GF-70)" {
-  # commit-msg가 검증한 Task-Id 브랜치 패턴을 post-commit이 그대로 재파싱해
-  # 트레일러로 남긴다(decision-4) - 두 파일이 TASK_PREFIX_DEFAULT/TASK_PREFIX/
-  # BRANCH를 계산하는 로직이 정확히 같아야만 서로 어긋나지 않는다. resolve_self
-  # 처럼 이 블록도 로직은 공유하지 않고(독립 설계) 동일성만 테스트로 보장한다.
-  # GF-87부터 이 블록은 두 파일 다 함수(enforce_task_id_branch/trailer_task_id)
-  # 안에 있어 2칸 들여쓰기가 붙는다.
-  extract_block() {
-    awk '/^  TASK_PREFIX_DEFAULT=/,/^  readonly BRANCH$/' "$1"
-  }
-
-  commit_msg_block="$(extract_block "${GITFORMAT_ROOT}/hooks/commit-msg")"
-  post_commit_block="$(extract_block "${GITFORMAT_ROOT}/hooks/post-commit")"
-
-  [ -n "$commit_msg_block" ]
-  [ -n "$post_commit_block" ]
-  [ "$commit_msg_block" = "$post_commit_block" ]
-}
-
-@test "gitformat.conf 읽기 검증 가드가 CONF를 읽는 4개 파일에서 동일하다 (GF-76)" {
-  # commit-msg/pre-commit/post-commit/install.sh는 각자 독립적으로 이 가드를
-  # 갖고 있다(resolve_self와 같은 설계 원칙, decision-9). gitformat.conf 자체를
-  # 못 읽을 때 원인을 명확히 알려주는 조기 진단이라, 4곳 모두 같은 문구/로직이어야
-  # 한다. 새 파일에 CONF를 읽는 로직을 추가할 때는 이 목록도 같이 갱신해야 한다.
-  # checks/*.py도 같은 가드를 갖지만 sh가 아니라 Python 문법이라 여기서 함께
-  # 비교하지 않는다(GF-108).
-  files="${GITFORMAT_ROOT}/hooks/commit-msg
-${GITFORMAT_ROOT}/hooks/pre-commit
-${GITFORMAT_ROOT}/hooks/post-commit
-${GITFORMAT_ROOT}/install.sh"
-
-  extract_block() {
-    awk '/^if ! git config --file "\$CONF" --list/,/^fi$/' "$1"
-  }
-
-  reference=""
-  while IFS= read -r f; do
-    body="$(extract_block "$f")"
-    if [ -z "$body" ]; then
-      echo "gitformat.conf 읽기 검증 가드를 찾을 수 없음: $f" >&2
-      false
-    fi
-    if [ -z "$reference" ]; then
-      reference="$body"
-    elif [ "$body" != "$reference" ]; then
-      echo "gitformat.conf 읽기 검증 가드가 다름: $f" >&2
-      false
-    fi
-  done <<EOF
-$files
-EOF
 }
