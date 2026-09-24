@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@claude'
 created_date: '2026-09-24 09:24'
-updated_date: '2026-09-24 10:08'
+updated_date: '2026-09-24 11:49'
 labels:
   - python-migration
   - ci
@@ -87,3 +87,9 @@ GF-108, GF-110, GF-109, GF-111가 전부 완료된 뒤에만 가능하다. consi
 7. 지연시간 실측 - 같은 시나리오를 sh 버전(이전 커밋 체크아웃)과 Python 버전에서 반복 측정해 비교한다. 체감 문제가 확인될 때만 -S 플래그나 지연 import를 적용하고, 그렇지 않으면 적용하지 않는다
 8. 스크래치 저장소에서 install.sh를 실제로 실행해 template 경로로 (a) 정상 커밋 (b) 형식 위반 거부 (c) --no-verify 후 Verify-Bypassed 삽입 (d) AI 귀속 트레일러 삽입 4종을 수동 확인
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+GF-108 진행 중 발견(2026-09-24): hooks/gitformat.conf 헤더 주석이 'checks/cpp.sh, checks/sql.sh'를 참조한다. GF-108에서 .py로 포팅되면 죽은 참조가 되지만 conf는 GF-108의 Modified files 밖이라 손대지 않았다. 이 태스크에서 .py로 갱신할 것.
+<!-- SECTION:NOTES:END -->
