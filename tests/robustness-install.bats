@@ -36,11 +36,14 @@ teardown() {
 
 @test "[멱등성] --global을 격리된 HOME에서 두 번 연속 실행해도 template/hooks 심볼릭 링크가 정상 유지된다" {
   FAKE_HOME="$(mktemp -d)"
-  run env HOME="$FAKE_HOME" "${GITFORMAT_ROOT}/install.sh" --global
+  # --global은 전역 설정만 하는 플래그가 아니다 - install.sh는 타깃(기본값 CWD)에
+  # 대한 로컬 설치도 함께 수행한다. 타깃을 생략하면 bats의 CWD인 이 저장소 자신이
+  # 대상이 되므로 반드시 격리된 TARGET_REPO를 넘긴다(GF-123).
+  run env HOME="$FAKE_HOME" "${GITFORMAT_ROOT}/install.sh" --global "$TARGET_REPO"
   [ "$status" -eq 0 ]
   first_target="$(readlink "${GITFORMAT_ROOT}/template/hooks/pre-commit")"
 
-  run env HOME="$FAKE_HOME" "${GITFORMAT_ROOT}/install.sh" --global
+  run env HOME="$FAKE_HOME" "${GITFORMAT_ROOT}/install.sh" --global "$TARGET_REPO"
   [ "$status" -eq 0 ]
   second_target="$(readlink "${GITFORMAT_ROOT}/template/hooks/pre-commit")"
 
@@ -61,7 +64,11 @@ teardown() {
 # 심볼릭 링크는 지워지지 않고 대상 없는 채로 남았다(sync_template()이 새로
 # 생기는 파일만 링크하고, 없어진 파일의 예전 링크는 정리하지 않았기 때문).
 # 실제 hooks/ 파일을 지우는 테스트이므로, 이 저장소 자신이 아니라 격리된
-# GITFORMAT_ROOT 사본(FAKE_ROOT)에서 진행한다.
+# GITFORMAT_ROOT 사본(FAKE_ROOT)에서 진행한다. 격리해야 하는 것이 훅 소스만은
+# 아니다 - install.sh는 타깃(기본값 CWD)에 로컬 설치도 하므로 타깃도 함께
+# 격리해야 한다. 예전엔 타깃을 생략해서, 이 테스트를 돌릴 때마다 실제 저장소의
+# core.hooksPath가 곧 삭제될 FAKE_ROOT를 가리키게 되고 이후 모든 커밋에서 훅이
+# 조용히 죽었다(GF-123).
 @test "[정리] hooks/에서 파일이 삭제된 뒤 --global을 재실행하면 template/hooks의 대응 심볼릭 링크도 삭제된다" {
   FAKE_HOME="$(mktemp -d)"
   FAKE_ROOT="$(mktemp -d)"
@@ -69,7 +76,7 @@ teardown() {
   cp "${GITFORMAT_ROOT}/install.sh" "${FAKE_ROOT}/install.sh"
   cp "${GITFORMAT_ROOT}/.gitmessage" "${FAKE_ROOT}/.gitmessage"
 
-  run env HOME="$FAKE_HOME" "${FAKE_ROOT}/install.sh" --global
+  run env HOME="$FAKE_HOME" "${FAKE_ROOT}/install.sh" --global "$TARGET_REPO"
   [ "$status" -eq 0 ]
   [ -L "${FAKE_ROOT}/template/hooks/pre-commit" ]
   [ -L "${FAKE_ROOT}/template/hooks/commit-msg" ]
@@ -77,7 +84,7 @@ teardown() {
   # hooks/에서 파일 하나를 지운다 (GF-86의 hooks/pre-push 삭제 상황 재현)
   rm "${FAKE_ROOT}/hooks/pre-commit"
 
-  run env HOME="$FAKE_HOME" "${FAKE_ROOT}/install.sh" --global
+  run env HOME="$FAKE_HOME" "${FAKE_ROOT}/install.sh" --global "$TARGET_REPO"
   [ "$status" -eq 0 ]
 
   # 삭제된 파일에 대응하는 심볼릭 링크는 사라져야 한다 (깨진 링크로도 남으면 안 됨)
@@ -87,6 +94,32 @@ teardown() {
   # 여전히 존재하는 훅의 심볼릭 링크는 그대로 유지된다
   [ -L "${FAKE_ROOT}/template/hooks/commit-msg" ]
   [ -L "${FAKE_ROOT}/template/hooks/post-commit" ]
+}
+
+# ── 회귀: 테스트가 이 저장소 자신의 설정을 오염시키지 않는다 ──────
+
+# GF-123: --global 케이스들이 타깃 인자를 생략해, install.sh의 기본 타깃인
+# CWD(=이 저장소)에 로컬 설치가 함께 일어났다. 그 결과 스위트를 한 번 돌릴
+# 때마다 이 저장소의 core.hooksPath가 곧 삭제될 임시 경로를 가리키게 되고,
+# 이후 모든 커밋에서 훅이 조용히 실행되지 않았다(에러 없이 트레일러만 사라짐).
+# --global이 "전역 설정만 한다"는 뜻이 아니라는 점을 고정한다.
+@test "[GF-123 회귀] --global 실행이 이 저장소 자신의 core.hooksPath를 바꾸지 않는다" {
+  FAKE_HOME="$(mktemp -d)"
+  FAKE_ROOT="$(mktemp -d)"
+  cp -R "${GITFORMAT_ROOT}/hooks" "${FAKE_ROOT}/hooks"
+  cp "${GITFORMAT_ROOT}/install.sh" "${FAKE_ROOT}/install.sh"
+  cp "${GITFORMAT_ROOT}/.gitmessage" "${FAKE_ROOT}/.gitmessage"
+
+  before="$(git -C "$GITFORMAT_ROOT" config --get core.hooksPath || true)"
+
+  run env HOME="$FAKE_HOME" "${FAKE_ROOT}/install.sh" --global "$TARGET_REPO"
+  [ "$status" -eq 0 ]
+
+  after="$(git -C "$GITFORMAT_ROOT" config --get core.hooksPath || true)"
+  [ "$before" = "$after" ]
+
+  # 타깃 쪽에는 정상적으로 설치됐어야 한다(설치 자체가 안 된 것으로 통과하면 안 됨).
+  [ "$(git -C "$TARGET_REPO" config --get core.hooksPath)" = "${FAKE_ROOT}/hooks" ]
 }
 
 # ── 에러 메시지: 잘못된 인자 ──────────────────────────────────────
