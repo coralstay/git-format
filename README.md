@@ -123,9 +123,8 @@ git-format은 push 단계(`pre-push` 이후)와 서버측 훅은 다루지 않�
 | `Signed-off-by`              | 커미터 정보(`git log -1 --format='%cn <%ce>'`)                                                     | 완전 자동, 모든 커밋에 적용                                  |
 
 `Tokens-Used`/`Tool-Calls` 측정에 실패하면 사유 슬러그와 함께 `unavailable (사유)`로
-기록된다는 점을 말씀드립니다 — 사유 슬러그: `no-session-id`, `jq-not-installed`,
-`transcript-not-found`, `transcript-unreadable`, `transcript-parse-failed`,
-`no-usage-channel`입니다.
+기록된다는 점을 말씀드립니다 — 사유 슬러그: `no-session-id`, `transcript-not-found`,
+`transcript-unreadable`, `transcript-parse-failed`, `no-usage-channel`입니다.
 
 예시를 보여드리면 다음과 같습니다.
 
