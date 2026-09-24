@@ -217,6 +217,47 @@ teardown() {
   rm -rf "$FAKE_HOME"
 }
 
+@test "[GF-112] 새 구간에 깨진 줄이 하나라도 있으면 배치 전체가 unavailable (transcript-parse-failed)이고 커서는 그대로다" {
+  FAKE_HOME="$(mktemp -d)"
+  SLUG="$(printf '%s' "$PWD" | tr -c 'A-Za-z0-9' '-')"
+  mkdir -p "${FAKE_HOME}/.claude/projects/${SLUG}"
+  TRANSCRIPT="${FAKE_HOME}/.claude/projects/${SLUG}/fake-session.jsonl"
+
+  printf '%s\n' '{"type":"assistant","message":{"usage":{"input_tokens":10,"output_tokens":5},"content":[]}}' \
+    > "$TRANSCRIPT"
+
+  echo hi > a.txt
+  git add a.txt
+  HOME="$FAKE_HOME" AI_AGENT="claude-code_2-1-0" CLAUDE_CODE_SESSION_ID="fake-session" \
+    run git commit -m "[feat] parse failure baseline commit"
+  [ "$status" -eq 0 ]
+  MSG1="$(git log -1 --pretty=%B)"
+  [[ "$MSG1" == *"Tokens-Used: 15"* ]]
+  [ "$(cat .git/.gitformat-token-cursor)" = "1" ]
+
+  # 새 구간에 정상 줄과 깨진 줄을 함께 넣는다 - 깨진 줄만 건너뛰고 정상 줄을
+  # 집계하면 "일부만 집계된 값"이 정상값인 척 기록되므로, 배치 전체가 실패해야
+  # 한다(GF-111 AC #4가 고정한 동작).
+  {
+    printf '%s\n' '{"type":"assistant","message":{"usage":{"input_tokens":7,"output_tokens":3},"content":[]}}'
+    printf '%s\n' '{ this line is not valid json'
+  } >> "$TRANSCRIPT"
+
+  echo bye > b.txt
+  git add b.txt
+  HOME="$FAKE_HOME" AI_AGENT="claude-code_2-1-0" CLAUDE_CODE_SESSION_ID="fake-session" \
+    run git commit -m "[feat] parse failure commit"
+  [ "$status" -eq 0 ]
+  MSG2="$(git log -1 --pretty=%B)"
+  [[ "$MSG2" == *"Tokens-Used: unavailable (transcript-parse-failed)"* ]]
+  [[ "$MSG2" == *"Tool-Calls: unavailable (transcript-parse-failed)"* ]]
+  [[ "$MSG2" != *"Tokens-Used: 10"* ]]
+  # 커서가 그대로라야 다음 커밋이 같은 구간을 다시 시도한다.
+  [ "$(cat .git/.gitformat-token-cursor)" = "1" ]
+
+  rm -rf "$FAKE_HOME"
+}
+
 # ── PROJECT_SLUG: Claude Code 실제 세션 슬러그 규칙(GF-98) ────────────
 # Claude Code가 ~/.claude/projects/ 아래 세션 디렉터리를 만들 때 쓰는 실제
 # 규칙은 "영숫자가 아닌 모든 문자를 하이픈으로 치환"(tr -c 'A-Za-z0-9' '-')
