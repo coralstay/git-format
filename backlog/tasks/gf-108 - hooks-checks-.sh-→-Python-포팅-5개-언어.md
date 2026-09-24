@@ -1,7 +1,7 @@
 ---
 id: GF-108
 title: hooks/checks/*.sh → Python 포팅 (5개 언어)
-status: In Progress
+status: Done
 assignee:
   - '@claude'
 created_date: '2026-09-24 09:23'
