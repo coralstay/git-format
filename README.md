@@ -5,12 +5,14 @@
 **여러 언어 프로젝트를 위한, git 자체 기능만으로 동작하는 커밋 규칙 · 검증 · 이력 정형화 도구**
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Shell: POSIX sh](https://img.shields.io/badge/shell-POSIX%20sh-89e051.svg)](./install.sh)
-[![Runtime deps: none](https://img.shields.io/badge/runtime%20deps-none-brightgreen.svg)](#-무엇을-만들었는지-말씀드립니다)
+[![Hooks: Python 3](https://img.shields.io/badge/hooks-Python%203-3776ab.svg)](./hooks/)
+[![Installer: POSIX sh](https://img.shields.io/badge/installer-POSIX%20sh-89e051.svg)](./install.sh)
+[![Requires: git + python3](https://img.shields.io/badge/requires-git%20%2B%20python3-brightgreen.svg)](#-필요조건을-말씀드립니다)
 
-npm/pip 같은 별도 런타임 없이, `core.hooksPath` · `commit.template` · `git interpret-trailers` 등
-**git 자체 기능만으로** 여러 저장소가 하나의 커밋 규칙을 공유할 수 있게 만들어 사용하고
-있는 도구입니다.
+`core.hooksPath` · `commit.template` · `git interpret-trailers` 등 **git 자체 기능만으로**
+여러 저장소가 하나의 커밋 규칙을 공유할 수 있게 만들어 사용하고 있는 도구입니다.
+훅은 Python 3 표준 라이브러리만 쓰므로 설치할 패키지는 없지만, `python3` 자체는
+필요합니다([필요조건](#-필요조건을-말씀드립니다)).
 
 </div>
 
@@ -42,12 +44,14 @@ npm/pip 같은 별도 런타임 없이, `core.hooksPath` · `commit.template` ·
 
 ## 🛠️ 무엇을 만들었는지 말씀드립니다
 
-POSIX sh 훅 3개(`hooks/pre-commit`, `hooks/commit-msg`, `hooks/post-commit`) + 설정
-파일 하나(`hooks/gitformat.conf`) + 설치 스크립트(`install.sh`)로 구성된, **git 자체
-기능만으로 동작하는** 도구를 만들었습니다. `core.hooksPath` · `commit.template` ·
-`init.templateDir` · `git interpret-trailers` 같은 git 내장 메커니즘만 쓰고, npm/pip
-같은 별도 런타임 의존성은 두지 않았습니다 — 언어별 lint 도구(npm/ruff/clang-format/
-mvn/sqlfluff 등)는 있으면 쓰고 없으면 조용히 건너뛰도록 만들었습니다.
+Python 훅 3개(`hooks/pre-commit`, `hooks/commit-msg`, `hooks/post-commit`) + 설정
+파일 하나(`hooks/gitformat.conf`) + POSIX sh 설치 스크립트(`install.sh`)로 구성된,
+**git 자체 기능만으로 동작하는** 도구를 만들었습니다. `core.hooksPath` ·
+`commit.template` · `init.templateDir` · `git interpret-trailers` 같은 git 내장
+메커니즘만 쓰고, 훅은 Python 3 표준 라이브러리만 씁니다(decision-16) — pip/npm으로
+설치할 패키지는 없지만 `python3` 자체는 필요합니다([필요조건](#-필요조건을-말씀드립니다)).
+언어별 lint 도구(npm/ruff/clang-format/mvn/sqlfluff 등)는 있으면 쓰고 없으면 조용히
+건너뛰도록 만들었습니다.
 
 ## 🪝 훅을 생애주기별로 정리해 드립니다
 
@@ -96,7 +100,7 @@ git-format은 push 단계(`pre-push` 이후)와 서버측 훅은 다루지 않�
 
 1. **[`pre-commit`](hooks/pre-commit)** — 스테이징된 파일로 언어를 감지해(`package.json`/
    `pyproject.toml`·`requirements.txt`/`pom.xml`·`build.gradle*`/`CMakeLists.txt`·
-   `Makefile`/`.sqlfluff`·추적된 `*.sql`) [`hooks/checks/<lang>.sh`](hooks/checks/)로
+   `Makefile`/`.sqlfluff`·추적된 `*.sql`) [`hooks/checks/<lang>.py`](hooks/checks/)로
    lint/컴파일/포맷 검사를 돌립니다(SQL은 sqlfluff, decision-6). 통과하면 검증
    마커를 남깁니다.
 2. **[`commit-msg`](hooks/commit-msg)** — 커밋 메시지가 `[type][subsystem] <description>` 형식인지, 제목
@@ -139,6 +143,30 @@ Hooks-Commit: b5bf03a
 git-format은 커밋 단계까지만 다룬다는 점을 말씀드립니다 — `git push`는 아무 훅도
 거치지 않는 평범한 push입니다(decision-12).
 
+## ✅ 필요조건을 말씀드립니다
+
+- **git**
+- **python3** — 훅 3개와 `hooks/checks/*.py`가 Python 3로 작성돼 있습니다(decision-16).
+  표준 라이브러리만 쓰므로 설치할 패키지는 없지만, **훅이 실행되는 시점의 PATH에서
+  `python3`가 잡혀야 합니다.**
+
+`python3`를 못 찾을 때의 증상은 훅마다 다릅니다.
+
+| 훅 | python3가 PATH에 없을 때 |
+| --- | --- |
+| `pre-commit`, `commit-msg` | 훅이 실패하고 git이 커밋을 막습니다 — 에러가 바로 보이는 안전한 실패입니다. |
+| `post-commit` | 커밋이 이미 만들어진 뒤라 git이 훅의 실패를 반영하지 않습니다 — 커밋은 성공한 것처럼 보이지만 `Task-Id`/`AI-Model`/`Signed-off-by` 같은 트레일러가 조용히 누락됩니다. |
+
+GUI git 클라이언트(SourceTree, GitHub Desktop, IDE 내장 git 패널)는 셸
+프로파일(`.zshrc` 등)을 거치지 않고 OS 최소 PATH만 물려받는 경우가 흔합니다. 최신
+macOS는 `/usr/bin/python3`를 기본 내장하지 않으므로, Homebrew나 pyenv로 설치한
+python3는 이런 환경에서 보이지 않을 수 있습니다.
+
+`install.sh`도 설치할 때 `python3` 존재를 확인하지만, 그건 보통 PATH가 풍부한
+터미널에서 실행되는 시점만 보장합니다 — 실제 커밋이 일어나는 시점(GUI 클라이언트의
+좁은 PATH)의 동작까지 보장하지는 못합니다. 이 한계는 코드로 우회하지 않고 알려진
+제약으로 두기로 했습니다(decision-16).
+
 ## 🚀 설치 방법을 안내해 드립니다
 
 ### 기존 저장소에 적용하는 방법입니다
@@ -165,7 +193,7 @@ cd ~/my-project
 
 - **설치 상세, 커밋 메시지 규칙 전문, AI 귀속 트레일러 표, 커스터마이즈, 저장소 구조,
   주의점·한계**는 `backlog doc list`에서 확인하실 수 있습니다.
-- **설계 배경과 각 결정 이유**(decision-1~15)는 `backlog decision list`에서
+- **설계 배경과 각 결정 이유**(decision-1~16)는 `backlog decision list`에서
   확인하실 수 있습니다.
 - **작업 단위와 진행 상황**은 `backlog board`에서 확인하실 수 있습니다.
 - **라이선스**는 MIT입니다(전문: [`LICENSE`](./LICENSE)) — 외부 문서를 원문 그대로
