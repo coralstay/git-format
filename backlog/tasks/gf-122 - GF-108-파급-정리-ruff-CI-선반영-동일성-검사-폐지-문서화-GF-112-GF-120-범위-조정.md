@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@claude'
 created_date: '2026-09-24 14:09'
-updated_date: '2026-09-24 14:23'
+updated_date: '2026-09-24 14:27'
 labels:
   - python-migration
   - ci
@@ -58,7 +58,7 @@ GF-108 완료가 선행 조건이고 이미 끝났다. GF-109/110/111과 병렬�
 - [x] #1 .github/workflows/test.yml의 static-analysis job에 ruff 스텝이 추가되고, 이 job에는 Python/ruff 설치가 없으므로(bats job만 pip install ruff를 한다) 설치 스텝도 함께 들어간다
 - [x] #2 ruff 대상이 파일 나열이 아니라 hooks/ 디렉터리 단위로 지정되어, GF-109~111에서 훅이 하나씩 Python이 돼도 이 목록을 수정할 필요가 없다
 - [x] #3 ruff 설정 파일(pyproject.toml/ruff.toml)은 만들지 않는다 - decision-16이 패키징 도입을 배제했고 기본 룰셋으로 통과한다
-- [ ] #4 PR CI에서 ruff 스텝이 실제로 hooks/checks/*.py 5개를 검사해 초록인 것이 확인된다(스텝이 조용히 0개 파일을 검사하고 통과하는 것이 아님을 출력으로 확인)
+- [x] #4 PR CI에서 ruff 스텝이 실제로 hooks/checks/*.py 5개를 검사해 초록인 것이 확인된다(스텝이 조용히 0개 파일을 검사하고 통과하는 것이 아님을 출력으로 확인)
 - [x] #5 consistency.bats 바이트 동일성 검사 폐지 경위를 담은 backlog 문서가 신설된다. 삭제한 3건(resolve_self, TASK_PREFIX/BRANCH, conf 읽기 가드)과 각각을 대체하는 행위 검증 테스트의 위치, '행위 검증만 남긴다'는 유저 결정, 그리고 파일별 독립 중복 유지 원칙(decision-8/9)은 폐기된 것이 아니라 그대로라는 점을 명시한다
 - [x] #6 그 문서가 GF-112, GF-120, DRAFT-16, 그리고 이 태스크에서 --doc으로 연결된다
 - [x] #7 GF-112의 AC #1(ruff CI)과 AC #5(consistency.bats 경로 갱신)가 제거되고, 설명 본문 4번 항목과 제목에서 consistency.bats가 빠진다. AC #2(shellcheck 대상 최종 확인)는 마지막에 해야 하므로 유지한다
@@ -68,10 +68,10 @@ GF-108 완료가 선행 조건이고 이미 끝났다. GF-109/110/111과 병렬�
 ## Definition of Done
 <!-- DOD:BEGIN -->
 - [x] #1 해당 AC 범위의 bats 서브셋이 통과한다
-- [ ] #2 CI(shellcheck + ruff)가 초록이고, ruff 스텝이 검사한 파일이 0개가 아님을 로그로 확인한다
+- [x] #2 CI(shellcheck + ruff)가 초록이고, ruff 스텝이 검사한 파일이 0개가 아님을 로그로 확인한다
 - [x] #3 변경 파일이 AC 범위를 벗어나지 않는다 - 범위 밖 작업 발견 시 유저에게 먼저 확인한다
 - [x] #4 커밋이 [type][subsystem] 규칙과 Task-Id 트레일러를 만족한다
-- [ ] #5 Done 전환 전 final summary에 객관적 검증 증거(CI 로그 등)를 남긴다
+- [x] #5 Done 전환 전 final summary에 객관적 검증 증거(CI 로그 등)를 남긴다
 - [x] #6 PR은 rebase-merge로만 머지하고(squash/merge-commit 금지), push·PR 생성·머지 각 단계 전에 git fetch로 원격 상태를 먼저 확인한다
 <!-- DOD:END -->
 
@@ -99,6 +99,8 @@ GF-108 완료가 선행 조건이고 이미 끝났다. GF-109/110/111과 병렬�
 검증: bats tests/ 100/100 통과(실패 0), shellcheck -s sh 클린, ruff 스텝을 bash로 그대로 재현해 대상 5개(중복 제거 후)와 All checks passed 확인. 가짜 확장자 없는 훅 파일을 넣었을 때 잡히는 것도 확인.
 
 AC #4와 DoD #2는 PR CI 로그에서 ruff 스텝의 검사 파일 수를 직접 확인한 뒤에 체크한다.
+
+AC #4 / DoD #2 검증 완료: PR CI(run 36012517881, static-analysis job)의 ruff 스텝 로그에서 'ruff 검사 대상 5개:' 와 checks/{cpp,java,python,sql,ts}.py 5개 전부가 나열된 뒤 'All checks passed!'가 찍힌 것을 직접 확인했다. 스텝이 0개 파일을 조용히 검사하고 통과한 것이 아님이 로그로 입증된다. bats/static-analysis 두 잡 모두 pass.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
