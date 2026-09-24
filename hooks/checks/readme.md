@@ -9,21 +9,20 @@
 값을 읽어 저장소 루트에 해당 마커 파일이 있는지 보고, 있는 언어의 스크립트만
 실행한다.
 
-| 스크립트    | 마커                                       | 외부 도구         |
-| ----------- | ------------------------------------------ | ----------------- |
-| `ts.py`     | `package.json`                             | npm, tsc          |
-| `python.py` | `pyproject.toml` 또는 `requirements.txt`   | ruff, 없으면 flake8 |
-| `java.py`   | `pom.xml` 또는 `build.gradle*`             | mvn 또는 `./gradlew` |
-| `cpp.py`    | `CMakeLists.txt` 또는 `Makefile`           | clang-format      |
-| `sql.py`    | `.sqlfluff` 또는 추적되는 `*.sql`          | sqlfluff          |
+| 스크립트    | 마커                                     | 외부 도구            |
+| ----------- | ---------------------------------------- | -------------------- |
+| `ts.py`     | `package.json`                           | npm, tsc             |
+| `python.py` | `pyproject.toml` 또는 `requirements.txt` | ruff, 없으면 flake8  |
+| `java.py`   | `pom.xml` 또는 `build.gradle*`           | mvn 또는 `./gradlew` |
+| `cpp.py`    | `CMakeLists.txt` 또는 `Makefile`         | clang-format         |
+| `sql.py`    | `.sqlfluff` 또는 추적되는 `*.sql`        | sqlfluff             |
 
 마커가 하나도 없으면 아무 것도 실행하지 않고 통과한다. `build.gradle*`와 `*.sql`은
 리터럴 파일명이 아니라 글롭이라 각각 글롭 확장과 `git ls-files`로 확인한다.
 
-호출은 `sys.executable`로 한다 — 지금 `pre-commit`을 돌리고 있는 바로 그 인터프리터를
-재사용하므로 셔뱅 해석도, 실행 권한도, 별도 런처도 필요 없고, PATH의 `python3`가
-`pre-commit`을 띄운 `python3`와 갈라질 여지도 없다. sh 시절에는 실행 권한(`-x`)까지
-확인했지만 지금은 파일 존재만 본다.
+호출은 `sys.executable`로 한다 — `pre-commit`을 돌리고 있는 바로 그 인터프리터를
+재사용하므로 별도 런처가 필요 없고, PATH의 `python3`가 그것과 갈라질 여지도 없다.
+sh 시절에는 실행 권한(`-x`)까지 봤지만 지금은 파일 존재만 확인한다.
 
 **각 스크립트가 하는 일**:
 
@@ -43,17 +42,15 @@
   `gitformat.conf`의 `sqlDialectDefault`를 `--dialect`로 명시해 넘긴다 — dialect가
   아예 없으면 sqlfluff가 린트가 아니라 사용법 에러(exit 2)로 죽는다(GF-22).
 
-공통 규칙이 둘 있다. 첫째, **외부 도구가 없으면 조용히 건너뛰고 0으로 끝낸다** —
-도구 부재로 커밋을 막지 않는다. 둘째, 파일 단위로 도는 검사(`cpp.py`/`sql.py`)는
+공통 규칙이 둘 있다. **외부 도구가 없으면 조용히 건너뛰고 0으로 끝낸다** — 도구
+부재로 커밋을 막지 않는다. 그리고 파일 단위로 도는 검사(`cpp.py`/`sql.py`)는
 워킹트리 전체가 아니라 `git diff --cached`의 스테이징 파일만 본다.
-`--diff-filter=ACMR`의 `R`은 리네임하면서 수정한 파일도 잡기 위한 것이고(GF-37),
-확장자 글롭은 셸을 거치지 않고 pathspec 인자로 그대로 넘어가므로 파일시스템에서
-미리 펼쳐질 여지가 없다(GF-81).
+`--diff-filter=ACMR`의 `R`은 리네임하면서 수정한 파일도 잡기 위한 것이다(GF-37).
 
-**언제 쓰나**: 지원 언어를 추가하거나 기존 언어의 검사 내용을 바꿀 때 쓴다. 새
-언어를 추가하려면 스크립트 파일 하나와 `gitformat.conf`의 마커 항목, `pre-commit`의
-분기 한 줄이 함께 필요하다 — 세 곳 중 하나라도 빠지면 검사가 조용히 안 돈다.
-검사 범위를 넓힐 때는 decision-12(무거운 검사는 프로젝트 범위 밖)를 먼저 확인한다.
+**언제 쓰나**: 지원 언어를 추가하거나 기존 검사 내용을 바꿀 때. 새 언어는 스크립트
+파일 하나와 `gitformat.conf`의 마커 항목, `pre-commit`의 분기 한 줄이 함께 필요하다 —
+셋 중 하나라도 빠지면 검사가 조용히 안 돈다. 검사 범위를 넓힐 때는 decision-12(무거운
+검사는 프로젝트 범위 밖)를 먼저 확인한다.
 
 **관련 명령**:
 

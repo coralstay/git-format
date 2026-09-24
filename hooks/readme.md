@@ -31,37 +31,31 @@ pre-commit → commit-msg → (커밋 객체 생성) → post-commit
 **Python 실행 요구사항**: 이 디렉터리의 8개 파일(훅 3개 + `checks/*.py`)은 전부
 Python 3이고 표준 라이브러리만 쓴다(decision-16). 셔뱅은
 `#!/usr/bin/env python3`이므로 **설치 시점이 아니라 훅이 실행되는 시점의 PATH에서**
-`python3`가 잡혀야 한다. `install.sh`의 `command -v python3` 확인은 설치 시점만
-보장한다 — GUI git 클라이언트(SourceTree, GitHub Desktop, IDE 내장 패널)는 셸
-프로파일을 거치지 않고 OS 최소 PATH만 물려받는 경우가 흔해 Homebrew/pyenv로 깐
-python3를 못 찾을 수 있다. 코드로 우회하지 않고 알려진 한계로 두기로 했다.
+`python3`가 잡혀야 한다. `install.sh`의 확인은 설치 시점만 보장한다 — GUI git
+클라이언트는 셸 프로파일을 거치지 않고 OS 최소 PATH만 물려받는 경우가 흔해
+Homebrew/pyenv로 깐 python3를 못 찾을 수 있다. 코드로 우회하지 않고 알려진 한계로
+둔다. 실패 양상도 훅마다 다르다 — `pre-commit`/`commit-msg`는 커밋이 막혀 바로
+드러나지만, `post-commit`은 커밋이 이미 만들어진 뒤라 트레일러만 조용히 빠진다.
 
-실패 양상은 훅마다 다르다. `pre-commit`/`commit-msg`는 python3를 못 찾으면 커밋이
-막혀 바로 드러나지만, `post-commit`은 커밋이 이미 만들어진 뒤라 트레일러만 조용히
-빠진 채 커밋이 성공한 것처럼 보인다.
-
-훅 파일끼리 겹치는 블록(자기 위치 해석, conf 읽기 가드, `TASK_PREFIX`/`BRANCH`
-계산)은 공유 모듈로 빼지 않고 파일마다 중복을 유지한다 — 파일 하나만 읽으면 그 훅의
-동작을 전부 파악할 수 있어야 한다는 감사 가능성 요구사항이다(decision-16).
+훅끼리 겹치는 블록(자기 위치 해석, conf 읽기 가드, `TASK_PREFIX`/`BRANCH` 계산)은
+공유 모듈로 빼지 않고 파일마다 중복을 유지한다 — 파일 하나만 읽으면 그 훅의 동작을
+전부 알 수 있어야 한다는 감사 가능성 요구사항이다(decision-16).
 
 **gitformat.conf**: git config 포맷으로 쓴 내부 기본값 상수 파일이다. 마커 파일명,
-커밋 type 목록, 트레일러 키 이름 12종, 언어 마커 파일명, 길이 제한, 알려진 모델 ID
-목록이 들어 있다. 훅 3개와 `checks/cpp.py`, `checks/sql.py`가 `git config --file`로
-읽는다 — 공유하는 건 값뿐이고 그 값을 쓰는 로직은 파일마다 독립이다. 직접 ini를
-파싱하지 않고 `git config`에 맡기는 이유는 다중값(`--get-all`)과 따옴표 처리 같은
-git 자신의 파싱 의미론과 조용히 갈라지는 걸 막기 위해서다.
+커밋 type 목록, 트레일러 키 이름, 길이 제한, 알려진 모델 ID가 들어 있고 훅 3개와
+`checks/cpp.py`, `checks/sql.py`가 `git config --file`로 읽는다. 공유하는 건 값뿐이고
+그 값을 쓰는 로직은 파일마다 독립이다. ini를 직접 파싱하지 않고 `git config`에
+맡기는 이유는 다중값(`--get-all`)과 따옴표 처리 같은 git 자신의 파싱 의미론과
+조용히 갈라지는 걸 막기 위해서다. 읽기가 실패하면 각 파일 앞부분의 동일한 가드가
+즉시 멈춘다 — 빈 값으로 진행하면 원인을 알 수 없는 거부가 된다(GF-76).
 
-이 파일은 git-format의 내부 기본값이고, 컨슈머 저장소가 자기 git config에 두는
-`gitformat.taskPrefix`/`gitformat.branchExempt`/`gitformat.aiModel` 오버라이드와는
-레이어가 다르다 — 오버라이드가 있으면 그쪽이 이긴다. 읽기 자체가 실패하면 각 파일
-앞부분의 동일한 가드가 즉시 멈춘다. 조용히 빈 값으로 진행하면 원인을 알 수 없는
-거부로 이어지기 때문이다(GF-76).
+컨슈머 저장소가 자기 git config에 두는 `gitformat.taskPrefix`/`gitformat.branchExempt`/
+`gitformat.aiModel` 오버라이드가 있으면 그쪽이 이긴다.
 
-**언제 쓰나**: 커밋 검증 규칙이나 트레일러 동작을 바꿀 때 이 디렉터리를 고친다.
-값(타입 목록, 트레일러 이름, 마커 파일명 등)만 바뀌는 변경은 `gitformat.conf`에서
-끝내고, 판단 로직이 바뀌면 해당 훅 파일을 고친다. 언어별 검사 추가·수정은
-`checks/readme.md`를 참고한다. 훅을 고친 뒤에는 `bats tests/`를 돌려야 한다 —
-이 저장소 자신도 같은 훅으로 커밋하므로 깨진 훅은 곧바로 자기 커밋을 막는다.
+**언제 쓰나**: 커밋 검증 규칙이나 트레일러 동작을 바꿀 때. 값만 바뀌면
+`gitformat.conf`에서 끝내고, 판단 로직이 바뀌면 해당 훅 파일을 고친다. 언어별 검사는
+`checks/readme.md`를 참고한다. 고친 뒤에는 `bats tests/`를 돌린다 — 이 저장소 자신도
+같은 훅으로 커밋하므로 깨진 훅은 곧바로 자기 커밋을 막는다.
 
 **관련 명령**:
 
