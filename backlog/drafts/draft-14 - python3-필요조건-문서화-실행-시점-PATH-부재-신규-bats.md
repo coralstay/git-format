@@ -5,7 +5,7 @@ status: Draft
 assignee:
   - '@claude'
 created_date: '2026-09-24 09:25'
-updated_date: '2026-09-24 09:43'
+updated_date: '2026-09-24 09:57'
 labels:
   - python-migration
   - docs
@@ -19,6 +19,7 @@ dependencies:
 documentation:
   - doc-9
   - doc-6
+  - doc-10
 modified_files:
   - README.md
   - hooks/readme.md

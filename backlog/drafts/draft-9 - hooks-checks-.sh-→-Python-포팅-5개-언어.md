@@ -5,7 +5,7 @@ status: Draft
 assignee:
   - '@claude'
 created_date: '2026-09-24 09:23'
-updated_date: '2026-09-24 09:43'
+updated_date: '2026-09-24 09:57'
 labels:
   - python-migration
   - hooks
@@ -14,6 +14,7 @@ milestone: m-3
 dependencies: []
 documentation:
   - doc-9
+  - doc-10
 modified_files:
   - hooks/checks/python.py
   - hooks/checks/ts.py
