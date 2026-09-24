@@ -1,11 +1,11 @@
 ---
 id: GF-113
 title: python3 필요조건 문서화 + 실행 시점 PATH 부재 신규 bats
-status: To Do
+status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-09-24 09:25'
-updated_date: '2026-09-24 11:49'
+updated_date: '2026-09-24 18:46'
 labels:
   - python-migration
   - docs
@@ -64,6 +64,8 @@ ordinal: 7
 - [ ] #5 tests/robustness-install.bats에 python3 없는 설치 환경 케이스가 path_without() 헬퍼를 재사용해 추가되고, install.sh 가드가 명확한 에러로 설치를 막는 것이 확인된다
 - [ ] #6 신규 bats로 훅 실행 시점 PATH에 python3이 없을 때 pre-commit/commit-msg가 nonzero로 실패해 커밋이 실제로 막히는 것이 확인된다
 - [ ] #7 신규 bats로 같은 조건에서 post-commit이 실패해도 커밋 자체는 유지되고 트레일러만 누락되는 것이 확인된다(README에 문서화한 비대칭 동작의 객관적 증거)
+- [ ] #8 AC #1의 'Runtime deps: none'과 같은 주장이 README 안에 여러 형태로 반복된다 - 배지 두 개(Shell: POSIX sh, Runtime deps: none), 상단 소개의 'npm/pip 같은 별도 런타임 없이', 'POSIX sh 훅 3개' 문구, '별도 런타임 의존성은 두지 않았습니다' 문장. python3 의존이 생긴 이상 전부 사실이 아니므로 한 곳만 고치지 말고 같이 바로잡는다
+- [ ] #9 GF-112에서 이월: backlog/docs/doc-5(저장소 구조)가 hooks/checks/*.sh를 나열하고 있어 낡았고, GF-112가 신설한 hooks/readme.md와 hooks/checks/readme.md도 반영돼 있지 않다. 전환 후 실제 구조에 맞춘다
 <!-- AC:END -->
 
 ## Definition of Done
