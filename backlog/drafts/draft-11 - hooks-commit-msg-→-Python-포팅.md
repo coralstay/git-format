@@ -5,7 +5,7 @@ status: Draft
 assignee:
   - '@claude'
 created_date: '2026-09-24 09:24'
-updated_date: '2026-09-24 09:43'
+updated_date: '2026-09-24 09:57'
 labels:
   - python-migration
   - hooks
@@ -13,11 +13,12 @@ milestone: m-3
 dependencies: []
 documentation:
   - doc-9
+  - doc-10
 modified_files:
   - hooks/commit-msg
   - .github/workflows/test.yml
 type: enhancement
-ordinal: 4
+ordinal: 3
 ---
 
 ## Description

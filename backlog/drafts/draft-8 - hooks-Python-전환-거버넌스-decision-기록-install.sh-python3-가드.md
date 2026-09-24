@@ -5,7 +5,7 @@ status: Draft
 assignee:
   - '@claude'
 created_date: '2026-09-24 09:23'
-updated_date: '2026-09-24 09:43'
+updated_date: '2026-09-24 09:57'
 labels:
   - python-migration
   - governance
@@ -13,6 +13,7 @@ milestone: m-4
 dependencies: []
 documentation:
   - doc-9
+  - doc-10
 modified_files:
   - install.sh
 priority: high

@@ -5,7 +5,7 @@ status: Draft
 assignee:
   - '@claude'
 created_date: '2026-09-24 09:24'
-updated_date: '2026-09-24 09:43'
+updated_date: '2026-09-24 09:57'
 labels:
   - python-migration
   - ci
@@ -19,6 +19,7 @@ dependencies:
 documentation:
   - doc-9
   - doc-5
+  - doc-10
 modified_files:
   - .github/workflows/test.yml
   - hooks/readme.md
