@@ -1,11 +1,11 @@
 ---
 id: GF-109
 title: hooks/commit-msg → Python 포팅
-status: To Do
+status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-09-24 09:24'
-updated_date: '2026-09-24 10:08'
+updated_date: '2026-09-24 14:49'
 labels:
   - python-migration
   - hooks
