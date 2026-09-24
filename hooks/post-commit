@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env python3
 # post-commit 훅: --no-verify 우회를 탐지해 Verify-Bypassed 트레일러를 프로그래밍적으로
 # 삽입한다(decision-3). post-commit은 --no-verify를 쓰든 --amend를 하든 git이 항상
 # 실행을 보장하는 훅이라는 점을 이용한다.
@@ -7,417 +7,502 @@
 # 이 훅은 그 마커의 존재 여부만 보고, 확인 후에는 항상(존재하든 안 하든) 지운다 —
 # 그래야 다음 커밋으로 스테일 마커가 새지 않는다.
 #
-# 트레일러 삽입은 `git commit --amend`로 이뤄지는데, amend 자체도 post-commit을
-# 재발동시키므로 재귀 가드가 필요하다.
-#
-# 아래 각 트레일러 판단 단계는 이름 있는 함수로 분해돼 있다(GF-87) — 화면 크기
-# 안에서 각 단계를 독립적으로 읽을 수 있게 하려는 목적이고, 실행 순서는 파일
-# 맨 아래에 나열돼 있다. POSIX sh는 함수 호출이 끝나면 그 함수 안에서 바꾼
-# 위치 매개변수($@/set --)를 호출자에게 넘기지 않고 원래대로 되돌린다 — 그래서
-# 각 함수는 `set --`를 직접 쓰지 않고 전역 변수 TRAILER_QUEUE에 queue_trailer로
-# 한 줄씩 쌓아두기만 하고, 위치 매개변수 조립과 amend 실행은 함수 밖(파일 맨
-# 아래, 톱레벨)에서 한 번만 한다.
-set -eu
+# 각 트레일러 판단 단계는 이름 있는 함수로 분해돼 있고(GF-87), 실행 순서는 파일 맨
+# 아래에 나열돼 있다. 다른 훅과 겹치는 블록(자기 위치 해석, conf 읽기 가드,
+# TASK_PREFIX/BRANCH 계산)은 공유 모듈로 빼지 않고 파일마다 독립적으로 중복을
+# 유지한다 — 파일 하나만 읽으면 그 훅의 동작을 전부 파악할 수 있어야 한다는
+# 감사 가능성 요구사항이다(decision-16).
+import json
+import os
+import re
+import subprocess
+import sys
 
-# 커밋 메시지 원문은 유효하지 않은 UTF-8 바이트를 포함할 수 있다(GF-80,
-# 실제 CI에서 재현). UTF-8 로케일의 GNU grep(Linux)은 잘못된 멀티바이트
-# 시퀀스를 만나면 매칭 자체에 실패한다(macOS BSD grep은 관대해서 로컬에서는
-# 재현되지 않았다). 이 파일도 EXISTING_TRAILERS/BRANCH를 grep으로 처리하므로
-# commit-msg와 동일하게 로케일 독립적으로 고정한다.
-export LC_ALL=C
+# 트레일러 삽입은 이 파일 맨 아래의 `git commit --amend`로 이뤄지는데, amend 자체가
+# post-commit을 재발동시킨다. 이 가드는 git rev-parse 한 번보다도 앞, 파일에서 가장
+# 먼저 실행돼야 한다 — 늦으면 그만큼 재귀가 깊어지고, 빠지면 무한 재귀가 된다.
+if os.environ.get("_GITFORMAT_AMEND_GUARD") == "1":
+    sys.exit(0)
 
-if [ "${_GITFORMAT_AMEND_GUARD:-}" = "1" ]; then
-  exit 0
-fi
+GIT_DIR = subprocess.run(
+    ["git", "rev-parse", "--git-dir"],
+    stdout=subprocess.PIPE,
+    encoding="utf-8",
+    check=True,
+).stdout.rstrip("\n")
 
-GIT_DIR="$(git rev-parse --git-dir)"
-readonly GIT_DIR
+HOOK_DIR = os.path.dirname(os.path.realpath(__file__))
+CONF = os.path.join(HOOK_DIR, "gitformat.conf")
+# gitformat.conf 자체를 못 읽으면 이후 git config --file 읽기가 하나씩 실패하면서
+# 원인을 알기 어려운 에러로 이어진다. 여기서 미리 검증해 원인을 명확히 알려준다.
+# 이 블록은 CONF를 읽는 다른 파일들에도 byte-identical하게 있다.
+if subprocess.run(
+    ["git", "config", "--file", CONF, "--list"],
+    stdout=subprocess.DEVNULL,
+    stderr=subprocess.DEVNULL,
+    encoding="utf-8",
+    check=False,
+).returncode != 0:
+    print(f"gitformat: gitformat.conf를 읽을 수 없습니다: {CONF}", file=sys.stderr)
+    sys.exit(1)
 
-# template/(GF-9)로 설치된 경우 $0은 git-format을 가리키는 심볼릭 링크이므로
-# dirname "$0"만으로는 새 저장소의 .git/hooks/를 잘못 가리킨다 — 링크를 직접 해석한다.
-# 이 함수는 이 파일 안에서만 쓰인다(다른 훅도 각자 자기 파일에 동일 함수를
-# 독립적으로 갖고 있다 — 로직은 공유하지 않는다는 게 gitformat.conf 도입(GF-44)
-# 이후에도 유지되는 설계 원칙이다).
-resolve_self() {
-  p="$1"
-  while [ -L "$p" ]; do
-    target="$(readlink "$p")"
-    case "$target" in
-      /*) p="$target" ;;
-      *) p="$(dirname "$p")/$target" ;;
-    esac
-  done
-  printf '%s' "$p"
-}
-HOOK_DIR="$(cd "$(dirname "$(resolve_self "$0")")" && pwd)"
-readonly HOOK_DIR
-# gitformat.conf(GF-44)에 이 훅의 내부 기본값(마커 파일명, trailer 키 이름 7종,
+
+def conf_get(key):
+    # git config --get은 키가 없어도 빈 문자열로 성공할 수 있다(GF-35).
+    return subprocess.run(
+        ["git", "config", "--file", CONF, "--get", key],
+        capture_output=True,
+        encoding="utf-8",
+        check=False,
+    ).stdout.rstrip("\n")
+
+
+def local_get(key):
+    return subprocess.run(
+        ["git", "config", "--get", key],
+        capture_output=True,
+        encoding="utf-8",
+        check=False,
+    ).stdout.rstrip("\n")
+
+
+# gitformat.conf(GF-44)에 이 훅의 내부 기본값(마커 파일명, trailer 키 이름 10종,
 # Task-Id 접두어 기본값, AI 도구 식별자, Co-Authored-By 값)이 모여 있다. 값만
 # 여기서 읽고, 이 값들을 쓰는 로직은 이 파일 안에서만 독립적으로 유지한다.
-CONF="${HOOK_DIR}/gitformat.conf"
-readonly CONF
-# gitformat.conf 자체를 못 읽으면(파일 없음/문법 깨짐) 이후 모든 git config
-# --file 읽기가 하나씩 실패하면서 원인을 알기 어려운 에러로 이어진다. 여기서
-# 미리 검증해 원인을 명확히 알려준다. 이 블록은 CONF를 읽는 다른 파일들에도
-# byte-identical하게 있다(tests/consistency.bats가 동일성을 보장).
-if ! git config --file "$CONF" --list >/dev/null 2>&1; then
-  echo "gitformat: gitformat.conf를 읽을 수 없습니다: ${CONF}" >&2
-  exit 1
-fi
-MARKER="${GIT_DIR}/$(git config --file "$CONF" --get gitformat.markerFile)"
-readonly MARKER
+MARKER = os.path.join(GIT_DIR, conf_get("gitformat.markerFile"))
 # Tokens-Used/Tool-Calls 델타 커서(decision-5 확장). .gitformat-verified와 같은
 # "커밋 간 git-미추적 상태 파일" 관례를 따르되, 이 파일은 삭제되지 않고
-# trailer_tokens_used()가 매번 최신 트랜스크립트 줄 수로 덮어쓴다. 파일명은
-# gitformat.conf로 빼지 않는다 - 컨슈머가 오버라이드할 이유가 없는 순수 내부
-# 구현 세부사항이라 다른 trailer 키 이름들과 성격이 다르다.
-CURSOR="${GIT_DIR}/.gitformat-token-cursor"
-readonly CURSOR
+# measure_claude_code_token_usage()가 매번 최신 트랜스크립트 줄 수로 덮어쓴다.
+# 파일명은 gitformat.conf로 빼지 않는다 - 컨슈머가 오버라이드할 이유가 없는 순수
+# 내부 구현 세부사항이라 다른 trailer 키 이름들과 성격이 다르다.
+CURSOR = os.path.join(GIT_DIR, ".gitformat-token-cursor")
 
-TRAILER_VERIFY_BYPASSED="$(git config --file "$CONF" --get gitformat.trailer.verifyBypassed)"
-readonly TRAILER_VERIFY_BYPASSED
-TRAILER_TASK_ID="$(git config --file "$CONF" --get gitformat.trailer.taskId)"
-readonly TRAILER_TASK_ID
-TRAILER_AI_TOOL="$(git config --file "$CONF" --get gitformat.trailer.aiTool)"
-readonly TRAILER_AI_TOOL
-TRAILER_AI_TOOL_VERSION="$(git config --file "$CONF" --get gitformat.trailer.aiToolVersion)"
-readonly TRAILER_AI_TOOL_VERSION
-TRAILER_CO_AUTHORED_BY="$(git config --file "$CONF" --get gitformat.trailer.coAuthoredBy)"
-readonly TRAILER_CO_AUTHORED_BY
-TRAILER_AI_MODEL="$(git config --file "$CONF" --get gitformat.trailer.aiModel)"
-readonly TRAILER_AI_MODEL
-TRAILER_TOKENS_USED="$(git config --file "$CONF" --get gitformat.trailer.tokensUsed)"
-readonly TRAILER_TOKENS_USED
-TRAILER_TOOL_CALLS="$(git config --file "$CONF" --get gitformat.trailer.toolCalls)"
-readonly TRAILER_TOOL_CALLS
-TRAILER_HOOKS_COMMIT="$(git config --file "$CONF" --get gitformat.trailer.hooksCommit)"
-readonly TRAILER_HOOKS_COMMIT
-TRAILER_SIGNED_OFF_BY="$(git config --file "$CONF" --get gitformat.trailer.signedOffBy)"
-readonly TRAILER_SIGNED_OFF_BY
-AI_TOOL_CLAUDE_CODE="$(git config --file "$CONF" --get gitformat.aiToolClaudeCode)"
-readonly AI_TOOL_CLAUDE_CODE
-CO_AUTHORED_BY_VALUE="$(git config --file "$CONF" --get gitformat.coAuthoredBy)"
-readonly CO_AUTHORED_BY_VALUE
+TRAILER_VERIFY_BYPASSED = conf_get("gitformat.trailer.verifyBypassed")
+TRAILER_TASK_ID = conf_get("gitformat.trailer.taskId")
+TRAILER_AI_TOOL = conf_get("gitformat.trailer.aiTool")
+TRAILER_AI_TOOL_VERSION = conf_get("gitformat.trailer.aiToolVersion")
+TRAILER_CO_AUTHORED_BY = conf_get("gitformat.trailer.coAuthoredBy")
+TRAILER_AI_MODEL = conf_get("gitformat.trailer.aiModel")
+TRAILER_TOKENS_USED = conf_get("gitformat.trailer.tokensUsed")
+TRAILER_TOOL_CALLS = conf_get("gitformat.trailer.toolCalls")
+TRAILER_HOOKS_COMMIT = conf_get("gitformat.trailer.hooksCommit")
+TRAILER_SIGNED_OFF_BY = conf_get("gitformat.trailer.signedOffBy")
+AI_TOOL_CLAUDE_CODE = conf_get("gitformat.aiToolClaudeCode")
+CO_AUTHORED_BY_VALUE = conf_get("gitformat.coAuthoredBy")
 
-verified=false
-if [ -f "$MARKER" ]; then
-  verified=true
-fi
-rm -f "$MARKER"
+VERIFIED = os.path.isfile(MARKER)
+try:
+    os.remove(MARKER)
+except OSError:
+    pass
+
+# 커밋 메시지 원문은 유효하지 않은 UTF-8 바이트를 포함할 수 있다(GF-80, 실제 CI에서
+# 재현). commit-msg는 메시지를 읽기만 하므로 errors="replace"로 충분하지만, 이 훅은
+# 읽은 메시지를 amend로 다시 써넣기 때문에 replace를 쓰면 깨진 바이트가 U+FFFD로
+# 치환돼 커밋 내용이 조용히 손상된다. surrogateescape는 디코드 불가 바이트를 대리
+# 문자로 보존했다가 인코드 시 원래 바이트로 정확히 되돌리므로, 예외 없이 바이트
+# 단위 왕복이 보장된다. 아래 interpret-trailers 왕복과 amend 인자에도 같은 처리를
+# 쓴다(파이썬은 POSIX에서 argv를 surrogateescape로 인코드한다).
+CURRENT_MSG = subprocess.run(
+    ["git", "log", "-1", "--pretty=%B"],
+    stdout=subprocess.PIPE,
+    encoding="utf-8",
+    errors="surrogateescape",
+    check=True,
+).stdout.rstrip("\n")
+
+# grep과 동일하게 개행(\n)만 줄 경계로 취급한다 — splitlines()는 \r 등도 줄
+# 경계로 보아 트레일러 값 안에 그런 문자가 있으면 판정이 sh 판과 어긋난다.
+EXISTING_TRAILERS = subprocess.run(
+    ["git", "interpret-trailers", "--parse"],
+    input=CURRENT_MSG + "\n",
+    capture_output=True,
+    encoding="utf-8",
+    errors="surrogateescape",
+    check=False,
+).stdout.split("\n")
+
 
 # git interpret-trailers의 --if-exists(doNothing/addIfDifferent 등)는 키를
 # "접두어"로 매칭한다 — 예: "AI-Tool"이 이미 있으면 "AI-Tool-Version"도 같은
 # 트레일러로 오인해 값이 우연히 같으면 통째로 누락시킨다(GF-33). 이 모호한
-# 판단에 기대는 대신, 기존 트레일러를 직접 파싱해 "키:값"이 정확히 일치할
-# 때만 건너뛰고, 그 외엔 항상 --if-exists add로 강제 추가한다.
-CURRENT_MSG="$(git log -1 --pretty=%B)"
-readonly CURRENT_MSG
-EXISTING_TRAILERS="$(printf '%s\n' "$CURRENT_MSG" \
-  | git interpret-trailers --parse 2>/dev/null || true)"
-readonly EXISTING_TRAILERS
+# 판단에 기대는 대신, 기존 트레일러를 직접 파싱해 "키: 값" 한 줄이 정확히
+# 일치할 때만 건너뛰고, 그 외엔 항상 --if-exists add로 강제 추가한다.
+def trailer_exists(key, value):
+    return f"{key}: {value}" in EXISTING_TRAILERS
 
-trailer_exists() {
-  printf '%s\n' "$EXISTING_TRAILERS" | grep -qxF "$1: $2"
-}
 
-# 함수들이 공유하는 누적 버퍼. 각 트레일러 판단 함수는 필요할 때 이 함수로
-# "키: 값" 한 줄을 TRAILER_QUEUE에 추가하기만 한다 — 값 안에 공백이 있어도
-# (예: "Signed-off-by: Jane Dev <jane@example.com>") 한 줄 = 한 트레일러라는
-# 경계가 깨지지 않는다. TRAILER_QUEUE는 위치 매개변수가 아니라 평범한 전역
-# 변수라 함수 밖에서도 값이 그대로 유지된다.
-TRAILER_QUEUE=""
-queue_trailer() {
-  TRAILER_QUEUE="${TRAILER_QUEUE}
-$1: $2"
-}
+# 각 트레일러 판단 함수는 필요할 때 이 버퍼에 "키: 값" 한 줄을 쌓기만 한다 — 값
+# 안에 공백이 있어도(예: "Signed-off-by: Jane Dev <jane@example.com>") 한 줄 =
+# 한 트레일러라는 경계가 깨지지 않는다. 인자 조립과 amend 실행은 파일 맨 아래에서
+# 한 번만 한다.
+TRAILER_QUEUE = []
+
+
+def queue_trailer(key, value):
+    TRAILER_QUEUE.append(f"{key}: {value}")
+
+
+# sh 판은 $PWD를 썼다. os.getcwd()는 심볼릭 링크를 해석한 물리 경로를 돌려주므로
+# (/var -> /private/var 같은 환경) 그대로 쓰면 Claude Code가 실제로 만든 세션
+# 디렉터리 슬러그와 어긋난다. POSIX 셸이 시작할 때 하는 것과 동일하게, 환경변수
+# PWD가 현재 디렉터리를 가리키는 절대경로일 때만 그 값을 쓴다.
+def shell_pwd():
+    pwd = os.environ.get("PWD", "")
+    if pwd.startswith("/"):
+        try:
+            if os.path.samefile(pwd, "."):
+                return pwd
+        except OSError:
+            pass
+    return os.getcwd()
+
+
+# Claude Code가 ~/.claude/projects/ 아래 세션 디렉터리를 만들 때 쓰는 실제 규칙은
+# "영숫자가 아닌 모든 문자를 하이픈으로 치환"이다(GF-98 - 슬래시만 치환하면 밑줄/
+# 점이 든 경로에서 트랜스크립트를 영영 못 찾는다).
+def claude_transcript_path():
+    slug = re.sub(r"[^A-Za-z0-9]", "-", shell_pwd())
+    session_id = os.environ.get("CLAUDE_CODE_SESSION_ID", "")
+    home = os.environ.get("HOME", "")
+    return os.path.join(home, ".claude", "projects", slug, f"{session_id}.jsonl")
+
 
 # --no-verify 우회 탐지(decision-3): pre-commit이 마커를 남기지 못했다는 건
 # commit-msg/pre-commit이 스킵됐다는 뜻이다.
-detect_verify_bypass() {
-  if [ "$verified" = false ] && ! trailer_exists "$TRAILER_VERIFY_BYPASSED" "true"; then
-    queue_trailer "$TRAILER_VERIFY_BYPASSED" "true"
-  fi
-}
+def detect_verify_bypass():
+    if not VERIFIED and not trailer_exists(TRAILER_VERIFY_BYPASSED, "true"):
+        queue_trailer(TRAILER_VERIFY_BYPASSED, "true")
+
 
 # Task-Id(decision-4): commit-msg가 이미 브랜치명에 <prefix>-<번호> 패턴이 있는지
 # 검증했으므로(없으면 예외 브랜치가 아닌 한 커밋 자체가 거부됨), 여기서는 같은 패턴을
 # 다시 찾아 Task-Id 트레일러로 남기기만 한다. 여기서 계산하는 TASK_PREFIX/BRANCH
-# 블록은 commit-msg의 enforce_task_id_branch가 검증할 때 쓰는 블록과 완전히
-# 동일해야 한다(tests/consistency.bats).
-trailer_task_id() {
-  TASK_PREFIX_DEFAULT="$(git config --file "$CONF" --get gitformat.taskPrefixDefault)"
-  readonly TASK_PREFIX_DEFAULT
-  TASK_PREFIX="$(git config --get gitformat.taskPrefix 2>/dev/null \
-    || printf '%s' "$TASK_PREFIX_DEFAULT")"
-  # git config --get은 빈 문자열 설정도 성공으로 취급해 위 || 폴백이 안 걸린다
-  # (GF-35) — 빈 값이면 명시적으로 기본값을 채운다.
-  [ -n "$TASK_PREFIX" ] || TASK_PREFIX="$TASK_PREFIX_DEFAULT"
-  readonly TASK_PREFIX
-  BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || printf '%s' HEAD)"
-  readonly BRANCH
-  # commit-msg와 동일하게 앵커링해서 부분 문자열 오매치를 피한다(GF-34).
-  TASK_NUM="$(printf '%s' "$BRANCH" \
-    | grep -oiE "(^|[^a-zA-Z0-9])${TASK_PREFIX}-[0-9]+" \
-    | grep -oE '[0-9]+' | head -n 1 || printf '%s' '')"
-  readonly TASK_NUM
+# 블록은 commit-msg의 enforce_task_id_branch가 검증할 때 쓰는 블록과 동일하게
+# 유지한다(파일별 독립 중복).
+def trailer_task_id():
+    task_prefix_default = conf_get("gitformat.taskPrefixDefault")
+    task_prefix = local_get("gitformat.taskPrefix")
+    # git config --get은 빈 문자열 설정도 성공으로 취급한다(GF-35) — 빈 값이면
+    # 명시적으로 기본값을 채운다.
+    if not task_prefix:
+        task_prefix = task_prefix_default
 
-  if [ -n "$TASK_NUM" ] && ! trailer_exists "$TRAILER_TASK_ID" "${TASK_PREFIX}-${TASK_NUM}"; then
-    queue_trailer "$TRAILER_TASK_ID" "${TASK_PREFIX}-${TASK_NUM}"
-  fi
-}
+    branch_result = subprocess.run(
+        ["git", "symbolic-ref", "--short", "HEAD"],
+        capture_output=True,
+        encoding="utf-8",
+        check=False,
+    )
+    branch = branch_result.stdout.rstrip("\n") if branch_result.returncode == 0 else "HEAD"
+
+    # commit-msg와 동일하게 앵커링해서 부분 문자열 오매치를 피한다(GF-34).
+    match = re.search(
+        rf"(^|[^a-zA-Z0-9]){re.escape(task_prefix)}-([0-9]+)", branch, re.IGNORECASE
+    )
+    if match is None:
+        return
+
+    task_id = f"{task_prefix}-{match.group(2)}"
+    if not trailer_exists(TRAILER_TASK_ID, task_id):
+        queue_trailer(TRAILER_TASK_ID, task_id)
+
 
 # AI-Tool/AI-Tool-Version/Co-Authored-By(decision-5). AI_TOOL_ID는
-# trailer_ai_model()도 참조하므로 여기서 전역으로 채워둔다(POSIX sh는 함수
-# 지역변수가 없어 함수 밖에서도 그대로 보인다, decision-9).
-trailer_ai_tool() {
-  # AI_AGENT는 Claude Code 프로세스가 하위 프로세스에 주입하는 값이라 LLM이
-  # 스스로 만든 값이 아니다(예: claude-code_2-1-227_agent). cut -d_ -f1 대신
-  # 매개변수 확장으로 첫 필드만 뽑는다(외부 프로세스 없이 처리).
-  AI_TOOL_ID="${AI_AGENT:-}"
-  AI_TOOL_ID="${AI_TOOL_ID%%_*}"
-  readonly AI_TOOL_ID
+# trailer_ai_model()/trailer_tokens_used()도 참조하므로 여기서 전역으로 채워둔다.
+AI_TOOL_ID = ""
 
-  if [ -n "$AI_TOOL_ID" ] && ! trailer_exists "$TRAILER_AI_TOOL" "${AI_TOOL_ID}"; then
-    queue_trailer "$TRAILER_AI_TOOL" "${AI_TOOL_ID}"
-  fi
 
-  # cut -d_ -f2는 구분자가 없으면 원문 전체를 그대로 돌려준다 — AI_AGENT에
-  # 밑줄이 없으면 AI_TOOL_VERSION이 AI_TOOL_ID와 같아져버린다(GF-33). 밑줄이
-  # 있을 때만 버전을 채운다.
-  case "${AI_AGENT:-}" in
-    *_*)
-      # cut -d_ -f2 대신 매개변수 확장으로 두 번째 필드만 뽑는다(외부 프로세스
-      # 없이 처리). 대시를 점으로 바꾸는 tr은 그대로 둔다 — POSIX 표준
-      # 유틸리티라 이식성 손해가 없고, 전역 치환은 매개변수 확장만으로 못
-      # 하므로 순수 셸로 바꾸면 루프+패턴 인용이 필요해 이득 없이 위험만 커진다.
-      AI_TOOL_VERSION="${AI_AGENT#*_}"
-      AI_TOOL_VERSION="${AI_TOOL_VERSION%%_*}"
-      AI_TOOL_VERSION="$(printf '%s' "$AI_TOOL_VERSION" | tr '-' '.')"
-      readonly AI_TOOL_VERSION
-      if [ -n "$AI_TOOL_VERSION" ] \
-        && ! trailer_exists "$TRAILER_AI_TOOL_VERSION" "${AI_TOOL_VERSION}"; then
-        queue_trailer "$TRAILER_AI_TOOL_VERSION" "${AI_TOOL_VERSION}"
-      fi
-      ;;
-  esac
+def trailer_ai_tool():
+    global AI_TOOL_ID
+    # AI_AGENT는 Claude Code 프로세스가 하위 프로세스에 주입하는 값이라 LLM이
+    # 스스로 만든 값이 아니다(예: claude-code_2-1-227_agent).
+    ai_agent = os.environ.get("AI_AGENT", "")
+    AI_TOOL_ID = ai_agent.split("_", 1)[0]
 
-  # Co-Authored-By는 실제로 Claude가 작업했다고 확신할 수 있는 경우(claude-code)에만
-  # 붙인다. 다른 AI 도구까지 "Claude"로 공동저자 표기하면 잘못된 귀속이 된다.
-  if [ "$AI_TOOL_ID" = "$AI_TOOL_CLAUDE_CODE" ] \
-    && ! trailer_exists "$TRAILER_CO_AUTHORED_BY" "$CO_AUTHORED_BY_VALUE"; then
-    queue_trailer "$TRAILER_CO_AUTHORED_BY" "$CO_AUTHORED_BY_VALUE"
-  fi
-}
+    if AI_TOOL_ID and not trailer_exists(TRAILER_AI_TOOL, AI_TOOL_ID):
+        queue_trailer(TRAILER_AI_TOOL, AI_TOOL_ID)
+
+    # 구분자가 없는데 두 번째 필드를 뽑으면 원문 전체가 돌아와 AI-Tool-Version이
+    # AI-Tool과 같아져버린다(GF-33). 밑줄이 있을 때만 버전을 채운다.
+    if "_" in ai_agent:
+        ai_tool_version = ai_agent.split("_")[1].replace("-", ".")
+        if ai_tool_version and not trailer_exists(
+            TRAILER_AI_TOOL_VERSION, ai_tool_version
+        ):
+            queue_trailer(TRAILER_AI_TOOL_VERSION, ai_tool_version)
+
+    # Co-Authored-By는 실제로 Claude가 작업했다고 확신할 수 있는 경우(claude-code)에만
+    # 붙인다. 다른 AI 도구까지 "Claude"로 공동저자 표기하면 잘못된 귀속이 된다.
+    if AI_TOOL_ID == AI_TOOL_CLAUDE_CODE and not trailer_exists(
+        TRAILER_CO_AUTHORED_BY, CO_AUTHORED_BY_VALUE
+    ):
+        queue_trailer(TRAILER_CO_AUTHORED_BY, CO_AUTHORED_BY_VALUE)
+
+
+# 트랜스크립트 마지막 200줄에서 가장 나중의 assistant 턴 message.model을 고른다.
+# 한 줄이라도 JSON 파싱에 실패하면 거기서 멈추되 그때까지 찾은 값은 유지한다 —
+# 스트리밍 파서가 오류를 만나기 전까지의 출력을 그대로 남기던 동작과 같다.
+def read_transcript_model(path):
+    with open(path, "rb") as f:
+        data = f.read().decode("utf-8", errors="replace")
+    lines = data.split("\n")
+    if lines and lines[-1] == "":
+        lines.pop()
+
+    model = ""
+    for line in lines[-200:]:
+        if not line.strip():
+            continue
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            break
+        if not isinstance(entry, dict) or entry.get("type") != "assistant":
+            continue
+        message = entry.get("message")
+        if isinstance(message, dict) and message.get("model"):
+            model = message["model"]
+    return model
+
 
 # AI-Model(decision-5): Claude Code는 세션 트랜스크립트
 # (~/.claude/projects/<slug>/<session>.jsonl)의 message.model 필드를 읽는다 —
 # 이는 Anthropic API 응답을 애플리케이션이 그대로 기록한 값이라 자가신고가
 # 아니다. 그 외 도구는 commit-msg 게이트가 이미 검증한 gitformat.aiModel을
-# 쓴다. 어떤 이유로든 조회에 실패하면 커밋을 막지 않고 조용히 생략한다.
-# CLAUDE_CODE_SESSION_ID는 트랜스크립트 파일 경로를 찾는 데만 쓰고, 값 자체를
-# 커밋 footer에 남기지는 않는다(세션 식별자가 커밋 이력에 영구히 남는 걸
-# 피하기 위함). trailer_ai_tool()이 채운 AI_TOOL_ID를 그대로 재사용한다.
-trailer_ai_model() {
-  AI_MODEL=""
+# 쓴다. CLAUDE_CODE_SESSION_ID는 트랜스크립트 파일 경로를 찾는 데만 쓰고, 값
+# 자체를 커밋 footer에 남기지는 않는다(세션 식별자가 커밋 이력에 영구히 남는 걸
+# 피하기 위함, decision-5 amendment).
+def trailer_ai_model():
+    ai_model = ""
 
-  if [ "$AI_TOOL_ID" = "$AI_TOOL_CLAUDE_CODE" ] \
-    && [ -n "${CLAUDE_CODE_SESSION_ID:-}" ] && command -v jq >/dev/null 2>&1; then
-    PROJECT_SLUG="$(printf '%s' "$PWD" | tr -c 'A-Za-z0-9' '-')"
-    TRANSCRIPT="${HOME}/.claude/projects/${PROJECT_SLUG}/${CLAUDE_CODE_SESSION_ID}.jsonl"
-    if [ -f "$TRANSCRIPT" ]; then
-      AI_MODEL="$(tail -n 200 "$TRANSCRIPT" 2>/dev/null \
-        | jq -r 'select(.type=="assistant") | .message.model // empty' 2>/dev/null \
-        | tail -n 1 || printf '%s' '')"
-    fi
-  elif [ -n "$AI_TOOL_ID" ]; then
-    AI_MODEL="$(git config --get gitformat.aiModel 2>/dev/null || printf '%s' '')"
-  fi
+    if AI_TOOL_ID == AI_TOOL_CLAUDE_CODE and os.environ.get("CLAUDE_CODE_SESSION_ID"):
+        # 트랜스크립트 조회는 어떤 이유로 실패하든(파일 없음/포맷 변경/권한) 커밋을
+        # 막지 않고 트레일러만 조용히 생략하는 의도된 fail-open이다(decision-5).
+        # 이 파일에서 예외를 삼키는 곳은 여기 하나뿐이다 — 나머지 경로는 실패를
+        # 조용히 흘려보내지 않는다(GF-76).
+        try:
+            ai_model = read_transcript_model(claude_transcript_path())
+        except (OSError, ValueError, TypeError):
+            ai_model = ""
+    elif AI_TOOL_ID:
+        ai_model = local_get("gitformat.aiModel")
 
-  if [ -n "$AI_MODEL" ] && ! trailer_exists "$TRAILER_AI_MODEL" "${AI_MODEL}"; then
-    queue_trailer "$TRAILER_AI_MODEL" "${AI_MODEL}"
-  fi
-}
+    if ai_model and not trailer_exists(TRAILER_AI_MODEL, ai_model):
+        queue_trailer(TRAILER_AI_MODEL, ai_model)
+
+
+USAGE_FIELDS = (
+    "input_tokens",
+    "output_tokens",
+    "cache_creation_input_tokens",
+    "cache_read_input_tokens",
+)
+
+
+# assistant 턴의 message.usage를 합산하고 tool_use 콘텐츠 블록을 센다. 줄 하나라도
+# JSON 파싱에 실패하면 ValueError를 그대로 올려 배치 전체를 실패시킨다 — 불량 줄만
+# 건너뛰면 "일부만 집계된 값"이 정상값인 척 기록되므로 동작 변경이다.
+def aggregate_usage(lines):
+    tokens = 0
+    calls = 0
+    for line in lines:
+        if not line.strip():
+            continue
+        entry = json.loads(line)
+        if not isinstance(entry, dict) or entry.get("type") != "assistant":
+            continue
+        message = entry.get("message")
+        if not isinstance(message, dict):
+            continue
+        usage = message.get("usage")
+        if isinstance(usage, dict):
+            for field in USAGE_FIELDS:
+                value = usage.get(field)
+                tokens += value if isinstance(value, int) else 0
+        content = message.get("content")
+        if isinstance(content, list):
+            calls += sum(
+                1
+                for block in content
+                if isinstance(block, dict) and block.get("type") == "tool_use"
+            )
+    return tokens, calls
+
 
 # Tokens-Used/Tool-Calls(decision-5 확장, GF-97 amendment): trailer_ai_model()과
 # 같은 트랜스크립트를 message.usage(Anthropic API 응답을 그대로 기록한 값이라
-# 자가신고가 아님)를 합산하고 tool_use 콘텐츠 블록 개수를 세는 데 쓴다. 한
-# 세션에서 커밋이 여러 번 나오므로 세션 누적치를 매번 반복하면 의미가 없어,
-# CURSOR 파일에 "이미 처리한 트랜스크립트 줄 수"를 저장해두고 그 이후 구간만
-# 델타로 집계한다.
+# 자가신고가 아님) 합산과 tool_use 개수 집계에 쓴다. 한 세션에서 커밋이 여러 번
+# 나오므로 세션 누적치를 매번 반복하면 의미가 없어, CURSOR 파일에 "이미 처리한
+# 트랜스크립트 줄 수"를 저장해두고 그 이후 구간만 델타로 집계한다.
 #
-# 세션 트랜스크립트를 실제로 읽어 usage를 합산할 수 있으면 MEASUREMENT_STATUS=ok와
-# TOKENS_SUM/TOOL_CALL_COUNT 전역을 채운다. 실패하면 MEASUREMENT_STATUS=unavailable +
-# MEASUREMENT_REASON(실패 지점을 가리키는 짧은 슬러그)만 남기고 TOKENS_SUM/
-# TOOL_CALL_COUNT는 건드리지 않으며 CURSOR도 갱신하지 않는다 - 다음 커밋이 같은
-# 지점부터 재시도한다. 항상 return 0으로 끝난다 - 실패 여부/사유는 exit code가
-# 아니라 MEASUREMENT_STATUS/MEASUREMENT_REASON 문자열로만 판단한다(trailer_ai_model()의
-# AI_MODEL="" 상태-변수 관례를 사유까지 남기도록 확장한 것).
+# 성공하면 MEASUREMENT_STATUS=ok와 TOKENS_SUM/TOOL_CALL_COUNT를 채운다. 실패하면
+# MEASUREMENT_STATUS=unavailable + MEASUREMENT_REASON(실패 지점을 가리키는 짧은
+# 슬러그)만 남기고 CURSOR도 갱신하지 않는다 - 다음 커밋이 같은 지점부터 재시도한다.
+# 실패 여부/사유는 예외가 아니라 이 상태 변수 두 개로만 전달한다.
 #
 # 주의(README/decision-5 참고): 이 함수가 계산하는 값은 "이 커밋을 만드는 데
 # 정확히 필요했던 토큰"이 아니라 "직전 커밋 이후 이 세션에서 소비된 토큰"의
 # 근사치다 - 그 구간에 이 커밋과 무관한 대화/탐색이 섞이면 과대평가될 수 있다.
-# 더 정확한 귀속 방법은 아직 찾는 중이다(실험적 기능). 호출 여부 자체는
-# trailer_tokens_used()가 AI_TOOL_ID로 판단하므로 이 함수는 그 값을 참조하지 않는다.
-measure_claude_code_token_usage() {
-  MEASUREMENT_STATUS="unavailable"
-  MEASUREMENT_REASON=""
+MEASUREMENT_STATUS = "unavailable"
+MEASUREMENT_REASON = ""
+TOKENS_SUM = 0
+TOOL_CALL_COUNT = 0
 
-  if [ -z "${CLAUDE_CODE_SESSION_ID:-}" ]; then
-    MEASUREMENT_REASON="no-session-id"
-    return 0
-  fi
-  if ! command -v jq >/dev/null 2>&1; then
-    MEASUREMENT_REASON="jq-not-installed"
-    return 0
-  fi
 
-  PROJECT_SLUG="$(printf '%s' "$PWD" | tr -c 'A-Za-z0-9' '-')"
-  TRANSCRIPT="${HOME}/.claude/projects/${PROJECT_SLUG}/${CLAUDE_CODE_SESSION_ID}.jsonl"
-  if [ ! -f "$TRANSCRIPT" ]; then
-    MEASUREMENT_REASON="transcript-not-found"
-    return 0
-  fi
+def measure_claude_code_token_usage():
+    global MEASUREMENT_STATUS, MEASUREMENT_REASON, TOKENS_SUM, TOOL_CALL_COUNT
+    MEASUREMENT_STATUS = "unavailable"
+    MEASUREMENT_REASON = ""
 
-  TOTAL_LINES_RAW="$(wc -l < "$TRANSCRIPT" 2>/dev/null || printf '%s' '')"
-  if [ -z "$TOTAL_LINES_RAW" ]; then
-    MEASUREMENT_REASON="transcript-unreadable"
-    return 0
-  fi
-  # shellcheck disable=SC2086 # wc -l 출력의 선행 공백(BSD/GNU 패딩 차이)을 외부
-  # 명령(tr) 없이 word-splitting으로 제거하는 의도적 unquoted 확장.
-  set -- $TOTAL_LINES_RAW
-  TOTAL_LINES="$1"
-  case "$TOTAL_LINES" in
-    ''|*[!0-9]*)
-      MEASUREMENT_REASON="transcript-unreadable"
-      return 0
-      ;;
-  esac
+    if not os.environ.get("CLAUDE_CODE_SESSION_ID"):
+        MEASUREMENT_REASON = "no-session-id"
+        return
 
-  # 커서 파일이 없거나(최초 실행) 손상됐으면 0으로 취급 - 이건 조회 자체의
-  # 실패가 아니라 "아직 아무 줄도 처리한 적 없음"과 동치이므로 실패로 취급하지 않는다.
-  CURSOR_COUNT="$(cat "$CURSOR" 2>/dev/null || printf '%s' '')"
-  case "$CURSOR_COUNT" in
-    ''|*[!0-9]*) CURSOR_COUNT=0 ;;
-  esac
+    transcript = claude_transcript_path()
+    if not os.path.isfile(transcript):
+        MEASUREMENT_REASON = "transcript-not-found"
+        return
 
-  NEW_ENTRIES=""
-  if [ "$TOTAL_LINES" -gt "$CURSOR_COUNT" ]; then
-    NEW_ENTRIES="$(tail -n "+$((CURSOR_COUNT + 1))" "$TRANSCRIPT" 2>/dev/null || printf '%s' '')"
-  fi
+    try:
+        with open(transcript, "rb") as f:
+            data = f.read().decode("utf-8", errors="replace")
+    except OSError:
+        MEASUREMENT_REASON = "transcript-unreadable"
+        return
 
-  # tokens 합산과 tool_use 개수를 jq 한 번으로 같이 뽑아 "토큰수 호출수" 한
-  # 줄을 만든다 - jq 실패(트랜스크립트 손상 등)는 마지막 fallback으로 흡수돼
-  # USAGE_LINE이 빈 문자열이 되고, 그러면 커서를 갱신하지 않고 실패 사유를 남긴다.
-  USAGE_LINE="$(printf '%s\n' "$NEW_ENTRIES" | jq -s -r '
-      ([.[] | select(.type=="assistant") | .message.usage
-          | ((.input_tokens // 0) + (.output_tokens // 0)
-             + (.cache_creation_input_tokens // 0) + (.cache_read_input_tokens // 0))]
-        | add // 0) as $tokens
-      | ([.[] | select(.type=="assistant") | .message.content[]? | select(.type=="tool_use")]
-        | length) as $calls
-      | "\($tokens) \($calls)"
-    ' 2>/dev/null || printf '%s' '')"
-  if [ -z "$USAGE_LINE" ]; then
-    MEASUREMENT_REASON="transcript-parse-failed"
-    return 0
-  fi
-  # shellcheck disable=SC2086 # jq 출력("토큰수 호출수" 한 줄)을 word-splitting으로
-  # 두 값으로 분리하는 의도적 unquoted 확장.
-  set -- $USAGE_LINE
-  TOKENS_SUM="$1"
-  TOOL_CALL_COUNT="$2"
+    # 커서 값은 `wc -l`과 동일하게 개행 문자 개수로 센다 - 마지막 줄에 개행이 없는
+    # 파일을 하나 적게 세는 것까지 같아야 이전 커밋이 남긴 커서와 어긋나지 않는다.
+    total_lines = data.count("\n")
 
-  # 여기까지 왔으면 트랜스크립트를 실제로 읽어 처리했으므로, 합산값이 0이어도
-  # 커서는 항상 갱신한다 - 그래야 다음 커밋이 같은 구간을 중복 집계하지 않는다.
-  printf '%s' "$TOTAL_LINES" > "$CURSOR"
-  MEASUREMENT_STATUS="ok"
-  return 0
-}
+    lines = data.split("\n")
+    if lines and lines[-1] == "":
+        lines.pop()
+
+    # 커서 파일이 없거나(최초 실행) 손상됐으면 0으로 취급 - 이건 조회 자체의
+    # 실패가 아니라 "아직 아무 줄도 처리한 적 없음"과 동치이므로 실패로 취급하지 않는다.
+    cursor_count = 0
+    try:
+        with open(CURSOR, "rb") as f:
+            raw_cursor = f.read().decode("utf-8", errors="replace").rstrip("\n")
+    except OSError:
+        raw_cursor = ""
+    if re.fullmatch(r"[0-9]+", raw_cursor):
+        cursor_count = int(raw_cursor)
+
+    new_entries = lines[cursor_count:] if total_lines > cursor_count else []
+
+    # 입력 전체를 한 번에 슬러프해 처리하던 동작과 같은 실패 단위를 유지한다 - 한
+    # 줄이라도 깨지면 배치 전체가 실패해 사유 슬러그만 남고 커서는 갱신되지 않는다.
+    try:
+        TOKENS_SUM, TOOL_CALL_COUNT = aggregate_usage(new_entries)
+    except (ValueError, TypeError):
+        MEASUREMENT_REASON = "transcript-parse-failed"
+        return
+
+    # 여기까지 왔으면 트랜스크립트를 실제로 읽어 처리했으므로, 합산값이 0이어도
+    # 커서는 항상 갱신한다 - 그래야 다음 커밋이 같은 구간을 중복 집계하지 않는다.
+    # 개행 없이 숫자만 쓴다(읽는 쪽과 포맷을 맞춘다).
+    with open(CURSOR, "w", encoding="utf-8") as f:
+        f.write(str(total_lines))
+    MEASUREMENT_STATUS = "ok"
+
 
 # trailer_tokens_used(): AI_TOOL_ID로 분기하는 디스패처(GF-97). 사람 커밋
-# (AI_TOOL_ID가 빈 값)은 트레일러를 전혀 붙이지 않는다(기존 동작 유지).
-# claude-code는 measure_claude_code_token_usage()의 실측 결과를 쓴다. 그 외
-# 감지된 AI 도구는 아직 서버발급 usage를 읽을 로컬 채널이 없으므로(decision-15)
-# 항상 "unavailable (no-usage-channel)"을 남긴다. 측정해서 나온 0은
-# "unavailable"과 구분되는 정당한 값이므로 -gt 0 가드 없이 그대로 기록한다.
-trailer_tokens_used() {
-  case "$AI_TOOL_ID" in
-    "")
-      return 0
-      ;;
-    "$AI_TOOL_CLAUDE_CODE")
-      measure_claude_code_token_usage
-      if [ "$MEASUREMENT_STATUS" = "ok" ]; then
-        TOKENS_VALUE="$TOKENS_SUM"
-        CALLS_VALUE="$TOOL_CALL_COUNT"
-      else
-        TOKENS_VALUE="unavailable (${MEASUREMENT_REASON})"
-        CALLS_VALUE="unavailable (${MEASUREMENT_REASON})"
-      fi
-      ;;
-    *)
-      # 그 외 감지된 AI 도구: 아직 서버발급 usage를 읽을 로컬 채널이 없다
-      # (decision-15).
-      TOKENS_VALUE="unavailable (no-usage-channel)"
-      CALLS_VALUE="unavailable (no-usage-channel)"
-      ;;
-  esac
+# (AI_TOOL_ID가 빈 값)은 트레일러를 전혀 붙이지 않는다. claude-code는
+# measure_claude_code_token_usage()의 실측 결과를 쓴다. 그 외 감지된 AI 도구는
+# 아직 서버발급 usage를 읽을 로컬 채널이 없으므로(decision-15) 항상
+# "unavailable (no-usage-channel)"을 남긴다. 측정해서 나온 0은 "unavailable"과
+# 구분되는 정당한 값이므로 0 초과 가드 없이 그대로 기록한다.
+def trailer_tokens_used():
+    if not AI_TOOL_ID:
+        return
 
-  if ! trailer_exists "$TRAILER_TOKENS_USED" "$TOKENS_VALUE"; then
-    queue_trailer "$TRAILER_TOKENS_USED" "$TOKENS_VALUE"
-  fi
-  if ! trailer_exists "$TRAILER_TOOL_CALLS" "$CALLS_VALUE"; then
-    queue_trailer "$TRAILER_TOOL_CALLS" "$CALLS_VALUE"
-  fi
-}
+    if AI_TOOL_ID == AI_TOOL_CLAUDE_CODE:
+        measure_claude_code_token_usage()
+        if MEASUREMENT_STATUS == "ok":
+            tokens_value = str(TOKENS_SUM)
+            calls_value = str(TOOL_CALL_COUNT)
+        else:
+            tokens_value = f"unavailable ({MEASUREMENT_REASON})"
+            calls_value = f"unavailable ({MEASUREMENT_REASON})"
+    else:
+        tokens_value = "unavailable (no-usage-channel)"
+        calls_value = "unavailable (no-usage-channel)"
+
+    if not trailer_exists(TRAILER_TOKENS_USED, tokens_value):
+        queue_trailer(TRAILER_TOKENS_USED, tokens_value)
+    if not trailer_exists(TRAILER_TOOL_CALLS, calls_value):
+        queue_trailer(TRAILER_TOOL_CALLS, calls_value)
+
 
 # Hooks-Commit(decision-5): 이 커밋을 검증한 git-format 훅 코드 자체의 커밋 해시.
 # 수동 버전 문자열 대신 훅 스크립트가 위치한 저장소의 HEAD를 그대로 읽으므로 항상
 # 정확하다. hooks/가 git-format 클론 안에 있지 않으면(예: 훅만 복사해 배포한 경우)
-# 조용히 생략한다. HOOK_DIR은 파일 앞부분에서 이미 계산해뒀다(resolve_self 참고).
-trailer_hooks_commit() {
-  if HOOKS_COMMIT="$(git -C "$HOOK_DIR" rev-parse --short HEAD 2>/dev/null)" \
-    && ! trailer_exists "$TRAILER_HOOKS_COMMIT" "${HOOKS_COMMIT}"; then
-    queue_trailer "$TRAILER_HOOKS_COMMIT" "${HOOKS_COMMIT}"
-  fi
-}
+# 조회가 실패하는데, 그때는 커밋을 막지 않고 이 트레일러만 생략하는 게 의도된
+# 동작이다 - 이 함수의 판단이 rev-parse 성공 여부에 달려 있으므로 예외가 아니라
+# 종료 코드로 좁게 확인한다.
+def trailer_hooks_commit():
+    result = subprocess.run(
+        ["git", "-C", HOOK_DIR, "rev-parse", "--short", "HEAD"],
+        capture_output=True,
+        encoding="utf-8",
+        check=False,
+    )
+    if result.returncode != 0:
+        return
+
+    hooks_commit = result.stdout.rstrip("\n")
+    if not trailer_exists(TRAILER_HOOKS_COMMIT, hooks_commit):
+        queue_trailer(TRAILER_HOOKS_COMMIT, hooks_commit)
+
 
 # Signed-off-by(리누스/DCO 스타일): 커미터 정보를 `git commit -s`와 동일한 방식으로
 # 모든 커밋에 자동 삽입한다. AI 여부와 무관하며, 사람이 직접 입력하게 강제하지 않는다.
-trailer_signed_off_by() {
-  SIGNED_OFF_BY_VALUE="$(git log -1 --format='%cn <%ce>')"
-  readonly SIGNED_OFF_BY_VALUE
-  if [ -n "$SIGNED_OFF_BY_VALUE" ] \
-    && ! trailer_exists "$TRAILER_SIGNED_OFF_BY" "$SIGNED_OFF_BY_VALUE"; then
-    queue_trailer "$TRAILER_SIGNED_OFF_BY" "$SIGNED_OFF_BY_VALUE"
-  fi
-}
+def trailer_signed_off_by():
+    signed_off_by_value = subprocess.run(
+        ["git", "log", "-1", "--format=%cn <%ce>"],
+        stdout=subprocess.PIPE,
+        encoding="utf-8",
+        errors="surrogateescape",
+        check=True,
+    ).stdout.rstrip("\n")
+    if signed_off_by_value and not trailer_exists(
+        TRAILER_SIGNED_OFF_BY, signed_off_by_value
+    ):
+        queue_trailer(TRAILER_SIGNED_OFF_BY, signed_off_by_value)
 
-detect_verify_bypass
-trailer_task_id
-trailer_ai_tool
-trailer_ai_model
-trailer_tokens_used
-trailer_hooks_commit
-trailer_signed_off_by
 
-# TRAILER_QUEUE를 한 줄씩 읽어 위치 매개변수로 조립한다. 이 while 루프는
-# 함수 안이 아니라 톱레벨에 있고, 파이프가 아니라 heredoc(<<EOF)으로 입력을
-# 받는다 — 파이프(`cmd | while read`)로 연결하면 루프가 서브셸에서 돌아 여기서
-# 하는 `set --`도 이 스크립트 프로세스에 남지 않는다.
-set --
-while IFS= read -r trailer_line; do
-  [ -n "$trailer_line" ] && set -- "$@" --trailer "$trailer_line"
-done <<EOF
-$TRAILER_QUEUE
-EOF
+detect_verify_bypass()
+trailer_task_id()
+trailer_ai_tool()
+trailer_ai_model()
+trailer_tokens_used()
+trailer_hooks_commit()
+trailer_signed_off_by()
 
-if [ "$#" -gt 0 ]; then
-  # 위에서 이미 정확히 일치하는 트레일러는 걸러냈으므로(trailer_exists), 여기서는
-  # git의 접두어 기반 --if-exists 판단에 기대지 않고 항상 추가한다(GF-33).
-  NEW_MSG="$(printf '%s\n' "$CURRENT_MSG" | git interpret-trailers --if-exists add "$@")"
-  _GITFORMAT_AMEND_GUARD=1 git commit --amend --no-verify -m "$NEW_MSG" >/dev/null
-fi
+if TRAILER_QUEUE:
+    TRAILER_ARGS = []
+    for trailer_line in TRAILER_QUEUE:
+        TRAILER_ARGS += ["--trailer", trailer_line]
 
-exit 0
+    # 위에서 이미 정확히 일치하는 트레일러는 걸러냈으므로(trailer_exists), 여기서는
+    # git의 접두어 기반 --if-exists 판단에 기대지 않고 항상 추가한다(GF-33).
+    NEW_MSG = subprocess.run(
+        ["git", "interpret-trailers", "--if-exists", "add", *TRAILER_ARGS],
+        input=CURRENT_MSG + "\n",
+        stdout=subprocess.PIPE,
+        encoding="utf-8",
+        errors="surrogateescape",
+        check=True,
+    ).stdout.rstrip("\n")
+
+    subprocess.run(
+        ["git", "commit", "--amend", "--no-verify", "-m", NEW_MSG],
+        stdout=subprocess.DEVNULL,
+        env={**os.environ, "_GITFORMAT_AMEND_GUARD": "1"},
+        encoding="utf-8",
+        check=True,
+    )
+
+sys.exit(0)
