@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@claude'
 created_date: '2026-09-24 09:25'
-updated_date: '2026-09-24 10:08'
+updated_date: '2026-09-24 11:49'
 labels:
   - python-migration
   - docs
@@ -87,3 +87,9 @@ ordinal: 7
 5. 신규 bats 파일 작성 - 실행 시점 PATH 부재 시나리오. pre-commit/commit-msg는 커밋이 실제로 막히는지, post-commit은 커밋이 유지되고 트레일러만 빠지는지를 각각 단언한다
 6. 실측 동작이 README에 쓴 문구와 다르면 **README를 실측에 맞춰 고친다** - 문서가 아니라 실제 동작이 기준이다
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+GF-108 진행 중 발견(2026-09-24): README.md:99의 `hooks/checks/<lang>.sh` 표기가 .py 포팅 후 죽은 경로가 된다. GF-108 범위 밖이라 손대지 않았으니 이 태스크의 README 갱신 때 같이 고칠 것(README.en.md에 대응 문구가 있으면 함께).
+<!-- SECTION:NOTES:END -->

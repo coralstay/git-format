@@ -1,11 +1,11 @@
 ---
 id: GF-108
 title: hooks/checks/*.sh → Python 포팅 (5개 언어)
-status: To Do
+status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-09-24 09:23'
-updated_date: '2026-09-24 10:08'
+updated_date: '2026-09-24 11:48'
 labels:
   - python-migration
   - hooks
@@ -63,6 +63,7 @@ hooks/checks/{python,ts,java,cpp,sql}.sh를 각각 .py로 포팅한다. sh 시�
 - [ ] #7 tests/checks-*.bats 내부에 hooks/checks/*.sh 경로 하드코딩이 있는지 파일을 직접 열어 확인하고 .py로 갱신한다
 - [ ] #8 .gitignore에 __pycache__/ 와 *.pyc가 추가된다
 - [ ] #9 구 .sh 체크 스크립트를 삭제하기 전에 아직 sh인 hooks/pre-commit의 디스패치 경로를 .py로 갱신해, 어느 중간 커밋에서도 훅 체인이 깨지지 않는다
+- [ ] #10 구 .sh 삭제로 깨지는 AC 밖 3개 파일을 최소 수정으로 함께 고친다(유저 승인, 2026-09-24): .github/workflows/test.yml의 shellcheck 대상에서 hooks/checks/*.sh 제거, tests/conf-guard.bats의 checks 3건을 python3 .py 호출로 교체, tests/consistency.bats의 resolve_self/conf가드 파일 목록에서 checks 항목 제거(파이썬 쪽 동일성 검사 설계는 GF-112 소관)
 <!-- AC:END -->
 
 ## Definition of Done
@@ -91,4 +92,9 @@ hooks/checks/{python,ts,java,cpp,sql}.sh를 각각 .py로 포팅한다. sh 시�
 8. **구 .sh 삭제 전에 아직 sh인 hooks/pre-commit의 디스패치 경로를 .py로 갱신한다** - 이 순서를 지키지 않으면 GF-110이 끝나기 전까지 중간 커밋들에서 훅 체인이 깨진다
 9. .gitignore에 __pycache__/ 와 *.pyc 추가
 10. 구 hooks/checks/*.sh 5개 삭제(내용이 전부 바뀌므로 git mv가 아니라 신규 작성 후 삭제)
+
+11. (유저 승인 범위 확장) .github/workflows/test.yml shellcheck 인자에서 hooks/checks/*.sh 제거 - 글롭이 매치 0개가 되면 shellcheck가 실패한다
+12. tests/conf-guard.bats의 checks/{cpp,java,sql}.sh 실행 3건을 python3 checks/*.py 실행으로 교체
+13. tests/consistency.bats의 resolve_self 6개 사본 목록과 conf 가드 7개 파일 목록에서 checks의 .sh 3개를 제거(Python은 realpath를 쓰므로 resolve_self 자체가 없음)
+14. 전체 bats 스위트와 ruff로 검증
 <!-- SECTION:PLAN:END -->
