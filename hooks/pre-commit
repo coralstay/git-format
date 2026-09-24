@@ -71,7 +71,7 @@ run_check() {
 }
 
 if [ -f "$MARKER_TS" ]; then
-  run_check "${CHECKS_DIR}/ts.sh"
+  run_check "${CHECKS_DIR}/ts.py"
 fi
 
 python_marker_found=false
@@ -79,20 +79,20 @@ for f in $(git config --file "$CONF" --get-all gitformat.marker.python); do
   [ -f "$f" ] && python_marker_found=true
 done
 if [ "$python_marker_found" = true ]; then
-  run_check "${CHECKS_DIR}/python.sh"
+  run_check "${CHECKS_DIR}/python.py"
 fi
 
 # shellcheck disable=SC2086 # 의도적 글롭 확장(예: build.gradle*). 따옴표로 감싸면 리터럴 비교가 되어 깨진다.
 if [ -f "$MARKER_JAVA" ] || ls ${MARKER_JAVA_GRADLE} >/dev/null 2>&1; then
-  run_check "${CHECKS_DIR}/java.sh"
+  run_check "${CHECKS_DIR}/java.py"
 fi
 
 if [ -f "$MARKER_CPP" ] || [ -f "$MARKER_CPP_MAKE" ]; then
-  run_check "${CHECKS_DIR}/cpp.sh"
+  run_check "${CHECKS_DIR}/cpp.py"
 fi
 
 if [ -f "$MARKER_SQL" ] || git ls-files -- "$MARKER_SQL_GLOB" | grep -q .; then
-  run_check "${CHECKS_DIR}/sql.sh"
+  run_check "${CHECKS_DIR}/sql.py"
 fi
 
 printf '%s %s\n' "$(date +%s)" "$$" > "$MARKER"
