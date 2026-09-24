@@ -1,11 +1,11 @@
 ---
-id: DRAFT-9
+id: GF-108
 title: hooks/checks/*.sh → Python 포팅 (5개 언어)
-status: Draft
+status: To Do
 assignee:
   - '@claude'
 created_date: '2026-09-24 09:23'
-updated_date: '2026-09-24 09:57'
+updated_date: '2026-09-24 10:08'
 labels:
   - python-migration
   - hooks
@@ -49,7 +49,7 @@ hooks/checks/{python,ts,java,cpp,sql}.sh를 각각 .py로 포팅한다. sh 시�
 
 ## 선행/병렬
 
-선행 조건 없음. 5개 체크 스크립트는 서로 코드를 공유하지 않아 완전히 병렬로 진행 가능하다. 이 태스크의 완료가 DRAFT-10(pre-commit)의 선행 조건이다 - pre-commit 디스패처가 .py 파일명을 직접 참조하기 때문.
+선행 조건 없음. 5개 체크 스크립트는 서로 코드를 공유하지 않아 완전히 병렬로 진행 가능하다. 이 태스크의 완료가 GF-110(pre-commit)의 선행 조건이다 - pre-commit 디스패처가 .py 파일명을 직접 참조하기 때문.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -88,7 +88,7 @@ hooks/checks/{python,ts,java,cpp,sql}.sh를 각각 .py로 포팅한다. sh 시�
 5. hooks/checks/sql.py: 동일한 NUL-split, .sqlfluff 부재 시에만 --dialect 부여
 6. 각 파일 작성 직후 대응 bats 실행(checks-python/ts/java/cpp/sql.bats)
 7. tests/checks-*.bats를 직접 열어 .sh 경로 하드코딩을 확인하고 .py로 갱신
-8. **구 .sh 삭제 전에 아직 sh인 hooks/pre-commit의 디스패치 경로를 .py로 갱신한다** - 이 순서를 지키지 않으면 DRAFT-10이 끝나기 전까지 중간 커밋들에서 훅 체인이 깨진다
+8. **구 .sh 삭제 전에 아직 sh인 hooks/pre-commit의 디스패치 경로를 .py로 갱신한다** - 이 순서를 지키지 않으면 GF-110이 끝나기 전까지 중간 커밋들에서 훅 체인이 깨진다
 9. .gitignore에 __pycache__/ 와 *.pyc 추가
 10. 구 hooks/checks/*.sh 5개 삭제(내용이 전부 바뀌므로 git mv가 아니라 신규 작성 후 삭제)
 <!-- SECTION:PLAN:END -->

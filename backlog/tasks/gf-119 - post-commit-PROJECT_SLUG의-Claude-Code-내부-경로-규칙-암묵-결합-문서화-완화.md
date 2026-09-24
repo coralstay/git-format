@@ -1,7 +1,7 @@
 ---
-id: DRAFT-6
+id: GF-119
 title: post-commit PROJECT_SLUG의 Claude Code 내부 경로 규칙 암묵 결합 문서화/완화
-status: Draft
+status: To Do
 assignee: []
 created_date: '2026-09-19 15:46'
 labels: []

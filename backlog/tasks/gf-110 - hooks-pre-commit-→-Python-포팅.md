@@ -1,17 +1,17 @@
 ---
-id: DRAFT-10
+id: GF-110
 title: hooks/pre-commit → Python 포팅
-status: Draft
+status: To Do
 assignee:
   - '@claude'
 created_date: '2026-09-24 09:23'
-updated_date: '2026-09-24 09:57'
+updated_date: '2026-09-24 10:08'
 labels:
   - python-migration
   - hooks
 milestone: m-3
 dependencies:
-  - DRAFT-9
+  - GF-108
 documentation:
   - doc-9
   - doc-10
@@ -27,7 +27,7 @@ ordinal: 4
 <!-- SECTION:DESCRIPTION:BEGIN -->
 ## 왜
 
-pre-commit은 git이 직접 실행하는 3개 진입점 중 하나이자, 언어 감지 후 checks 스크립트를 호출하는 디스패처다. checks/*.py가 먼저 존재해야 디스패치 경로를 갱신할 수 있으므로 DRAFT-9 완료가 선행 조건이다.
+pre-commit은 git이 직접 실행하는 3개 진입점 중 하나이자, 언어 감지 후 checks 스크립트를 호출하는 디스패처다. checks/*.py가 먼저 존재해야 디스패치 경로를 갱신할 수 있으므로 GF-108 완료가 선행 조건이다.
 
 ## 무엇을
 
@@ -41,7 +41,7 @@ hooks/pre-commit을 #!/usr/bin/env python3 셔뱅을 가진 단일 Python 파일
 
 ## 선행/병렬
 
-DRAFT-9(checks 5개) 완료가 선행 조건. DRAFT-11(commit-msg)과는 코드 의존이 없어 병렬 가능하다.
+GF-108(checks 5개) 완료가 선행 조건. GF-109(commit-msg)과는 코드 의존이 없어 병렬 가능하다.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria

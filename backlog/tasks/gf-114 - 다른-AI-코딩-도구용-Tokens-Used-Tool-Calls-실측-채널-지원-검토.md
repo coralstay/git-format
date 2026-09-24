@@ -1,7 +1,7 @@
 ---
-id: DRAFT-1
+id: GF-114
 title: 다른 AI 코딩 도구용 Tokens-Used/Tool-Calls 실측 채널 지원 검토
-status: Draft
+status: To Do
 assignee: []
 created_date: '2026-09-19 01:21'
 labels: []
