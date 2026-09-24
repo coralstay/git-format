@@ -10,6 +10,14 @@ load 'helpers/git-format'
 
 setup() {
   make_isolated_repo
+  # 이 파일의 여러 케이스가 HOME을 가짜 경로로 바꿔 커밋을 태운다. asdf로
+  # python을 관리하는 로컬 환경에서는 그때 python3 셈이 .tool-versions를 찾지
+  # 못해, commit-msg(GF-109에서 Python이 됨)가 아예 실행되지 않는다(훅과 무관한
+  # 로컬 테스트 환경 이슈 - checks-ts.bats의 ASDF_NODEJS_VERSION과 같은 종류).
+  # asdf가 있을 때만 지정한다 - 없는 환경(CI 등)에서는 조용히 무시된다.
+  if command -v asdf >/dev/null 2>&1; then
+    export ASDF_PYTHON_VERSION="system"
+  fi
 }
 
 teardown() {
