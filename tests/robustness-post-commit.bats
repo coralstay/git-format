@@ -5,6 +5,10 @@
 # GF-97: Tokens-Used/Tool-Calls가 실패 시 조용히 생략되지 않고 unavailable
 # (사유)로 명시되도록, 그리고 claude-code 외 AI 도구/사람 커밋/실측 0까지
 # 다루도록 케이스를 갱신·확장.
+# GF-111: post-commit이 Python이 되면서 트랜스크립트 파싱이 jq 서브프로세스에서
+# json.loads()로 바뀌어 jq 의존성이 사라졌다. jq 부재를 전제로 하던 케이스와
+# "jq가 없으면 skip"하던 가드를 모두 제거했다 - 가드가 사라져 아래 트랜스크립트
+# 케이스들은 이제 모든 환경에서 실제로 실행된다.
 
 load 'helpers/git-format'
 
@@ -52,12 +56,9 @@ teardown() {
   [[ "$MSG" == *"Verify-Bypassed: true"* ]]
 }
 
-# ── 결함주입: 트랜스크립트 손상, jq 없음, HOME 이상값 ────────────────
+# ── 결함주입: 트랜스크립트 손상, HOME 이상값 ──────────────────────────
 
 @test "[결함주입] Claude Code 트랜스크립트 JSON이 깨져도 AI-Model만 생략되고 커밋은 막히지 않는다" {
-  if ! command -v jq >/dev/null 2>&1; then
-    skip "jq가 로컬에 없어 이 케이스를 검증할 수 없음"
-  fi
   FAKE_HOME="$(mktemp -d)"
   SLUG="$(printf '%s' "$PWD" | tr -c 'A-Za-z0-9' '-')"
   mkdir -p "${FAKE_HOME}/.claude/projects/${SLUG}"
@@ -76,14 +77,6 @@ teardown() {
   rm -rf "$FAKE_HOME"
 }
 
-@test "[결함주입] jq가 PATH에 없어도 Claude Code 커밋은 막히지 않는다" {
-  echo hi > a.txt
-  git add a.txt
-  PATH="$(path_without jq)" AI_AGENT="claude-code_2-1-0" CLAUDE_CODE_SESSION_ID="fake-session" \
-    run git commit -m "[feat] no jq on PATH"
-  [ "$status" -eq 0 ]
-}
-
 @test "[결함주입] HOME이 존재하지 않는 경로여도 커밋은 막히지 않는다" {
   echo hi > a.txt
   git add a.txt
@@ -95,9 +88,6 @@ teardown() {
 # ── Tokens-Used/Tool-Calls: 트랜스크립트 델타 집계(GF-96) ─────────────
 
 @test "[GF-96] 알려진 usage 값을 가진 트랜스크립트로 커밋하면 Tokens-Used/Tool-Calls가 정확히 합산된다" {
-  if ! command -v jq >/dev/null 2>&1; then
-    skip "jq가 로컬에 없어 이 케이스를 검증할 수 없음"
-  fi
   FAKE_HOME="$(mktemp -d)"
   SLUG="$(printf '%s' "$PWD" | tr -c 'A-Za-z0-9' '-')"
   mkdir -p "${FAKE_HOME}/.claude/projects/${SLUG}"
@@ -124,9 +114,6 @@ teardown() {
 }
 
 @test "[GF-96] 같은 세션의 두 번째 커밋은 첫 커밋 이후 새로 추가된 줄만 델타로 집계한다" {
-  if ! command -v jq >/dev/null 2>&1; then
-    skip "jq가 로컬에 없어 이 케이스를 검증할 수 없음"
-  fi
   FAKE_HOME="$(mktemp -d)"
   SLUG="$(printf '%s' "$PWD" | tr -c 'A-Za-z0-9' '-')"
   mkdir -p "${FAKE_HOME}/.claude/projects/${SLUG}"
@@ -179,26 +166,6 @@ teardown() {
   rm -rf "$FAKE_HOME"
 }
 
-@test "[GF-97] jq가 PATH에 없으면 Tokens-Used/Tool-Calls가 unavailable (jq-not-installed)로 명시된다" {
-  FAKE_HOME="$(mktemp -d)"
-  SLUG="$(printf '%s' "$PWD" | tr -c 'A-Za-z0-9' '-')"
-  mkdir -p "${FAKE_HOME}/.claude/projects/${SLUG}"
-  printf '%s\n' '{"type":"assistant","message":{"usage":{"input_tokens":10,"output_tokens":5},"content":[]}}' \
-    > "${FAKE_HOME}/.claude/projects/${SLUG}/fake-session.jsonl"
-
-  echo hi > a.txt
-  git add a.txt
-  HOME="$FAKE_HOME" PATH="$(path_without jq)" AI_AGENT="claude-code_2-1-0" \
-    CLAUDE_CODE_SESSION_ID="fake-session" run git commit -m "[feat] no jq for tokens"
-  [ "$status" -eq 0 ]
-  MSG="$(git log -1 --pretty=%B)"
-  [[ "$MSG" == *"Tokens-Used: unavailable (jq-not-installed)"* ]]
-  [[ "$MSG" == *"Tool-Calls: unavailable (jq-not-installed)"* ]]
-  [ ! -f .git/.gitformat-token-cursor ]
-
-  rm -rf "$FAKE_HOME"
-}
-
 @test "[GF-97] 사람 커밋(AI 도구 미감지)에는 Tokens-Used/Tool-Calls가 전혀 붙지 않는다" {
   echo hi > a.txt
   git add a.txt
@@ -230,9 +197,6 @@ teardown() {
 }
 
 @test "[GF-97] 실측 결과가 정말 0이면 unavailable이 아니라 Tokens-Used: 0/Tool-Calls: 0으로 명시된다" {
-  if ! command -v jq >/dev/null 2>&1; then
-    skip "jq가 로컬에 없어 이 케이스를 검증할 수 없음"
-  fi
   FAKE_HOME="$(mktemp -d)"
   SLUG="$(printf '%s' "$PWD" | tr -c 'A-Za-z0-9' '-')"
   mkdir -p "${FAKE_HOME}/.claude/projects/${SLUG}"
@@ -264,10 +228,6 @@ teardown() {
 # 실행된다는 것을 실측 확인함) 두 알고리즘이 반드시 갈리는 상황을 재현해
 # 정확한 알고리즘 자체를 직접 검증한다.
 @test "[GF-98] 저장소 경로에 밑줄/점이 있어도 Claude Code 실제 슬러그 규칙으로 트랜스크립트를 찾아 AI-Model/Tokens-Used/Tool-Calls가 채워진다" {
-  if ! command -v jq >/dev/null 2>&1; then
-    skip "jq가 로컬에 없어 이 케이스를 검증할 수 없음"
-  fi
-
   NESTED_REPO="${TEST_REPO}/repo_with.dot_and_underscore"
   mkdir -p "$NESTED_REPO"
   cd "$NESTED_REPO" || return 1
