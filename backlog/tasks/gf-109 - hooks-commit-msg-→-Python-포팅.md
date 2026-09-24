@@ -1,11 +1,11 @@
 ---
-id: DRAFT-11
+id: GF-109
 title: hooks/commit-msg → Python 포팅
-status: Draft
+status: To Do
 assignee:
   - '@claude'
 created_date: '2026-09-24 09:24'
-updated_date: '2026-09-24 09:57'
+updated_date: '2026-09-24 10:08'
 labels:
   - python-migration
   - hooks
@@ -47,7 +47,7 @@ CI: 같은 커밋에서 test.yml shellcheck 대상 목록에서 hooks/commit-msg
 
 ## 선행/병렬
 
-선행 조건 없음. commit-msg는 pre-commit이나 checks 스크립트를 호출하지 않는 독립 로직이라 DRAFT-9, DRAFT-10과 병렬로 진행 가능하다.
+선행 조건 없음. commit-msg는 pre-commit이나 checks 스크립트를 호출하지 않는 독립 로직이라 GF-108, GF-110과 병렬로 진행 가능하다.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -79,7 +79,7 @@ CI: 같은 커밋에서 test.yml shellcheck 대상 목록에서 hooks/commit-msg
 1. hooks/commit-msg(sh, 305줄)를 읽고 검증 규칙을 목록화한다: [type][subsystem] 프리픽스, subject 50자, body 72자, blank-line-after-subject, Fixes: 해시 존재, Task-Id 브랜치 강제, AI-Model 화이트리스트
 2. Python으로 재작성 - 메시지는 read_bytes().decode("utf-8", errors="replace"), 길이 검증은 len(str)로 코드포인트 단위
 3. Task-Id 정규식은 re.escape(prefix)로 조립하고 (^|[^a-zA-Z0-9]) 앵커를 유지(GF-34 재발 방지)
-4. TASK_PREFIX/BRANCH 계산 블록은 DRAFT-12에서 그대로 복제할 수 있는 형태로 작성한다(공유 모듈은 만들지 않기로 확정됨 - 파일별 독립 중복 유지)
+4. TASK_PREFIX/BRANCH 계산 블록은 GF-111에서 그대로 복제할 수 있는 형태로 작성한다(공유 모듈은 만들지 않기로 확정됨 - 파일별 독립 중복 유지)
 5. 거부 시 마커 정리는 try/finally로 이식(sh의 trap EXIT 대체)
 6. 같은 커밋에서 shellcheck 대상 목록에서 hooks/commit-msg 제거
 7. bats tests/robustness-commit-msg.bats tests/robustness-injection.bats 실행 - 한글 메시지의 길이 경계값과 invalid UTF-8 입력을 특히 확인한다

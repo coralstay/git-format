@@ -1,7 +1,7 @@
 ---
-id: DRAFT-7
+id: GF-120
 title: tests/consistency.bats 일관성 체크 대상에서 python.sh/ts.sh 누락 확인
-status: Draft
+status: To Do
 assignee: []
 created_date: '2026-09-19 15:46'
 labels: []

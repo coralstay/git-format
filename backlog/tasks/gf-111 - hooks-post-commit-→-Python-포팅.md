@@ -1,17 +1,17 @@
 ---
-id: DRAFT-12
+id: GF-111
 title: hooks/post-commit → Python 포팅
-status: Draft
+status: To Do
 assignee:
   - '@claude'
 created_date: '2026-09-24 09:24'
-updated_date: '2026-09-24 09:57'
+updated_date: '2026-09-24 10:08'
 labels:
   - python-migration
   - hooks
 milestone: m-3
 dependencies:
-  - DRAFT-10
+  - GF-110
 documentation:
   - doc-9
   - doc-10
@@ -47,7 +47,7 @@ CI: 같은 커밋에서 test.yml shellcheck 대상에서 hooks/post-commit 제�
 
 ## 선행/병렬
 
-코드 의존은 없다(마커는 포맷 기반 계약이라 pre-commit이 sh든 Python이든 상호운용된다). 다만 마커를 쓰는 쪽(pre-commit, DRAFT-10)을 먼저 포팅한 뒤 읽는 쪽을 포팅하는 순서가 문제 발생 시 원인 추적에 유리하므로 DRAFT-10 이후를 권장한다(강제 아님).
+코드 의존은 없다(마커는 포맷 기반 계약이라 pre-commit이 sh든 Python이든 상호운용된다). 다만 마커를 쓰는 쪽(pre-commit, GF-110)을 먼저 포팅한 뒤 읽는 쪽을 포팅하는 순서가 문제 발생 시 원인 추적에 유리하므로 GF-110 이후를 권장한다(강제 아님).
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -81,7 +81,7 @@ CI: 같은 커밋에서 test.yml shellcheck 대상에서 hooks/post-commit 제�
 3. 트레일러 존재 확인은 git interpret-trailers --parse 출력을 "key: value"로 직접 파싱(--if-exists의 접두어 매칭에 의존 금지 - GF-33)
 4. 트랜스크립트 파싱을 jq에서 json.loads()로 전환하되, jq -s의 all-or-nothing 실패 단위를 유지한다(한 줄이라도 실패하면 전체를 transcript-parse-failed로 기록)
 5. AI-Model 조회만 좁은 try/except로 감싸고(decision-5의 의도된 fail-open), 나머지 subprocess는 실패 시 예외를 던지게 한다
-6. TASK_PREFIX/BRANCH 블록은 DRAFT-11의 commit-msg와 동일하게 유지
+6. TASK_PREFIX/BRANCH 블록은 GF-109의 commit-msg와 동일하게 유지
 7. 같은 커밋에서 shellcheck 대상에서 hooks/post-commit 제거 → install.sh만 남는다
 8. bats tests/robustness-post-commit.bats 실행 후 bats tests/ 전체를 1회 더 실행
 <!-- SECTION:PLAN:END -->

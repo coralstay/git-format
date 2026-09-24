@@ -1,7 +1,7 @@
 ---
-id: DRAFT-4
+id: GF-117
 title: 'README 지원 언어 문구 ''등'' 정정 (5종 고정, 확장 계획 없음)'
-status: Draft
+status: To Do
 assignee: []
 created_date: '2026-09-19 15:46'
 labels: []

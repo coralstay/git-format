@@ -1,7 +1,7 @@
 ---
-id: DRAFT-5
+id: GF-118
 title: gitformat.conf 커스텀 마커 값의 unquoted glob 확장 방어 처리
-status: Draft
+status: To Do
 assignee: []
 created_date: '2026-09-19 15:46'
 labels: []

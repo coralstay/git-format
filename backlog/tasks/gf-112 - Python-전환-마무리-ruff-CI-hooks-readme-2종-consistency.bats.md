@@ -1,21 +1,21 @@
 ---
-id: DRAFT-13
+id: GF-112
 title: 'Python 전환 마무리: ruff CI + hooks readme 2종 + consistency.bats'
-status: Draft
+status: To Do
 assignee:
   - '@claude'
 created_date: '2026-09-24 09:24'
-updated_date: '2026-09-24 09:57'
+updated_date: '2026-09-24 10:08'
 labels:
   - python-migration
   - ci
   - docs
 milestone: m-3
 dependencies:
-  - DRAFT-9
-  - DRAFT-10
-  - DRAFT-11
-  - DRAFT-12
+  - GF-108
+  - GF-109
+  - GF-110
+  - GF-111
 documentation:
   - doc-9
   - doc-5
@@ -50,7 +50,7 @@ ordinal: 6
 
 ## 선행/병렬
 
-DRAFT-9, DRAFT-10, DRAFT-11, DRAFT-12가 전부 완료된 뒤에만 가능하다. consistency.bats는 여러 파일에 걸친 바이트 동일성 검사라 부분 상태에서는 의미가 없고, readme 2종도 최종 구조가 확정돼야 정확히 쓸 수 있다. 단 ruff CI 스텝 추가만은 첫 .py 파일이 생긴 뒤 아무 때나 병렬로 넣어도 된다.
+GF-108, GF-110, GF-109, GF-111가 전부 완료된 뒤에만 가능하다. consistency.bats는 여러 파일에 걸친 바이트 동일성 검사라 부분 상태에서는 의미가 없고, readme 2종도 최종 구조가 확정돼야 정확히 쓸 수 있다. 단 ruff CI 스텝 추가만은 첫 .py 파일이 생긴 뒤 아무 때나 병렬로 넣어도 된다.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria

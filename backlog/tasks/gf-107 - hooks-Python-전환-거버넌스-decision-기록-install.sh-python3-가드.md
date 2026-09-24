@@ -1,11 +1,11 @@
 ---
-id: DRAFT-8
+id: GF-107
 title: 'hooks Python 전환 거버넌스: decision 기록 + install.sh python3 가드'
-status: Draft
+status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-09-24 09:23'
-updated_date: '2026-09-24 09:57'
+updated_date: '2026-09-24 10:09'
 labels:
   - python-migration
   - governance

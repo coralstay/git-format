@@ -1,7 +1,7 @@
 ---
-id: DRAFT-3
+id: GF-116
 title: hooks/commit-msg의 LC_ALL=C.UTF-8 하드코딩 이식성 검증
-status: Draft
+status: To Do
 assignee: []
 created_date: '2026-09-19 15:46'
 labels: []

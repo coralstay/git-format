@@ -1,7 +1,7 @@
 ---
-id: DRAFT-2
+id: GF-115
 title: 언어별 pre-commit 검사 스코프 불일치 (저장소 전체 vs 스테이징) 해소 검토
-status: Draft
+status: To Do
 assignee: []
 created_date: '2026-09-19 15:46'
 labels: []

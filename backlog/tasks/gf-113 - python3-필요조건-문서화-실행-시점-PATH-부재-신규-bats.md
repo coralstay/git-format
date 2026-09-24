@@ -1,21 +1,21 @@
 ---
-id: DRAFT-14
+id: GF-113
 title: python3 필요조건 문서화 + 실행 시점 PATH 부재 신규 bats
-status: Draft
+status: To Do
 assignee:
   - '@claude'
 created_date: '2026-09-24 09:25'
-updated_date: '2026-09-24 09:57'
+updated_date: '2026-09-24 10:08'
 labels:
   - python-migration
   - docs
   - tests
 milestone: m-4
 dependencies:
-  - DRAFT-8
-  - DRAFT-10
-  - DRAFT-11
-  - DRAFT-12
+  - GF-107
+  - GF-109
+  - GF-110
+  - GF-111
 documentation:
   - doc-9
   - doc-6
@@ -46,13 +46,13 @@ ordinal: 7
 
 2. hooks/readme.md에도 이 python3 PATH 요구사항을 한 줄 반영한다.
 
-3. tests/robustness-install.bats: python3이 없는 설치 환경 케이스를 추가한다(기존 path_without() 헬퍼 재사용). DRAFT-8에서 만든 install.sh 가드가 명확한 에러로 설치를 막는지 확인.
+3. tests/robustness-install.bats: python3이 없는 설치 환경 케이스를 추가한다(기존 path_without() 헬퍼 재사용). GF-107에서 만든 install.sh 가드가 명확한 에러로 설치를 막는지 확인.
 
 4. 신규 bats: 훅 실행 시점(설치 시점 아님) PATH에 python3이 없을 때의 동작을 검증한다. path_without()으로 python3을 숨긴 환경에서 (a) pre-commit/commit-msg가 nonzero로 실패해 커밋이 실제로 막히는지, (b) post-commit이 실패해도 커밋 자체는 유지되고 트레일러만 누락되는지 직접 확인한다. 이건 sh 버전에 없던 동작이라 "동일성 재검증"이 아니라 "신규 동작 검증"이다.
 
 ## 선행/병렬
 
-항목마다 다르다. README 필요조건 문구는 코드 상태와 무관해 아무 때나(마일스톤 1을 기다리지 않고) 쓸 수 있다. install.sh 부재 케이스 bats는 DRAFT-8 완료 후면 언제든 가능하다. 실행 시점 PATH 부재 bats는 해당 훅이 실제로 Python으로 포팅된 뒤에만 의미가 있으므로, DRAFT-10/11/12가 하나씩 끝날 때마다 그 훅의 케이스부터 병렬로 추가하면 된다(전부 기다릴 필요 없음).
+항목마다 다르다. README 필요조건 문구는 코드 상태와 무관해 아무 때나(마일스톤 1을 기다리지 않고) 쓸 수 있다. install.sh 부재 케이스 bats는 GF-107 완료 후면 언제든 가능하다. 실행 시점 PATH 부재 bats는 해당 훅이 실제로 Python으로 포팅된 뒤에만 의미가 있으므로, GF-110/11/12가 하나씩 끝날 때마다 그 훅의 케이스부터 병렬로 추가하면 된다(전부 기다릴 필요 없음).
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
