@@ -3,7 +3,7 @@ id: doc-3
 title: AI 귀속 트레일러 레퍼런스
 type: guide
 created_date: '2026-09-19 05:27'
-updated_date: '2026-09-19 05:27'
+updated_date: '2026-09-24 18:26'
 ---
 ## 🤖 AI 귀속 footer
 
@@ -32,7 +32,7 @@ AI 코딩 에이전트가 커밋했다면 아래 트레일러가 자동으로 �
 다시 읽습니다.
 
 측정에 실패하면 `unavailable (사유 슬러그)`로 명시 기록합니다(사유:
-`no-session-id`/`jq-not-installed`/`transcript-not-found`/`transcript-unreadable`/
+`no-session-id`/`transcript-not-found`/`transcript-unreadable`/
 `transcript-parse-failed`/`no-usage-channel`). 커서는 실측 성공 시에만 갱신하고, 실제로
 읽어서 합산한 값이 0이면 `0`으로 그대로 기록합니다(생략하지 않음). **주의**: 이 값은
 "이 커밋에 정확히 필요했던 토큰"이 아니라 "직전 커밋 이후 세션에서 소비된 토큰"의
