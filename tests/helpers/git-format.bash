@@ -3,6 +3,33 @@
 
 GITFORMAT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
+# 훅이 Python이 된 뒤(GF-108/GF-109), HOME을 가짜 경로로 바꾸는 테스트들은 asdf로
+# python을 관리하는 로컬 환경에서 셈이 .tool-versions를 못 찾아 훅이 아예 실행되지
+# 않는다(훅과 무관한 로컬 환경 이슈 - checks-ts.bats의 ASDF_NODEJS_VERSION과 같은
+# 종류). asdf가 없는 환경(CI 등)에서는 아무것도 하지 않는다.
+#
+# 값으로 "system"을 쓰면 안 된다 - path_without()이 만드는 섀도 PATH의 python3는
+# asdf 셈을 가리키는 심볼릭 링크라, "셈이 아닌 python3를 PATH에서 찾아라"라는
+# 뜻의 system이 그 링크를 다시 집어 무한 재귀로 멈춘다(실측 확인). 그래서 지금
+# 해석된 구체 버전을 고정한다.
+# 반드시 HOME을 바꾸기 *전에* 호출해야 한다 - 버전 해석 자체가 HOME 아래의
+# .tool-versions를 읽기 때문에, 가짜 HOME으로 바꾼 뒤에 부르면 아무것도 못 찾고
+# 조용히 넘어간다.
+asdf_pin_python() {
+  if ! command -v asdf >/dev/null 2>&1; then
+    return 0
+  fi
+  if [ -n "${ASDF_PYTHON_VERSION:-}" ]; then
+    return 0
+  fi
+  local resolved
+  resolved="$(asdf current python 2>/dev/null | awk 'NR==2 {print $2}')"
+  if [ -n "$resolved" ]; then
+    export ASDF_PYTHON_VERSION="$resolved"
+  fi
+  return 0
+}
+
 make_isolated_repo() {
   TEST_REPO="$(mktemp -d)"
   cd "$TEST_REPO" || return 1
