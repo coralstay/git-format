@@ -1,100 +1,138 @@
-#!/bin/sh
+#!/usr/bin/env python3
 # pre-commit 훅: 마커 파일로 언어를 감지해 해당 체크 스크립트를 실행하고,
 # 전부 통과하면 검증마커를 기록한다(decision-3). 언어 마커가 없으면 무해하게 통과한다.
-# 언어별 체크 스크립트가 아직 없거나(GF-4 이전) 실행권한이 없으면 건너뛴다.
-set -eu
-
+#
 # template/(GF-9)로 설치된 저장소는 .git/hooks/pre-commit 자체가 git-format 클론을
-# 가리키는 심볼릭 링크다. dirname "$0"은 심볼릭 링크를 해석하지 않으므로(링크가 있는
-# .git/hooks/를 그대로 가리킴), 링크를 직접 따라가 실제 스크립트 위치를 찾는다.
-resolve_self() {
-  p="$1"
-  while [ -L "$p" ]; do
-    target="$(readlink "$p")"
-    case "$target" in
-      /*) p="$target" ;;
-      *) p="$(dirname "$p")/$target" ;;
-    esac
-  done
-  printf '%s' "$p"
-}
+# 가리키는 심볼릭 링크다. 링크가 놓인 .git/hooks/가 아니라 링크가 가리키는 실제
+# 위치를 기준으로 checks/를 찾아야 한다(GF-16) — realpath가 링크 체인을 따라간다.
+#
+# 다른 훅과 겹치는 블록(자기 위치 해석, conf 읽기 가드)은 공유 모듈로 빼지 않고
+# 파일마다 독립적으로 중복을 유지한다 — 파일 하나만 읽으면 그 훅의 동작을 전부
+# 파악할 수 있어야 한다는 감사 가능성 요구사항이다(decision-16).
+import glob
+import os
+import subprocess
+import sys
+import time
 
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-readonly REPO_ROOT
-GIT_DIR="$(git rev-parse --git-dir)"
-readonly GIT_DIR
-HOOK_DIR="$(cd "$(dirname "$(resolve_self "$0")")" && pwd)"
-readonly HOOK_DIR
-CHECKS_DIR="${HOOK_DIR}/checks"
-readonly CHECKS_DIR
-# gitformat.conf(GF-44)에 이 훅의 내부 기본값(마커 파일명, 언어 감지 마커 파일명)이
-# 모여 있다. 값만 여기서 읽고, 이 값들을 쓰는 로직은 이 파일 안에서만 독립적으로
-# 유지한다(다른 훅과 함수/변수를 공유하지 않는다는 설계 원칙은 그대로다).
-CONF="${HOOK_DIR}/gitformat.conf"
-readonly CONF
-# gitformat.conf 자체를 못 읽으면(파일 없음/문법 깨짐) 이후 모든 git config
-# --file 읽기가 하나씩 실패하면서 원인을 알기 어려운 에러로 이어진다. 여기서
-# 미리 검증해 원인을 명확히 알려준다. 이 블록은 CONF를 읽는 다른 파일들에도
-# byte-identical하게 있다(tests/consistency.bats가 동일성을 보장).
-if ! git config --file "$CONF" --list >/dev/null 2>&1; then
-  echo "gitformat: gitformat.conf를 읽을 수 없습니다: ${CONF}" >&2
-  exit 1
-fi
-MARKER="${GIT_DIR}/$(git config --file "$CONF" --get gitformat.markerFile)"
-readonly MARKER
+REPO_ROOT = subprocess.run(
+    ["git", "rev-parse", "--show-toplevel"],
+    stdout=subprocess.PIPE,
+    encoding="utf-8",
+    check=True,
+).stdout.rstrip("\n")
+GIT_DIR = subprocess.run(
+    ["git", "rev-parse", "--git-dir"],
+    stdout=subprocess.PIPE,
+    encoding="utf-8",
+    check=True,
+).stdout.rstrip("\n")
 
-MARKER_TS="$(git config --file "$CONF" --get gitformat.marker.ts)"
-readonly MARKER_TS
-MARKER_JAVA="$(git config --file "$CONF" --get gitformat.marker.java)"
-readonly MARKER_JAVA
-MARKER_JAVA_GRADLE="$(git config --file "$CONF" --get gitformat.marker.javaGradle)"
-readonly MARKER_JAVA_GRADLE
-MARKER_CPP="$(git config --file "$CONF" --get gitformat.marker.cpp)"
-readonly MARKER_CPP
-MARKER_CPP_MAKE="$(git config --file "$CONF" --get gitformat.marker.cppMake)"
-readonly MARKER_CPP_MAKE
-MARKER_SQL="$(git config --file "$CONF" --get gitformat.marker.sql)"
-readonly MARKER_SQL
-MARKER_SQL_GLOB="$(git config --file "$CONF" --get gitformat.marker.sqlGlob)"
-readonly MARKER_SQL_GLOB
+HOOK_DIR = os.path.dirname(os.path.realpath(__file__))
+CHECKS_DIR = os.path.join(HOOK_DIR, "checks")
+CONF = os.path.join(HOOK_DIR, "gitformat.conf")
+# gitformat.conf 자체를 못 읽으면 이후 git config --file 읽기가 하나씩 실패하면서
+# 원인을 알기 어려운 에러로 이어진다. 여기서 미리 검증해 원인을 명확히 알려준다.
+# 이 블록은 CONF를 읽는 다른 파일들에도 byte-identical하게 있다.
+if subprocess.run(
+    ["git", "config", "--file", CONF, "--list"],
+    stdout=subprocess.DEVNULL,
+    stderr=subprocess.DEVNULL,
+    encoding="utf-8",
+    check=False,
+).returncode != 0:
+    print(f"gitformat: gitformat.conf를 읽을 수 없습니다: {CONF}", file=sys.stderr)
+    sys.exit(1)
 
-cd "$REPO_ROOT"
 
-# 이전 실행에서 남은 마커는 검증 시작 시점에 무효화한다.
-rm -f "$MARKER"
+def conf_get(key):
+    # git config --get은 키가 없어도 빈 문자열로 성공할 수 있다(GF-35).
+    return subprocess.run(
+        ["git", "config", "--file", CONF, "--get", key],
+        capture_output=True,
+        encoding="utf-8",
+        check=False,
+    ).stdout.rstrip("\n")
 
-run_check() {
-  script="$1"
-  if [ -x "$script" ]; then
-    "$script" "$REPO_ROOT"
-  fi
-}
 
-if [ -f "$MARKER_TS" ]; then
-  run_check "${CHECKS_DIR}/ts.py"
-fi
+def conf_get_all(key):
+    return [
+        line
+        for line in subprocess.run(
+            ["git", "config", "--file", CONF, "--get-all", key],
+            capture_output=True,
+            encoding="utf-8",
+            check=False,
+        ).stdout.splitlines()
+        if line
+    ]
 
-python_marker_found=false
-for f in $(git config --file "$CONF" --get-all gitformat.marker.python); do
-  [ -f "$f" ] && python_marker_found=true
-done
-if [ "$python_marker_found" = true ]; then
-  run_check "${CHECKS_DIR}/python.py"
-fi
 
-# shellcheck disable=SC2086 # 의도적 글롭 확장(예: build.gradle*). 따옴표로 감싸면 리터럴 비교가 되어 깨진다.
-if [ -f "$MARKER_JAVA" ] || ls ${MARKER_JAVA_GRADLE} >/dev/null 2>&1; then
-  run_check "${CHECKS_DIR}/java.py"
-fi
+MARKER = os.path.join(GIT_DIR, conf_get("gitformat.markerFile"))
 
-if [ -f "$MARKER_CPP" ] || [ -f "$MARKER_CPP_MAKE" ]; then
-  run_check "${CHECKS_DIR}/cpp.py"
-fi
+MARKER_TS = conf_get("gitformat.marker.ts")
+MARKER_PYTHON = conf_get_all("gitformat.marker.python")
+MARKER_JAVA = conf_get("gitformat.marker.java")
+MARKER_JAVA_GRADLE = conf_get("gitformat.marker.javaGradle")
+MARKER_CPP = conf_get("gitformat.marker.cpp")
+MARKER_CPP_MAKE = conf_get("gitformat.marker.cppMake")
+MARKER_SQL = conf_get("gitformat.marker.sql")
+MARKER_SQL_GLOB = conf_get("gitformat.marker.sqlGlob")
 
-if [ -f "$MARKER_SQL" ] || git ls-files -- "$MARKER_SQL_GLOB" | grep -q .; then
-  run_check "${CHECKS_DIR}/sql.py"
-fi
+os.chdir(REPO_ROOT)
 
-printf '%s %s\n' "$(date +%s)" "$$" > "$MARKER"
+# 이전 실행에서 남은 마커는 검증 시작 시점에 무효화한다(GF-31).
+try:
+    os.remove(MARKER)
+except OSError:
+    pass
 
-exit 0
+
+def run_check(script):
+    # 체크 스크립트가 아직 없으면 조용히 건너뛴다. sh 때는 실행 권한(-x)까지
+    # 봤지만 이제 sys.executable로 실행하므로 존재 여부만 본다.
+    if not os.path.isfile(script):
+        return
+    returncode = subprocess.run(
+        [sys.executable, script, REPO_ROOT], encoding="utf-8", check=False
+    ).returncode
+    # 체크가 실패하면 그 종료 코드를 그대로 전파해 커밋을 막는다 - 아래 검증마커
+    # 기록에 도달하지 않는다.
+    if returncode != 0:
+        sys.exit(returncode)
+
+
+def has_tracked(pathspec):
+    return any(
+        line
+        for line in subprocess.run(
+            ["git", "ls-files", "--", pathspec],
+            capture_output=True,
+            encoding="utf-8",
+            check=False,
+        ).stdout.splitlines()
+    )
+
+
+if os.path.isfile(MARKER_TS):
+    run_check(os.path.join(CHECKS_DIR, "ts.py"))
+
+if any(os.path.isfile(f) for f in MARKER_PYTHON):
+    run_check(os.path.join(CHECKS_DIR, "python.py"))
+
+# javaGradle은 build.gradle*처럼 글롭이라 리터럴 비교가 아니라 글롭 확장으로 본다.
+if os.path.isfile(MARKER_JAVA) or glob.glob(MARKER_JAVA_GRADLE):
+    run_check(os.path.join(CHECKS_DIR, "java.py"))
+
+if os.path.isfile(MARKER_CPP) or os.path.isfile(MARKER_CPP_MAKE):
+    run_check(os.path.join(CHECKS_DIR, "cpp.py"))
+
+if os.path.isfile(MARKER_SQL) or has_tracked(MARKER_SQL_GLOB):
+    run_check(os.path.join(CHECKS_DIR, "sql.py"))
+
+# post-commit이 --no-verify 우회 탐지에 읽는 포맷 계약이다(decision-3, GF-31):
+# "<epoch> <pid>" 한 줄. 형식을 바꾸면 그쪽 판정이 깨진다.
+with open(MARKER, "w", encoding="utf-8") as f:
+    f.write(f"{int(time.time())} {os.getpid()}\n")
+
+sys.exit(0)

@@ -27,6 +27,6 @@ teardown() {
 }
 
 @test "언어 마커가 없는 저장소는 pre-commit이 무해하게 통과시킨다" {
-  run sh "${GITFORMAT_ROOT}/hooks/pre-commit"
+  run python3 "${GITFORMAT_ROOT}/hooks/pre-commit"
   [ "$status" -eq 0 ]
 }

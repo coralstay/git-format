@@ -38,8 +38,8 @@ assert_conf_guard_fires() {
   assert_conf_guard_fires
 }
 
-@test "pre-commit: conf가 깨지면 명확한 에러로 즉시 멈춘다" {
-  run sh "${HOOKS_COPY}/pre-commit"
+@test "pre-commit(python): conf가 깨지면 명확한 에러로 즉시 멈춘다" {
+  run python3 "${HOOKS_COPY}/pre-commit"
   assert_conf_guard_fires
 }
 
