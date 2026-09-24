@@ -12,7 +12,7 @@ setup() {
 }
 
 teardown() {
-  rm -rf "$TARGET_REPO" "${FAKE_HOME:-}" "${FAKE_ROOT:-}"
+  rm -rf "$TARGET_REPO" "${FAKE_HOME:-}" "${FAKE_ROOT:-}" "${SHADOW_PATH:-}"
 }
 
 # ── 비대화형 환경 ─────────────────────────────────────────────────
@@ -120,6 +120,25 @@ teardown() {
 
   # 타깃 쪽에는 정상적으로 설치됐어야 한다(설치 자체가 안 된 것으로 통과하면 안 됨).
   [ "$(git -C "$TARGET_REPO" config --get core.hooksPath)" = "${FAKE_ROOT}/hooks" ]
+}
+
+# ── 필요조건: python3 부재 (GF-113, decision-16) ──────────────────
+
+# 훅이 Python이 되면서 install.sh에 python3 존재 가드가 생겼다(GF-107). 이 가드는
+# 설치 시점만 본다 - 훅이 실제로 실행되는 시점의 PATH는 보장하지 못하고, 그쪽
+# 동작은 tests/robustness-python-path.bats가 따로 검증한다.
+@test "[필요조건] PATH에 python3이 없으면 install.sh가 명확한 에러로 설치를 막는다" {
+  SHADOW_PATH="$(path_without python3)"
+  [ ! -e "${SHADOW_PATH}/python3" ]
+
+  # 타깃을 생략하면 install.sh의 기본 타깃인 CWD(=이 저장소)에 설치가 일어난다(GF-123).
+  PATH="$SHADOW_PATH" run "${GITFORMAT_ROOT}/install.sh" "$TARGET_REPO" </dev/null
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"python3을 찾을 수 없습니다"* ]]
+
+  # 가드가 설정보다 먼저 걸렸어야 한다 - 에러만 찍고 설치는 다 해버리면 안 된다.
+  run git -C "$TARGET_REPO" config --get core.hooksPath
+  [ "$status" -ne 0 ]
 }
 
 # ── 에러 메시지: 잘못된 인자 ──────────────────────────────────────
