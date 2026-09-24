@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@claude'
 created_date: '2026-09-24 09:23'
-updated_date: '2026-09-24 13:37'
+updated_date: '2026-09-24 13:42'
 labels:
   - python-migration
   - hooks
@@ -78,7 +78,7 @@ hooks/checks/{python,ts,java,cpp,sql}.sh를 각각 .py로 포팅한다. sh 시�
 - [x] #4 커밋이 [type][subsystem] 규칙과 Task-Id 트레일러를 만족한다
 - [x] #5 Done 전환 전 final summary에 객관적 검증 증거(테스트 통과 로그 등)를 남긴다
 - [x] #6 새 코드에 불필요한 주석을 넣지 않는다 - WHY가 비자명한 경우(GF-33/34/35/76/80 회귀 방지 패턴, 의도적 fail-open, 의도적 중복 유지 등)에만 한 줄 주석을 남긴다
-- [ ] #7 PR은 rebase-merge로만 머지하고(squash/merge-commit 금지), push·PR 생성·머지 각 단계 전에 git fetch로 원격 상태를 먼저 확인한다(트렁크 방식이 아니라 로컬/리모트가 어긋날 수 있음)
+- [x] #7 PR은 rebase-merge로만 머지하고(squash/merge-commit 금지), push·PR 생성·머지 각 단계 전에 git fetch로 원격 상태를 먼저 확인한다(트렁크 방식이 아니라 로컬/리모트가 어긋날 수 있음)
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -149,6 +149,10 @@ conf-guard.bats 7건, TASK_PREFIX/BRANCH는 robustness-injection.bats가
 GF-112 착수 전에 그 범위를 조정해야 한다.
 
 테스트 스위트 재설계 방침은 DRAFT-16에 연결했다(상호 --add-ref). GF-108에서 확정된 '기능 테스트, 즉 행위 검증만 남기고 구현 언어 종속 테스트는 삭제한다'는 결정과, 그에 따라 DRAFT-16의 착수 순서 5번이 이미 해결됐다는 것, GF-112 범위 조정이 필요하다는 것을 draft 본문에 옮겨 적었다.
+
+머지 완료(2026-09-24): PR #19를 rebase-merge로 머지. CI는 24caddc에서 static-analysis/bats 둘 다 통과했고, 머지 후 origin/main은 8a13b61이다(rebase라 SHA가 재작성됨). 로컬 main도 fast-forward로 맞췄다.
+
+DoD #2는 절반만 만족한다: shellcheck는 CI에서 초록이지만 ruff는 아직 CI 스텝이 없어 로컬 실행(All checks passed)으로만 확인했다. 즉 지금 hooks/checks/*.py는 CI에서 린트되지 않는다 - ruff 스텝 추가는 GF-112 소관(doc-10은 첫 .py가 생긴 뒤 아무 때나 병렬 추가 가능하다고 적고 있다).
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
