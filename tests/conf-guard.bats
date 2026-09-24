@@ -32,9 +32,9 @@ assert_conf_guard_fires() {
   [[ "$output" == *"gitformat: gitformat.conf를 읽을 수 없습니다"* ]]
 }
 
-@test "commit-msg: conf가 깨지면 명확한 에러로 즉시 멈춘다" {
+@test "commit-msg(python): conf가 깨지면 명확한 에러로 즉시 멈춘다" {
   echo "[feat] test" > msgfile
-  run sh "${HOOKS_COPY}/commit-msg" msgfile
+  run python3 "${HOOKS_COPY}/commit-msg" msgfile
   assert_conf_guard_fires
 }
 
