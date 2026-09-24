@@ -5,13 +5,15 @@ status: Done
 assignee:
   - '@claude'
 created_date: '2026-09-24 09:23'
-updated_date: '2026-09-24 13:33'
+updated_date: '2026-09-24 13:37'
 labels:
   - python-migration
   - hooks
   - checks
 milestone: m-3
 dependencies: []
+references:
+  - DRAFT-16
 documentation:
   - doc-9
   - doc-10
@@ -145,6 +147,8 @@ conf-guard.bats 7건, TASK_PREFIX/BRANCH는 robustness-injection.bats가
 브랜치별 Task-Id 트레일러로 확인한다. 이 때문에 GF-112에 남아 있던
 'consistency.bats에 Python 쪽 동일성 검사 설계' 항목은 더 이상 필요 없다 -
 GF-112 착수 전에 그 범위를 조정해야 한다.
+
+테스트 스위트 재설계 방침은 DRAFT-16에 연결했다(상호 --add-ref). GF-108에서 확정된 '기능 테스트, 즉 행위 검증만 남기고 구현 언어 종속 테스트는 삭제한다'는 결정과, 그에 따라 DRAFT-16의 착수 순서 5번이 이미 해결됐다는 것, GF-112 범위 조정이 필요하다는 것을 draft 본문에 옮겨 적었다.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
