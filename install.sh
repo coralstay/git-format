@@ -1,6 +1,7 @@
 #!/bin/sh
-# git-format 설치 스크립트: 기존 저장소에 core.hooksPath와 commit.template을 설정한다
-# (decision-2). 이 스크립트가 위치한 git-format 클론 자체를 훅 소스로 사용한다.
+# git-format 설치 스크립트: 기존 저장소에 core.hooksPath와 commit.template을 설정하고
+# (decision-2), 훅 실행에 필요한 python3 존재를 확인한다(decision-16). 이 스크립트가
+# 위치한 git-format 클론 자체를 훅 소스로 사용한다.
 #
 # 사용법:
 #   /path/to/git-format/install.sh [target-repo-dir]
@@ -23,6 +24,13 @@ readonly CONF
 # byte-identical하게 있다(tests/consistency.bats가 동일성을 보장).
 if ! git config --file "$CONF" --list >/dev/null 2>&1; then
   echo "gitformat: gitformat.conf를 읽을 수 없습니다: ${CONF}" >&2
+  exit 1
+fi
+
+# 훅은 Python으로 실행된다(decision-16). 여기서 막지 않으면 설정은 다 끝난
+# 뒤 첫 커밋에서야 훅이 실행 실패로 깨져 원인을 찾기 어렵다.
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "install.sh: python3을 찾을 수 없습니다 - git-format 훅은 Python으로 실행됩니다." >&2
   exit 1
 fi
 
