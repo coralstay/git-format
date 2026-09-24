@@ -22,10 +22,34 @@ jobs:
       # hooks/*와 install.sh가 POSIX sh 문법만 쓰는지 강제하는 게이트다
       # (decision-9: 두 셸 스타일 가이드의 표기 관례만 참고하고 문법은 POSIX만
       # 유지하기로 함). 이 스텝을 지우거나 `-s bash`로 바꾸면 그 정책이 깨진다.
-      # checks/는 Python으로 포팅돼(GF-108, decision-16) 여기서 빠졌다 - 그쪽
-      # 린트는 GF-112에서 ruff 스텝으로 들어온다.
+      # checks/는 Python으로 포팅돼(GF-108, decision-16) 여기서 빠졌고 아래
+      # ruff 스텝이 대신 맡는다.
       - name: ShellCheck (POSIX 준수 게이트, decision-9)
         run: shellcheck -s sh hooks/commit-msg hooks/pre-commit hooks/post-commit install.sh
+      # 이 job은 checkout 외에 아무것도 설치하지 않는다(bats job과 별개다).
+      - name: Install ruff
+        run: pip install --quiet ruff
+      # ruff에 디렉터리를 넘기면 확장자가 .py인 파일만 훑는다(실측 확인). git이
+      # 이름을 고정하는 훅 3개(commit-msg/pre-commit/post-commit)는 확장자가 없어,
+      # Python으로 포팅돼도 hooks/ 하나만 지정하면 조용히 검사에서 빠진다 - 검사가
+      # 아무것도 안 하고 통과하는 GF-32와 같은 유형이다. 그래서 셔뱅으로 Python
+      # 파일을 찾아 함께 넘긴다. 이러면 훅이 하나씩 Python이 돼도(GF-109~111) 이
+      # 스텝을 고칠 필요가 없다 - 파일명을 나열하는 위 ShellCheck 스텝과 반대다.
+      # 찾은 파일은 따옴표 없는 변수의 단어분리에 맡기지 않고 배열로 넘긴다 -
+      # 단어분리 여부는 셸마다 다르고(zsh는 기본적으로 하지 않는다) 그런 형태는
+      # 러너 셸이 바뀌는 순간 조용히 대상이 하나로 뭉개진다. 대상이 0개면 역시
+      # 조용히 통과하지 않고 test -n에서 멈춘다.
+      - name: Ruff (Python 린트)
+        shell: bash
+        run: |
+          set -u
+          mapfile -t EXTRA < <(grep -rlE '^#!/usr/bin/env python3' hooks/ || true)
+          RAW="$(ruff check --show-files hooks/ "${EXTRA[@]}")"
+          FILES="$(printf '%s\n' "$RAW" | sort -u)"
+          test -n "$FILES"
+          echo "ruff 검사 대상 $(echo "$FILES" | wc -l)개:"
+          echo "$FILES"
+          ruff check hooks/ "${EXTRA[@]}"
 
   bats:
     runs-on: ubuntu-latest
