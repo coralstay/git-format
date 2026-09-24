@@ -53,17 +53,13 @@ teardown() {
 # ── GF-16 회귀: template/(심볼릭 링크) 경유 설치에서 checks/ resolve ──
 
 @test "[GF-16 회귀] template/ 심볼릭 링크로 설치된 새 저장소에서도 pre-commit이 checks/를 정확히 찾는다" {
+  # 이 테스트만 HOME을 가짜 디렉터리로 바꾸기 때문에 python 버전을 고정해야
+  # 체크 스크립트가 실행된다. HOME을 바꾸기 전에 불러야 한다 - 자세한 이유는
+  # helpers/git-format.bash의 asdf_pin_python() 주석 참고.
+  asdf_pin_python
   FAKE_HOME="$(mktemp -d)"
   NEW_REPO="$(mktemp -d)"
   export HOME="$FAKE_HOME"
-  # 이 테스트만 HOME을 가짜 디렉터리로 바꾸기 때문에, asdf로 python을 관리하는
-  # 로컬 환경에서는 python3 셈이 .tool-versions를 못 찾아 체크 스크립트가 아예
-  # 실행되지 않는다(훅과 무관한 로컬 테스트 환경 이슈 - checks-ts.bats의
-  # ASDF_NODEJS_VERSION과 같은 종류). asdf가 있을 때만 지정한다 - 없는
-  # 환경(CI 등)에서는 조용히 무시된다.
-  if command -v asdf >/dev/null 2>&1; then
-    export ASDF_PYTHON_VERSION="system"
-  fi
 
   "${GITFORMAT_ROOT}/install.sh" --global >/dev/null
 
