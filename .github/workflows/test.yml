@@ -18,12 +18,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # 이 스텝은 정적 분석 그 이상이다 - `-s sh`는 hooks/*, install.sh,
-      # checks/*.sh가 POSIX sh 문법만 쓰는지 강제하는 게이트다(decision-9:
-      # 두 셸 스타일 가이드의 표기 관례만 참고하고 문법은 POSIX만 유지하기로
-      # 함). 이 스텝을 지우거나 `-s bash`로 바꾸면 그 정책이 깨진다.
+      # 이 스텝은 정적 분석 그 이상이다 - `-s sh`는 아직 sh로 남아 있는
+      # hooks/*와 install.sh가 POSIX sh 문법만 쓰는지 강제하는 게이트다
+      # (decision-9: 두 셸 스타일 가이드의 표기 관례만 참고하고 문법은 POSIX만
+      # 유지하기로 함). 이 스텝을 지우거나 `-s bash`로 바꾸면 그 정책이 깨진다.
+      # checks/는 Python으로 포팅돼(GF-108, decision-16) 여기서 빠졌다 - 그쪽
+      # 린트는 GF-112에서 ruff 스텝으로 들어온다.
       - name: ShellCheck (POSIX 준수 게이트, decision-9)
-        run: shellcheck -s sh hooks/commit-msg hooks/pre-commit hooks/post-commit hooks/checks/*.sh install.sh
+        run: shellcheck -s sh hooks/commit-msg hooks/pre-commit hooks/post-commit install.sh
 
   bats:
     runs-on: ubuntu-latest

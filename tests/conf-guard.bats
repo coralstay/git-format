@@ -48,18 +48,18 @@ assert_conf_guard_fires() {
   assert_conf_guard_fires
 }
 
-@test "checks/cpp.sh: conf가 깨지면 명확한 에러로 즉시 멈춘다" {
-  run sh "${HOOKS_COPY}/checks/cpp.sh" "$TEST_REPO"
+@test "checks/cpp.py: conf가 깨지면 명확한 에러로 즉시 멈춘다" {
+  run python3 "${HOOKS_COPY}/checks/cpp.py" "$TEST_REPO"
   assert_conf_guard_fires
 }
 
-@test "checks/java.sh: conf가 깨지면 명확한 에러로 즉시 멈춘다" {
-  run sh "${HOOKS_COPY}/checks/java.sh" "$TEST_REPO"
+@test "checks/java.py: conf가 깨지면 명확한 에러로 즉시 멈춘다" {
+  run python3 "${HOOKS_COPY}/checks/java.py" "$TEST_REPO"
   assert_conf_guard_fires
 }
 
-@test "checks/sql.sh: conf가 깨지면 명확한 에러로 즉시 멈춘다" {
-  run sh "${HOOKS_COPY}/checks/sql.sh" "$TEST_REPO"
+@test "checks/sql.py: conf가 깨지면 명확한 에러로 즉시 멈춘다" {
+  run python3 "${HOOKS_COPY}/checks/sql.py" "$TEST_REPO"
   assert_conf_guard_fires
 }
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # GF-22: SQL 체크를 실제 sqlfluff로 검증한다(이전엔 PATH 셔밍만 했음).
 # sqlfluff는 dialect 미지정 시 사용법 에러(exit 2)를 낸다는 걸 실도구 테스트로
-# 발견해 hooks/checks/sql.sh가 .sqlfluff 없을 때 --dialect ansi를 기본값으로
+# 발견해 hooks/checks/sql.py가 .sqlfluff 없을 때 --dialect ansi를 기본값으로
 # 넘기도록 고쳤다 — 이 회귀를 고정한다.
 
 load 'helpers/git-format'
