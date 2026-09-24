@@ -56,6 +56,14 @@ teardown() {
   FAKE_HOME="$(mktemp -d)"
   NEW_REPO="$(mktemp -d)"
   export HOME="$FAKE_HOME"
+  # 이 테스트만 HOME을 가짜 디렉터리로 바꾸기 때문에, asdf로 python을 관리하는
+  # 로컬 환경에서는 python3 셈이 .tool-versions를 못 찾아 체크 스크립트가 아예
+  # 실행되지 않는다(훅과 무관한 로컬 테스트 환경 이슈 - checks-ts.bats의
+  # ASDF_NODEJS_VERSION과 같은 종류). asdf가 있을 때만 지정한다 - 없는
+  # 환경(CI 등)에서는 조용히 무시된다.
+  if command -v asdf >/dev/null 2>&1; then
+    export ASDF_PYTHON_VERSION="system"
+  fi
 
   "${GITFORMAT_ROOT}/install.sh" --global >/dev/null
 
