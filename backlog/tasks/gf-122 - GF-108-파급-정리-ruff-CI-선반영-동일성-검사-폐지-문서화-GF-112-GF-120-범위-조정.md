@@ -1,11 +1,11 @@
 ---
 id: GF-122
 title: 'GF-108 파급 정리: ruff CI 선반영 + 동일성 검사 폐지 문서화 + GF-112/GF-120 범위 조정'
-status: To Do
+status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-09-24 14:09'
-updated_date: '2026-09-24 14:14'
+updated_date: '2026-09-24 14:18'
 labels:
   - python-migration
   - ci
@@ -24,6 +24,7 @@ references:
 documentation:
   - doc-9
   - doc-10
+  - doc-12
 ---
 
 ## Description

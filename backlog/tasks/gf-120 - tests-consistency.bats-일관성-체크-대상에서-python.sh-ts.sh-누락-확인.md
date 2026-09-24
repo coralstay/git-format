@@ -4,8 +4,11 @@ title: tests/consistency.bats 일관성 체크 대상에서 python.sh/ts.sh 누�
 status: To Do
 assignee: []
 created_date: '2026-09-19 15:46'
+updated_date: '2026-09-24 14:18'
 labels: []
 dependencies: []
+documentation:
+  - doc-12
 ---
 
 ## Description

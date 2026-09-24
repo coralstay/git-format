@@ -4,7 +4,7 @@ title: '[보류] bats 테스트 스위트 재설계'
 status: Draft
 assignee: []
 created_date: '2026-09-24 09:28'
-updated_date: '2026-09-24 13:37'
+updated_date: '2026-09-24 14:18'
 labels:
   - parked
   - post-migration
@@ -12,6 +12,8 @@ labels:
 dependencies: []
 references:
   - GF-108
+documentation:
+  - doc-12
 ---
 
 ## Description
