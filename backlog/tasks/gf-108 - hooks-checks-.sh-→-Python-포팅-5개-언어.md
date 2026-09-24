@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-09-24 09:23'
-updated_date: '2026-09-24 11:54'
+updated_date: '2026-09-24 13:17'
 labels:
   - python-migration
   - hooks
@@ -103,4 +103,30 @@ hooks/checks/{python,ts,java,cpp,sql}.sh를 각각 .py로 포팅한다. sh 시�
 
 <!-- SECTION:NOTES:BEGIN -->
 진행 상태(세션 중단 대비, 2026-09-24): 브랜치 task/GF-108, 작업트리 클린, 구현 미착수. 서브에이전트에 5개 .sh → .py 포팅 + 호출부 수정(pre-commit 디스패치, conf-guard.bats 3건, consistency.bats 목록/제목 카운트, test.yml shellcheck 인자, .gitignore, 구 .sh 삭제) 위임함. 세션이 한도로 끊기면: git status로 서브에이전트가 남긴 커밋/변경을 먼저 확인하고, 남은 부분부터 이어서 진행할 것. 결정사항 - checks/*.py는 셔뱅+실행비트를 갖고 아직 sh인 pre-commit이 직접 실행한다(sys.executable 전환은 GF-110 소관).
+
+구현 완료(65f52e9). 검증 증거:
+- bats checks-python/cpp/sql + conf-guard + consistency: 25/25 통과
+- bats checks-ts: 7/7 통과 (실제 npm/tsc)
+- bats checks-java: 3/3 통과 (실제 mvn, 온라인)
+- bats smoke/robustness-dispatch/injection/install: 19건 중 18 통과
+- ruff check hooks/checks/: All checks passed
+- shellcheck -s sh hooks/commit-msg hooks/pre-commit hooks/post-commit install.sh: 클린
+
+남은 실패 1건(AC 밖, 유저 확인 대기): tests/robustness-dispatch.bats의
+'[GF-16 회귀] template/ 심볼릭 링크...'. 이 테스트만 HOME을 가짜 임시
+디렉터리로 바꾸는데, 로컬 python3가 asdf shim이라 .tool-versions를 못 찾아
+'No version is set for command python3'로 죽는다. 훅 코드 문제가 아니라
+tests/checks-ts.bats가 ASDF_NODEJS_VERSION으로 이미 우회해 둔 것과 같은
+종류의 로컬 테스트 환경 이슈다(CI의 ubuntu-latest는 /usr/bin/python3라 무관).
+
+포팅 중 판단한 것:
+- checks/*.py는 셔뱅+실행비트를 갖고 아직 sh인 pre-commit이 직접 실행한다.
+  sys.executable 전달은 pre-commit이 Python이 되는 GF-110 소관.
+- cpp/sql의 git diff -z 읽기에 AC #6대로 encoding=utf-8을 명시했다. 이러면
+  subprocess가 텍스트 모드가 되어 universal newlines 변환이 걸리므로,
+  파일명에 CR이 들어있으면 LF로 바뀐다(구 sh는 바이트 그대로 넘겼다).
+  UTF-8이 아닌 파일명은 디코딩 에러가 된다. 둘 다 병적인 경우라 AC를
+  그대로 따랐다.
+- xargs -0를 없애면서 clang-format/sqlfluff 호출이 한 번의 exec이 됐다.
+  파일 수가 아주 많으면 ARG_MAX에 걸릴 수 있다(xargs는 배치로 나눠줬다).
 <!-- SECTION:NOTES:END -->
