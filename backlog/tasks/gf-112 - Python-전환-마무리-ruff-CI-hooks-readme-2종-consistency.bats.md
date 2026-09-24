@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@claude'
 created_date: '2026-09-24 09:24'
-updated_date: '2026-09-24 11:49'
+updated_date: '2026-09-24 14:18'
 labels:
   - python-migration
   - ci
@@ -20,6 +20,7 @@ documentation:
   - doc-9
   - doc-5
   - doc-10
+  - doc-12
 modified_files:
   - .github/workflows/test.yml
   - hooks/readme.md
