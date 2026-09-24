@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-09-24 09:23'
-updated_date: '2026-09-24 11:48'
+updated_date: '2026-09-24 11:54'
 labels:
   - python-migration
   - hooks
@@ -98,3 +98,9 @@ hooks/checks/{python,ts,java,cpp,sql}.sh를 각각 .py로 포팅한다. sh 시�
 13. tests/consistency.bats의 resolve_self 6개 사본 목록과 conf 가드 7개 파일 목록에서 checks의 .sh 3개를 제거(Python은 realpath를 쓰므로 resolve_self 자체가 없음)
 14. 전체 bats 스위트와 ruff로 검증
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+진행 상태(세션 중단 대비, 2026-09-24): 브랜치 task/GF-108, 작업트리 클린, 구현 미착수. 서브에이전트에 5개 .sh → .py 포팅 + 호출부 수정(pre-commit 디스패치, conf-guard.bats 3건, consistency.bats 목록/제목 카운트, test.yml shellcheck 인자, .gitignore, 구 .sh 삭제) 위임함. 세션이 한도로 끊기면: git status로 서브에이전트가 남긴 커밋/변경을 먼저 확인하고, 남은 부분부터 이어서 진행할 것. 결정사항 - checks/*.py는 셔뱅+실행비트를 갖고 아직 sh인 pre-commit이 직접 실행한다(sys.executable 전환은 GF-110 소관).
+<!-- SECTION:NOTES:END -->
