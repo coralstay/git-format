@@ -3,7 +3,7 @@ id: doc-6
 title: 주의점과 한계
 type: guide
 created_date: '2026-09-19 05:27'
-updated_date: '2026-09-19 09:33'
+updated_date: '2026-09-25 02:30'
 ---
 ## ⚠️ 주의점
 
@@ -37,6 +37,23 @@ updated_date: '2026-09-19 09:33'
   훅에서 `hooks/commit-msg`/`hooks/pre-commit`을 직접 호출해 구성해야 합니다.
 - **커밋 이력을 반정형 데이터로 남기는 것까지가 이 프로젝트의 범위입니다.** 그
   데이터를 실제로 파싱하거나 학습용으로 가공하는 도구는 포함돼 있지 않습니다.
+- **`AI-Model`/`Tokens-Used` 측정은 Claude Code의 문서화되지 않은 내부 경로 규칙에
+  의존합니다.** `post-commit`은 트랜스크립트를
+  `~/.claude/projects/<슬러그>/<세션ID>.jsonl`에서 찾고, 이때 슬러그를 "저장소 절대경로의
+  영숫자가 아닌 모든 문자를 하이픈으로 치환"해 계산합니다. 이건 Claude Code의 내부
+  구현이라 이 프로젝트가 지킬 수 있는 약속이 아닙니다 — 상대가 규칙을 바꾸면 이쪽은
+  에러를 내지 않고 그냥 "파일이 없다"로 판단합니다(GF-119).
+  관측되는 신호는 트레일러마다 다릅니다: `Tokens-Used`/`Tool-Calls`는
+  `unavailable (transcript-not-found)`로 사유가 커밋 footer에 남지만, `AI-Model`은
+  decision-5의 fail-open 때문에 아무 신호 없이 누락됩니다. 이 비대칭은 의도된
+  것입니다.
+  진단하려면 Claude Code 세션 안에서 대상 저장소로 이동해 다음 둘을 비교하세요 —
+  일치하지 않으면 규칙이 바뀐 것이고, `hooks/post-commit`의
+  `claude_transcript_path()`를 새 규칙에 맞춰 고쳐야 합니다.
+  ```sh
+  ls ~/.claude/projects/                                      # 실제 디렉터리명
+  python3 -c 'import os,re; print(re.sub(r"[^A-Za-z0-9]","-",os.getcwd()))'
+  ```
 - **비-Claude-Code AI 도구의 `AI-Model` 값은 자가신고 수준입니다.** Claude Code처럼
   세션 트랜스크립트로 검증하지 않고, 사용자가 `gitformat.aiModel`에 설정한 값을
   그대로 신뢰합니다. Cursor/GitHub Copilot CLI/Aider/Cline/Windsurf/OpenAI Codex
