@@ -3,6 +3,11 @@
 # 메운다. eslint 등 특정 린터를 설치하지 않고도 package.json의 lint 스크립트
 # 자체의 성공/실패로 npm run lint 연동을 검증하고, tsc는 로컬에 실제로 설치된
 # 도구를 그대로 쓴다(GF-22 실도구 재검증 원칙과 동일).
+#
+# GF-115: tsc가 저장소 전체가 아니라 스테이징된 파일만 보게 바뀌었다. 좁히는
+# 방법으로 `tsc --noEmit <파일>`을 쓰면 tsconfig.json이 무시돼 strict 전용 타입
+# 에러를 놓치므로, tsconfig를 extends하는 임시 프로젝트 파일을 쓴다 - 아래
+# "strict" 테스트가 그 회귀(= tsconfig 무시 형태로 되돌아감)를 잡는 감시탑이다.
 
 load 'helpers/git-format'
 
@@ -88,4 +93,75 @@ EOF
   PATH="$(path_without tsc)" run git commit -m "[feat][ts] no tsc anywhere"
   [ "$status" -eq 0 ]
   [[ "$output" == *"tsconfig.json은 있지만 tsc를 찾을 수 없어 건너뜀"* ]]
+}
+
+@test "strict 전용 타입 에러도 스테이징 파일에서 여전히 잡힌다 (GF-115)" {
+  # noImplicitAny(strict)에서만 나는 에러다. `tsc --noEmit <파일>`처럼 파일
+  # 인자를 주면 tsc가 tsconfig.json을 무시해 이 에러가 조용히 통과한다 -
+  # 스코프를 좁히면서 그 형태로 되돌아가면 이 테스트가 깨진다.
+  echo '{}' > package.json
+  echo '{ "compilerOptions": { "strict": true } }' > tsconfig.json
+  printf 'export function f(x) {\n  return x;\n}\n' > implicit.ts
+  git add package.json tsconfig.json implicit.ts
+  run git commit -m "[feat][ts] add implicit any"
+  [ "$status" -ne 0 ]
+}
+
+@test "스테이징되지 않은 .ts의 타입 에러는 커밋을 막지 않는다 (GF-115)" {
+  echo '{}' > package.json
+  echo '{ "compilerOptions": { "strict": true } }' > tsconfig.json
+  echo 'const bad: number = "not a number";' > legacy.ts
+  echo 'const x: number = 1;' > clean.ts
+  git add package.json tsconfig.json clean.ts
+  run git commit -m "[feat][ts] add clean module"
+  [ "$status" -eq 0 ]
+}
+
+@test "이미 커밋된 .ts의 타입 에러는 이후 커밋을 막지 않는다 (GF-115)" {
+  # tsconfig.json이 없는 동안 들어온 기존 부채를 재현한다 - 검사가 좁아지기
+  # 전에는 무관한 다음 커밋까지 이 에러 때문에 막혔다(false blocking).
+  echo '{}' > package.json
+  echo 'const bad: number = "not a number";' > legacy.ts
+  git add package.json legacy.ts
+  git commit -q -m "[feat][ts] pre-existing type debt"
+  echo '{ "compilerOptions": { "strict": true } }' > tsconfig.json
+  echo 'const x: number = 1;' > clean.ts
+  git add tsconfig.json clean.ts
+  run git commit -m "[feat][ts] add unrelated module"
+  [ "$status" -eq 0 ]
+}
+
+@test "tsconfig의 include가 스테이징 범위를 다시 넓히지 않는다 (GF-115)" {
+  # extends는 같은 이름의 키만 덮으므로, 임시 프로젝트 파일이 include를 []로
+  # 덮지 않으면 원본의 include가 살아남아 스테이징되지 않은 파일까지 끌려온다.
+  mkdir -p src
+  echo '{}' > package.json
+  echo '{ "compilerOptions": { "strict": true }, "include": ["src"] }' > tsconfig.json
+  echo 'const bad: number = "not a number";' > src/legacy.ts
+  echo 'const x: number = 1;' > src/clean.ts
+  git add package.json tsconfig.json src/clean.ts
+  run git commit -m "[feat][ts] add clean module under src"
+  [ "$status" -eq 0 ]
+}
+
+@test "스테이징된 TypeScript 파일이 없으면 tsc를 건너뛴다 (GF-115)" {
+  echo '{}' > package.json
+  echo '{ "compilerOptions": { "strict": true } }' > tsconfig.json
+  echo 'const bad: number = "not a number";' > legacy.ts
+  echo "메모" > notes.txt
+  git add package.json tsconfig.json notes.txt
+  run git commit -m "[docs][ts] add notes"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"스테이징된 TypeScript 파일 없음"* ]]
+}
+
+@test "tsc가 실패해도 임시 프로젝트 파일은 남지 않는다 (GF-115)" {
+  echo '{}' > package.json
+  echo '{ "compilerOptions": { "strict": true } }' > tsconfig.json
+  echo 'const x: number = "not a number";' > broken.ts
+  git add package.json tsconfig.json broken.ts
+  run git commit -m "[feat][ts] add type error"
+  [ "$status" -ne 0 ]
+  run ls tsconfig.gitformat-*.json
+  [ "$status" -ne 0 ]
 }
