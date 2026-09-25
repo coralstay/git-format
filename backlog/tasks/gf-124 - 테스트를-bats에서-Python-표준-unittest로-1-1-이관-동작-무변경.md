@@ -4,7 +4,7 @@ title: '테스트를 bats에서 Python 표준 unittest로 1:1 이관 (동작 무
 status: In Progress
 assignee: []
 created_date: '2026-09-25 19:34'
-updated_date: '2026-09-25 21:44'
+updated_date: '2026-09-25 22:09'
 labels:
   - tests
   - ci
@@ -57,3 +57,25 @@ pytest가 아니라 unittest를 쓰는 이유는 설치가 필요 없어야 한�
 - [ ] #2 ruff check 통과
 - [ ] #3 이 저장소 자신의 커밋이 새 훅으로 정상 생성되는지 확인
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+## 이관 기준선 (2026-09-26 실측)
+
+이관 전 `bats tests/` 결과를 기준선으로 고정한다. 1:1 이관이므로 이관 후
+`python3 -m unittest`가 같은 동작을 같은 수의 케이스로 검증해야 한다.
+
+```
+1..124
+ok 124개 / not ok 0개
+```
+
+파일별 줄 수(총 1,880줄): robustness-post-commit 312, robustness-commit-msg 236,
+checks-ts 167, robustness-install 158, marker-semantics 112, robustness-injection 107,
+robustness-python-path 104, robustness-locale 96, robustness-dispatch 86,
+conf-guard 76, checks-python 74, consistency 64, checks-java 63, checks-cpp 63,
+checks-sql 51, smoke 32, helpers/git-format.bash 79.
+
+AC #12(훅 코드 무변경) 검증 방법: `git diff --stat hooks/`가 비어 있어야 한다.
+<!-- SECTION:NOTES:END -->
