@@ -4,7 +4,7 @@ title: '[보류] 토큰 사용량 강제(초과 시 커밋 거부) 검토'
 status: Draft
 assignee: []
 created_date: '2026-09-24 09:28'
-updated_date: '2026-09-24 09:43'
+updated_date: '2026-09-25 19:55'
 labels:
   - parked
   - post-migration
@@ -44,3 +44,13 @@ Python 전환 완료 후. 착수 전에 정할 것: 측정 대상(어떤 AI 도�
 4. 초과 시 동작을 결정한다 - 거부 vs 경고. 거부라면 pre-commit과 commit-msg 중 어디에 둘지
 5. 자가신고 값의 신뢰도 한계(GF-84에서 이미 확인됨)를 재검토해 강제의 근거로 쓸 수 있는 수준인지 판단한다
 <!-- SECTION:PLAN:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: claude
+created: 2026-09-25 19:55
+---
+2026-09-26 재설계로 이 드래프트의 핵심 구조 제약이 해소된다. 여기 적힌 "post-commit은 커밋을 막을 수 없으니 측정 로직을 커밋 생성 전 시점에서도 쓸 수 있게 재설계해야 한다"가 DRAFT-19~24(prepare-commit-msg 통합, decision-18)에서 실제로 이뤄진다 — 측정이 커밋 전에 돌고 exit 1로 커밋을 막을 수 있는 훅으로 옮겨간다. 재개 조건을 "Python 전환 완료 후"에서 "DRAFT-23(토큰 측정 재작성) 완료 후"로 갱신한다. 착수 시 전제가 달라진 점: Tokens-Used 형식이 in/out/delta 세 값으로 바뀌므로(decision-19) 임계값도 어느 값 기준인지 정해야 한다.
+---
+<!-- COMMENTS:END -->
