@@ -3,7 +3,7 @@ id: doc-7
 title: 실사용 예시 워크스루
 type: guide
 created_date: '2026-09-19 05:27'
-updated_date: '2026-09-19 09:34'
+updated_date: '2026-09-25 16:46'
 ---
 ## 📌 실제 사용법
 
@@ -32,7 +32,7 @@ git add src/login.ts
 git commit
 ```
 
-1. **`pre-commit`**이 스테이징된 파일로 언어를 감지해 해당 체크를 돌립니다.
+1. **`pre-commit`**이 저장소 루트의 마커 파일로 언어를 감지해 해당 체크를 돌립니다.
    TS 프로젝트라면 이런 출력이 보입니다:
    ```
    [git-format] ts: npm run lint
