@@ -1,8 +1,9 @@
 name: test
 
 # git-format 자체의 개발용 CI(GF-21, decision-8). 컨슈머에 배포하는 verify.yml과
-# 달리 이건 이 저장소 자신의 훅 코드 품질만 검사한다 — bats-core는 dev 전용 도구라
-# 컨슈머에게 강제되지 않는다.
+# 달리 이건 이 저장소 자신의 훅 코드 품질만 검사한다 — 훅도 테스트도 Python 표준
+# 라이브러리만 쓰므로(decision-16, decision-21) 테스트 프레임워크를 따로 설치하는
+# 스텝이 없다. 아래 sqlfluff/ruff 설치는 "검사받는 도구"이지 테스트 러너가 아니다.
 on:
   pull_request:
   push:
@@ -27,7 +28,7 @@ jobs:
       # decision-9의 적용을 그대로 받는다.
       - name: ShellCheck (POSIX 준수 게이트, decision-9)
         run: shellcheck -s sh install.sh
-      # 이 job은 checkout 외에 아무것도 설치하지 않는다(bats job과 별개다).
+      # 이 job은 checkout 외에 아무것도 설치하지 않는다(테스트 job과 별개다).
       - name: Install ruff
         run: pip install --quiet ruff
       # ruff에 디렉터리를 넘기면 확장자가 .py인 파일만 훑는다(실측 확인). git이
@@ -36,6 +37,8 @@ jobs:
       # 아무것도 안 하고 통과하는 GF-32와 같은 유형이다. 그래서 셔뱅으로 Python
       # 파일을 찾아 함께 넘긴다. 이러면 훅이 하나씩 Python이 돼도(GF-109~111) 이
       # 스텝을 고칠 필요가 없다 - 파일명을 나열하는 위 ShellCheck 스텝과 반대다.
+      # tests/는 전부 확장자가 .py라(GF-124) 디렉터리 지정만으로 충분해 셔뱅 탐색
+      # 대상에 넣지 않는다.
       # 찾은 파일은 따옴표 없는 변수의 단어분리에 맡기지 않고 배열로 넘긴다 -
       # 단어분리 여부는 셸마다 다르고(zsh는 기본적으로 하지 않는다) 그런 형태는
       # 러너 셸이 바뀌는 순간 조용히 대상이 하나로 뭉개진다. 대상이 0개면 역시
@@ -45,25 +48,24 @@ jobs:
         run: |
           set -u
           mapfile -t EXTRA < <(grep -rlE '^#!/usr/bin/env python3' hooks/ || true)
-          RAW="$(ruff check --show-files hooks/ "${EXTRA[@]}")"
+          RAW="$(ruff check --show-files hooks/ tests/ "${EXTRA[@]}")"
           FILES="$(printf '%s\n' "$RAW" | sort -u)"
           test -n "$FILES"
           echo "ruff 검사 대상 $(echo "$FILES" | wc -l)개:"
           echo "$FILES"
-          ruff check hooks/ "${EXTRA[@]}"
+          ruff check hooks/ tests/ "${EXTRA[@]}"
 
-  bats:
+  tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install bats-core
-        run: |
-          git clone --depth 1 https://github.com/bats-core/bats-core.git /tmp/bats-core
-          sudo /tmp/bats-core/install.sh /usr/local
       - name: Install 언어별 체크 실도구 (sqlfluff/ruff)
         # GF-22 실도구 재검증 테스트가 실제로 sqlfluff/ruff를 요구하는데 이 CI에
         # 설치가 빠져있어 "차단돼야 할" 테스트가 도구 부재로 조용히 통과해버렸다
         # (실제 PR에서 발견). clang-format/mvn은 ubuntu-latest 러너에 기본 포함.
         run: pip install --quiet sqlfluff ruff
-      - name: Run bats tests
-        run: bats tests/
+      # 테스트 러너는 Python 표준 라이브러리의 unittest다(GF-124) - 설치할 것이
+      # 없다. discover가 tests/를 sys.path에 넣으므로 공용 헬퍼(isolated_repo)를
+      # 평범한 import로 쓴다.
+      - name: Run tests
+        run: python3 -m unittest discover -s tests -v
