@@ -99,11 +99,13 @@ git-format은 push 단계(`pre-push` 이후)와 서버측 훅은 다루지 않�
 `git commit`을 실행하면 연결된 3개 훅이 아래 순서로 개입한다는 점을 이어서
 말씀드립니다.
 
-1. **[`pre-commit`](hooks/pre-commit)** — 스테이징된 파일로 언어를 감지해(`package.json`/
+1. **[`pre-commit`](hooks/pre-commit)** — 저장소 루트의 마커 파일로 언어를 감지해(`package.json`/
    `pyproject.toml`·`requirements.txt`/`pom.xml`·`build.gradle*`/`CMakeLists.txt`·
    `Makefile`/`.sqlfluff`·추적된 `*.sql`) [`hooks/checks/<lang>.py`](hooks/checks/)로
-   lint/컴파일/포맷 검사를 돌립니다(SQL은 sqlfluff, decision-6). 통과하면 검증
-   마커를 남깁니다.
+   lint/컴파일/포맷 검사를 돌립니다(SQL은 sqlfluff, decision-6). 검사 범위는 도구가
+   허용하는 한 스테이징된 파일로 좁힙니다 — ruff/flake8, clang-format, sqlfluff, tsc는
+   스테이징 파일만 보고, 파일 단위 모드가 없는 mvn/gradle 컴파일과 인자 계약을 알 수
+   없는 `npm run lint`만 프로젝트 전체를 봅니다(GF-115). 통과하면 검증 마커를 남깁니다.
 2. **[`commit-msg`](hooks/commit-msg)** — 커밋 메시지가 `[type][subsystem] <description>` 형식인지, 제목
    50자/본문 줄 72자 이내인지, 본문이 있으면 빈 줄이 있는지, 브랜치명에
    Task-Id(`GF-<번호>`, decision-4)가 있는지, (non-Claude-Code AI 도구라면) `AI-Model`이
