@@ -161,6 +161,15 @@ def shell_pwd():
 # Claude Code가 ~/.claude/projects/ 아래 세션 디렉터리를 만들 때 쓰는 실제 규칙은
 # "영숫자가 아닌 모든 문자를 하이픈으로 치환"이다(GF-98 - 슬래시만 치환하면 밑줄/
 # 점이 든 경로에서 트랜스크립트를 영영 못 찾는다).
+#
+# 여기는 이 저장소에서 외부 계약에 의존하는 유일한 지점이다(GF-119). 이 슬러그
+# 규칙과 트랜스크립트 경로 레이아웃은 Claude Code의 문서화되지 않은 내부 구현이라
+# 우리가 지킬 수 있는 약속이 아니다 - 상대가 규칙을 바꾸면 이 함수는 예외 없이
+# "없는 경로"를 반환하고, 측정은 조용히 어긋난다. 그래서 실패를 숨기지 않는 쪽으로
+# 설계했다: Tokens-Used/Tool-Calls는 unavailable (transcript-not-found)로 사유를
+# 남기므로 커밋 footer만 봐도 결합이 깨진 걸 알 수 있다. 다만 AI-Model은
+# decision-5의 fail-open 때문에 신호 없이 누락된다 - 이 비대칭은 의도된 것이고
+# 진단 절차는 doc-6 "한계"에 적어뒀다.
 def claude_transcript_path():
     slug = re.sub(r"[^A-Za-z0-9]", "-", shell_pwd())
     session_id = os.environ.get("CLAUDE_CODE_SESSION_ID", "")
