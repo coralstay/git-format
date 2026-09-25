@@ -18,6 +18,20 @@ import re
 import subprocess
 import sys
 
+# 로케일이 UTF-8을 제공하지 않는 환경에서는 Python의 stdout 인코딩이 ascii로 떨어져,
+# 이 파일의 한국어 메시지를 출력하는 순간 UnicodeEncodeError로 훅이 죽는다 — "도구가
+# 없어 건너뜀"처럼 무해해야 하는 경로에서도 커밋이 트레이스백과 함께 막힌다(GF-116
+# 실측: LC_ALL=C에 C.UTF-8이 없는 조건을 재현해 확인). sh 시절의 LC_ALL=C.UTF-8
+# 하드코딩(GF-83)은 Python 전환으로 사라졌지만, 같은 위험이 출력 인코딩으로 옮겨온
+# 것이다. 메시지는 UTF-8로 쓰여 있으니 출력 인코딩도 UTF-8로 고정한다 — 터미널이
+# UTF-8을 못 읽으면 글자가 깨져 보이지만, 죽어서 커밋을 막는 것보다 낫다.
+# errors="replace"는 서로게이트 등 인코딩 불가 문자에서도 죽지 않게 하는 보험이다.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError, OSError):
+        pass
+
 # 트레일러 삽입은 이 파일 맨 아래의 `git commit --amend`로 이뤄지는데, amend 자체가
 # post-commit을 재발동시킨다. 이 가드는 git rev-parse 한 번보다도 앞, 파일에서 가장
 # 먼저 실행돼야 한다 — 늦으면 그만큼 재귀가 깊어지고, 빠지면 무한 재귀가 된다.
