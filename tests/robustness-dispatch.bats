@@ -24,7 +24,9 @@ teardown() {
   run git commit -m "[feat] multi-lang clean"
   [ "$status" -eq 0 ]
   [[ "$output" == *"ts: package.json에 lint 스크립트가 없어 건너뜀"* ]]
-  [[ "$output" == *"python: ruff check ."* ]]
+  # GF-115에서 `ruff check .`이 스테이징 파일 목록 실행으로 바뀌었다 - 여기서
+  # 보려는 건 python 체크가 디스패치됐다는 사실이라 명령 이름까지만 본다.
+  [[ "$output" == *"python: ruff check"* ]]
   [[ "$output" == *"sql: sqlfluff lint"* ]]
 }
 
@@ -47,7 +49,7 @@ teardown() {
   git add pyproject.toml clean.py migrations/broken.sql
   run git commit -m "[feat] sql breaks alone"
   [ "$status" -ne 0 ]
-  [[ "$output" == *"python: ruff check ."* ]]
+  [[ "$output" == *"python: ruff check"* ]]
 }
 
 # ── GF-16 회귀: template/(심볼릭 링크) 경유 설치에서 checks/ resolve ──
@@ -78,7 +80,7 @@ teardown() {
   git add pyproject.toml unused.py
   run git commit -m "[feat][py] add unused import"
   [ "$status" -ne 0 ]
-  [[ "$output" == *"python: ruff check ."* ]]
+  [[ "$output" == *"python: ruff check"* ]]
 
   rm -rf "$FAKE_HOME" "$NEW_REPO"
 }
