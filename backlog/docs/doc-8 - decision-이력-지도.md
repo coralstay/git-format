@@ -3,7 +3,7 @@ id: doc-8
 title: decision 이력 지도
 type: guide
 created_date: '2026-09-19 05:31'
-updated_date: '2026-09-19 05:31'
+updated_date: '2026-09-25 02:51'
 ---
 ## backlog/ 디렉토리, 왜 헷갈리는가
 
@@ -48,10 +48,10 @@ GF-43(완료)이 같은 디렉토리에 있지 않은 이유이기도 하다.
 `backlog decision` CLI는 `create`/`list`만 제공하고 상태를 바꾸는 명령이 없다. 그래서
 어떤 decision이 나중 decision으로 대체돼도 `backlog decision list`에는 영원히
 `accepted`로만 표시된다. 실제 대체 관계는 각 decision 파일의 본문(Context/Decision/
-Consequences)에만 산문으로 적혀 있다. 15개 decision 중 6개 주제는 대체 체인이 있고,
+Consequences)에만 산문으로 적혀 있다. 17개 decision 중 7개 주제는 대체 체인이 있고,
 나머지 3개(decision-2, 4, 6)는 한 번도 대체된 적 없는 standalone decision이다.
 
-### 대체 체인이 있는 6개 주제
+### 대체 체인이 있는 7개 주제
 
 | 주제 | 지금 유효 | 대체된 것 |
 | --- | --- | --- |
@@ -60,7 +60,8 @@ Consequences)에만 산문으로 적혀 있다. 15개 decision 중 6개 주제�
 | pre-push 존치 | decision-12 | decision-11의 판단 |
 | 외부 문서 vendoring | decision-9(원안) | decision-13 → decision-14가 되돌림(2단 반전) |
 | 견고성 테스트 전략 | decision-8 | decision-7 |
-| AI 귀속 footer | decision-5 + 본문 내 Amendment(GF-13, GF-97) | decision-15는 대체 아니고 보완 |
+| AI 귀속 footer | decision-5 + 본문 내 Amendment(GF-13, GF-97) | decision-15·decision-17은 대체 아니고 보완 |
+| hooks 구현 언어 | decision-16 | decision-9의 POSIX 문법 유지 정책(hooks/* 범위만) |
 
 각 행의 근거(해당 decision 파일 본문을 직접 대조):
 
@@ -111,6 +112,17 @@ Consequences)에만 산문으로 적혀 있다. 15개 decision 중 6개 주제�
    비-Claude-Code AI 도구(Cursor, GitHub Copilot CLI, Aider, Cline, Windsurf/
    Cascade, OpenAI Codex CLI, Google Gemini CLI, Amazon Q Developer CLI)를
    조사했지만 Claude Code 수준의 검증 가능한 채널을 찾지 못했다는 결론만 보완했다.
+   decision-17(2026-09-25, GF-114)도 같은 성격의 보완이다 — 같은 8개 도구를 다시
+   조사해 OpenAI Codex CLI가 조건 1(세션 상관관계 채널, `CODEX_THREAD_ID`)은 이제
+   충족하지만 조건 2(서버 확정 usage)가 과소계상으로 성립하지 않아 구현을 보류한다는
+   결론을 기록하고, 재검토 트리거를 남겼다. decision-15의 `AI-Model` 결론은 그대로
+   유효하다.
+
+7. **hooks 구현 언어** — decision-16(2026-09-21)이 hooks/*를 POSIX sh에서 Python 3
+   표준 라이브러리로 전환했다. decision-9("POSIX 문법 유지 + 표기 관례만 참고 적용")을
+   전면 철회하는 게 아니라 **`hooks/*` 범위에서만** 대체한다 — `install.sh`는 여전히
+   POSIX sh이고 decision-9가 그대로 적용된다. 이 전환 이후 일부 문서에 "훅이 POSIX
+   sh로 작성돼"라는 서술이 남아 있었다(GF-116에서 정정).
 
 ### 한 번도 대체된 적 없는 standalone decision (3개)
 
@@ -126,11 +138,13 @@ Consequences)에만 산문으로 적혀 있다. 15개 decision 중 6개 주제�
   대체(superseded)된 적은 없지만, 본문 일부가 이후 변경(decision-12)으로 stale해진
   사례다.
 
-### 15개 decision 전부 계정
+### 17개 decision 전부 계정
 
 decision-1(대체됨) · decision-2(standalone) · decision-3(부분 대체됨, 1~4번은 유효)
 · decision-4(standalone) · decision-5(원안, Amendment로 갱신 중) · decision-6
-(standalone, 일부 stale) · decision-7(대체됨) · decision-8(유효) · decision-9(원안이
-최종적으로 부활해 유효) · decision-10(유효) · decision-11(부분 대체됨, 나머지는 유효)
-· decision-12(유효) · decision-13(폐기됨) · decision-14(유효) · decision-15(decision-5를
-보완, 그 자체로 유효) — 15개 모두 위 표 또는 목록 중 하나에 속한다.
+(standalone, 일부 stale) · decision-7(대체됨) · decision-8(유효) · decision-9(hooks/*
+범위는 decision-16이 대체, install.sh 범위는 유효) · decision-10(유효) · decision-11
+(부분 대체됨, 나머지는 유효) · decision-12(유효) · decision-13(폐기됨) · decision-14
+(유효) · decision-15(decision-5를 보완, 그 자체로 유효) · decision-16(decision-9를
+hooks/* 범위에서 대체, 유효) · decision-17(decision-5·decision-15를 보완, 그 자체로
+유효) — 17개 모두 위 표 또는 목록 중 하나에 속한다.
