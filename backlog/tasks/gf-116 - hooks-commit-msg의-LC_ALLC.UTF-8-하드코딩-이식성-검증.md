@@ -1,10 +1,10 @@
 ---
 id: GF-116
 title: hooks/commit-msg의 LC_ALL=C.UTF-8 하드코딩 이식성 검증
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-19 15:46'
-updated_date: '2026-09-25 03:35'
+updated_date: '2026-09-25 03:36'
 labels: []
 dependencies: []
 references:
@@ -23,11 +23,11 @@ hooks/commit-msg:139에서 문자 수 계산에 LC_ALL=C.UTF-8을 사용한다. 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 GF-116이 지적한 LC_ALL=C.UTF-8 하드코딩이 현재 코드에 존재하지 않음이 확인되고, 어떤 변경으로 사라졌는지 근거가 기록된다
-- [ ] #2 로케일이 없는 환경에서 훅이 한국어 메시지를 출력하다 UnicodeEncodeError로 죽지 않도록 폴백이 추가된다 (hooks/* 및 hooks/checks/* 전부)
-- [ ] #3 stdout/stderr 인코딩이 ASCII로 떨어지는 조건을 재현해 폴백 전에는 죽고 폴백 후에는 죽지 않음이 실측으로 확인된다
-- [ ] #4 로케일 부재 상황을 고정하는 bats 회귀 테스트가 추가되고 통과한다
-- [ ] #5 doc-6의 '훅이 POSIX sh로 작성돼 있어' 서술이 Python 3 기준으로 정정된다
+- [x] #1 GF-116이 지적한 LC_ALL=C.UTF-8 하드코딩이 현재 코드에 존재하지 않음이 확인되고, 어떤 변경으로 사라졌는지 근거가 기록된다
+- [x] #2 로케일이 없는 환경에서 훅이 한국어 메시지를 출력하다 UnicodeEncodeError로 죽지 않도록 폴백이 추가된다 (hooks/* 및 hooks/checks/* 전부)
+- [x] #3 stdout/stderr 인코딩이 ASCII로 떨어지는 조건을 재현해 폴백 전에는 죽고 폴백 후에는 죽지 않음이 실측으로 확인된다
+- [x] #4 로케일 부재 상황을 고정하는 bats 회귀 테스트가 추가되고 통과한다
+- [x] #5 doc-6의 '훅이 POSIX sh로 작성돼 있어' 서술이 Python 3 기준으로 정정된다
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -57,4 +57,12 @@ LC_ALL=C.UTF-8은 이미 없다. GF-109(commit-msg Python 포팅)가 커밋 메�
 터미널이 UTF-8을 못 읽으면 글자가 깨져 보이는 트레이드오프를 택했다. 메시지가 UTF-8로 작성돼 있으므로 출력도 UTF-8로 내보내는 게 맞고, 무엇보다 '깨져 보이는 것'이 '죽어서 모든 커밋을 막는 것'보다 낫다. 이 트레이드오프는 doc-6에 명시했다.
 
 컨테이너 실측은 하지 않았다 — Docker/Alpine이 로컬에 없어 musl 환경을 직접 돌리지 못했고, 대신 PEP 538/540을 끈 조건으로 '로케일이 UTF-8을 못 주는 상태'를 재현했다. 실패 모드(ascii stdout)는 같지만 musl 환경에서의 직접 확인은 아니다.
+
+검증 증거: (AC1) grep -rn LC_ALL hooks/ install.sh → 0건. 제거 주체는 GF-109(태스크 노트에 read_bytes().decode로 로케일 우회 2개 제거가 명시돼 있음). (AC2) git show --stat으로 hooks/{commit-msg,pre-commit,post-commit} + hooks/checks/{cpp,java,python,sql,ts}.py 8개 파일 전부에 폴백이 들어간 것 확인. (AC3) 실제 git commit으로 전후 비교: 폴백 전에는 'UnicodeEncodeError: ascii codec can not encode character' 트레이스백 + 커밋 객체 미생성, 폴백 후에는 '[git-format] python: ruff/flake8을 찾을 수 없어 건너뜀'이 정상 출력되고 커밋 성공. commit-msg 거부 메시지도 이스케이프에서 '커밋 메시지가 [type][subsystem] 형식이 아닙니다'로 바뀜. (AC4) bats tests/robustness-locale.bats 4/4 통과. 테스트가 실제로 무는지 확인: python.py의 폴백만 제거하면 #1이 실패하고, commit-msg의 폴백만 제거하면 #2와 #4가 실패한다. (AC5) grep 'POSIX sh로 작성' → 0건, Windows 항목이 install.sh/POSIX 전제 기준으로 재작성됨. 회귀: bats tests/ 114/114 통과(실패 0), ruff check . 통과.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+GF-116이 지적한 LC_ALL=C.UTF-8 하드코딩은 이미 없었다 — GF-109가 커밋 메시지를 read_bytes().decode('utf-8', errors='replace')로 읽게 바꾸며 로케일 우회 두 개를 모두 제거했다. 그러나 경고했던 위험 자체는 사라지지 않고 Python의 출력 인코딩으로 옮겨와 있었다. C.UTF-8이 없는 환경을 재현해 실측한 결과, stdout은 기본 errors=strict라 checks/python.py의 '도구가 없어 건너뜀'이라는 무해한 경로에서 UnicodeEncodeError로 죽고 커밋이 트레이스백과 함께 막혔다(stderr은 backslashreplace라 죽지 않지만 한국어가 이스케이프로 깨졌다). 훅 8개 전부에서 stdout/stderr을 UTF-8(errors=replace)로 reconfigure하는 폴백을 넣어 양쪽 모두 해결했고, tests/robustness-locale.bats 4개로 고정했다 — 폴백을 되돌리면 해당 테스트가 실패하는 것까지 확인했다. 사용자 승인 범위로 doc-6의 '훅이 POSIX sh로 작성돼' 서술도 정정했다. 컨테이너 실측은 하지 못했다(Docker/Alpine 부재) — PEP 538/540을 끈 조건으로 같은 실패 모드를 재현한 것이며 musl 환경 직접 확인은 아니다. bats 114/114, ruff 통과.
+<!-- SECTION:FINAL_SUMMARY:END -->
