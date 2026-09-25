@@ -24,7 +24,7 @@
 
 ## 🤔 왜 만들었는지 말씀드립니다
 
-여러 언어(TS, C/C++, Java, Python, SQL 등)로 나뉜 프로젝트들에서 커밋 규칙과 커밋 전
+여러 언어(TS, C/C++, Java, Python, SQL)로 나뉜 프로젝트들에서 커밋 규칙과 커밋 전
 검사가 저장소마다 제각각이거나 아예 없었고, `git commit --no-verify`로 검사를
 우회해도 아무 흔적이 남지 않는 문제가 있었습니다. 여기에 더해, 사람이 아니라 AI
 코딩 에이전트(특히 Claude Code)가 커밋을 만드는 경우가 늘면서 이 문제가 결정적으로
@@ -50,8 +50,9 @@ Python 훅 3개(`hooks/pre-commit`, `hooks/commit-msg`, `hooks/post-commit`) + �
 `commit.template` · `init.templateDir` · `git interpret-trailers` 같은 git 내장
 메커니즘만 쓰고, 훅은 Python 3 표준 라이브러리만 씁니다(decision-16) — pip/npm으로
 설치할 패키지는 없지만 `python3` 자체는 필요합니다([필요조건](#-필요조건을-말씀드립니다)).
-언어별 lint 도구(npm/ruff/clang-format/mvn/sqlfluff 등)는 있으면 쓰고 없으면 조용히
-건너뛰도록 만들었습니다.
+지원 언어는 TS/Python/Java/C·C++/SQL 5종으로 고정돼 있고 확대 계획은 없습니다.
+언어별 lint 도구(npm/ruff/clang-format/mvn/sqlfluff 등)는 있으면 쓰고 없으면
+조용히 건너뛰도록 만들었습니다.
 
 ## 🪝 훅을 생애주기별로 정리해 드립니다
 
