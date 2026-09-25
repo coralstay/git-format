@@ -4,7 +4,7 @@ title: hooks/commit-msg의 LC_ALL=C.UTF-8 하드코딩 이식성 검증
 status: Done
 assignee: []
 created_date: '2026-09-19 15:46'
-updated_date: '2026-09-25 03:49'
+updated_date: '2026-09-25 16:47'
 labels: []
 dependencies: []
 references:
@@ -28,6 +28,7 @@ hooks/commit-msg:139에서 문자 수 계산에 LC_ALL=C.UTF-8을 사용한다. 
 - [x] #3 stdout/stderr 인코딩이 ASCII로 떨어지는 조건을 재현해 폴백 전에는 죽고 폴백 후에는 죽지 않음이 실측으로 확인된다
 - [x] #4 로케일 부재 상황을 고정하는 bats 회귀 테스트가 추가되고 통과한다
 - [x] #5 doc-6의 '훅이 POSIX sh로 작성돼 있어' 서술이 Python 3 기준으로 정정된다
+- [x] #6 doc-7의 'pre-commit이 스테이징된 파일로 언어를 감지해' 서술이 실제 동작(루트 마커 파일로 감지)에 맞게 정정된다
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -61,6 +62,10 @@ LC_ALL=C.UTF-8은 이미 없다. GF-109(commit-msg Python 포팅)가 커밋 메�
 검증 증거: (AC1) grep -rn LC_ALL hooks/ install.sh → 0건. 제거 주체는 GF-109(태스크 노트에 read_bytes().decode로 로케일 우회 2개 제거가 명시돼 있음). (AC2) git show --stat으로 hooks/{commit-msg,pre-commit,post-commit} + hooks/checks/{cpp,java,python,sql,ts}.py 8개 파일 전부에 폴백이 들어간 것 확인. (AC3) 실제 git commit으로 전후 비교: 폴백 전에는 'UnicodeEncodeError: ascii codec can not encode character' 트레이스백 + 커밋 객체 미생성, 폴백 후에는 '[git-format] python: ruff/flake8을 찾을 수 없어 건너뜀'이 정상 출력되고 커밋 성공. commit-msg 거부 메시지도 이스케이프에서 '커밋 메시지가 [type][subsystem] 형식이 아닙니다'로 바뀜. (AC4) bats tests/robustness-locale.bats 4/4 통과. 테스트가 실제로 무는지 확인: python.py의 폴백만 제거하면 #1이 실패하고, commit-msg의 폴백만 제거하면 #2와 #4가 실패한다. (AC5) grep 'POSIX sh로 작성' → 0건, Windows 항목이 install.sh/POSIX 전제 기준으로 재작성됨. 회귀: bats tests/ 114/114 통과(실패 0), ruff check . 통과.
 
 GF-115 머지 후 rebase 재검증: hooks/checks/ts.py에서 충돌이 났고(GF-115의 EXTENSIONS 블록 vs 이 태스크의 인코딩 폴백) 폴백이 먼저 오도록 순차 배치해 해소했다 — 폴백은 이후 어떤 print보다 앞서야 효과가 있다. doc-6은 frontmatter updated_date만 충돌. 합쳐진 상태에서 bats tests/ 124/124 통과(실패 0), ruff check . 통과. 단독 브랜치 시점의 114/114는 GF-115의 신규 10건이 빠진 수치였다.
+
+추가 범위(사용자 승인, 2026-09-25): doc-7:35의 'pre-commit이 스테이징된 파일로 언어를 감지해'를 '저장소 루트의 마커 파일로 언어를 감지해'로 정정했다. GF-115가 같은 오류를 README에서만 고쳤고 doc-7에 남아 있던 것이다. 검증: grep '스테이징된 파일로 언어를 감지' → backlog/docs/, README.md, hooks/ 전체에서 0건.
+
+같은 세션에서 발견한 별건(DRAFT-18로 분리): git rebase 중 post-commit이 cherry-pick 도중 amend를 시도해 'fatal: You are in the middle of a cherry-pick -- cannot amend'(git exit 128)로 실패하고 트레이스백을 낸다. 재현 절차와 원인 연쇄를 DRAFT-18에 기록했다.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
