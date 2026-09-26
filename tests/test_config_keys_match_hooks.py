@@ -23,18 +23,14 @@ CONF_READERS = (
     HOOKS_DIR / "prepare-commit-msg",
     HOOKS_DIR / "commit-msg",
     HOOKS_DIR / "post-commit",
-    HOOKS_DIR / "checks" / "cpp.py",
-    HOOKS_DIR / "checks" / "java.py",
-    HOOKS_DIR / "checks" / "sql.py",
 )
 
-# 훅이 실제로 쓰는 두 가지 conf 읽기 형태를 그대로 뽑는다.
-#   1. conf_get("...") / conf_get_all("...")            — 훅 3개, checks/java.py
-#   2. --file CONF ... --get(-all) "..."                — checks/cpp.py, checks/sql.py
+# 훅이 실제로 쓰는 conf 읽기 형태를 그대로 뽑는다: conf_get("...") /
+# conf_get_all("...") 헬퍼 호출이다. GF-135까지는 `--file CONF ... --get`를 인라인으로
+# 쓰는 두 번째 형태도 뽑았는데, 그 형태를 쓰던 파일은 checks/cpp.py와 checks/sql.py
+# 뿐이라 checks/가 삭제되며 함께 사라졌다. 훅이 다시 인라인 형태를 쓰기 시작하면 아래
+# "한 파일에서 아무 키도 못 뽑았다" 단언이 그 사실을 소리 내어 알려준다.
 CONF_GET_HELPER_RE = re.compile(r'conf_get(?:_all)?\(\s*"(gitformat\.[^"]+)"')
-CONF_GET_INLINE_RE = re.compile(
-    r'--file"?,\s*CONF,\s*"--get(?:-all)?",\s*"(gitformat\.[^"]+)"'
-)
 
 
 def git_config_conf(*args):
@@ -49,9 +45,7 @@ def git_config_conf(*args):
 
 def conf_keys_referenced_by(path):
     source = path.read_text(encoding="utf-8")
-    return set(CONF_GET_HELPER_RE.findall(source)) | set(
-        CONF_GET_INLINE_RE.findall(source)
-    )
+    return set(CONF_GET_HELPER_RE.findall(source))
 
 
 class ConfigKeysMatchHooksTest(unittest.TestCase):
@@ -101,7 +95,9 @@ class ConfigKeysMatchHooksTest(unittest.TestCase):
         # git은 --get-regexp 출력의 변수명을 소문자로 정규화한다(변수명은
         # 대소문자를 구분하지 않는다) — 양쪽을 소문자로 맞춰 비교한다.
         section = {}
-        for line in git_config_conf("--get-regexp", r"^gitformat\.trailer\.").splitlines():
+        for line in git_config_conf(
+            "--get-regexp", r"^gitformat\.trailer\."
+        ).splitlines():
             key, _, value = line.partition(" ")
             section[key.lower()] = value
         self.assertTrue(section, "gitformat.conf에서 트레일러 섹션을 읽지 못했다")

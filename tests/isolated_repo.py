@@ -24,7 +24,6 @@ from pathlib import Path
 
 GITFORMAT_ROOT = Path(__file__).resolve().parent.parent
 HOOKS_DIR = GITFORMAT_ROOT / "hooks"
-CHECKS_DIR = HOOKS_DIR / "checks"
 CONF_FILE = HOOKS_DIR / "gitformat.conf"
 INSTALL_SH = GITFORMAT_ROOT / "install.sh"
 GITMESSAGE = GITFORMAT_ROOT / ".gitmessage"
@@ -111,9 +110,10 @@ def transcript_slug(path):
 def path_without(tool):
     """`tool` 하나만 찾을 수 없는 PATH 값을 만들어 그 디렉터리 경로를 돌려준다.
 
-    "도구가 없으면 건너뛴다" 시나리오에서 PATH="/usr/bin:/bin"처럼 하드코딩하면
-    플랫폼마다 도구 설치 위치가 달라 깨진다(GF-32: macOS/Homebrew는
-    /opt/homebrew/bin이지만 ubuntu-latest는 clang-format/mvn이 /usr/bin에 있다).
+    "도구가 없으면 어떻게 되나" 시나리오에서 PATH="/usr/bin:/bin"처럼 하드코딩하면
+    플랫폼마다 도구 설치 위치가 달라 깨진다(GF-32에서 실측: macOS/Homebrew는
+    /opt/homebrew/bin이지만 ubuntu-latest는 같은 도구가 /usr/bin에 있었다 — 당시
+    대상은 GF-135에서 제거된 언어별 검사 도구였고, 지금 남은 대상은 python3다).
     그 도구가 있는 디렉터리만 PATH에서 빼는 방법도 안 된다 — git도 같은 디렉터리에
     있어 git 자체가 사라진다.
 
@@ -262,8 +262,9 @@ class IsolatedRepoTestCase(unittest.TestCase):
         # 커밋이 source=template으로 왔는데, 그 설정이 없는 CI에서는 git이 source
         # 인자를 아예 넘기지 않아 훅의 에디터 거부가 통과해버렸다(GF-125).
         #
-        # HOME은 바꾸지 않는다 - CI는 pip install로 sqlfluff/ruff를 실제 HOME 아래
-        # 사용자 site-packages에 깔고, HOME을 옮기면 언어별 검사가 도구를 못 찾는다.
+        # HOME은 바꾸지 않는다 - 원래 이유는 CI가 pip install로 언어별 검사 도구를
+        # 실제 HOME 아래 사용자 site-packages에 깔았기 때문인데, 그 검사는 GF-135에서
+        # 사라졌다. 그래도 그대로 둔다 - 러너 환경을 필요 없이 바꾸지 않는다.
         #
         # HOME을 명시적으로 넘긴 테스트는 건드리지 않는다. install.sh --global은
         # 가짜 HOME의 .gitconfig에 쓰고 테스트가 그 파일을 읽어 확인하므로,
