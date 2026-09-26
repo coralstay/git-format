@@ -6,9 +6,14 @@
 
 **GF-126이 이 관계를 바꿨다.** lint가 pre-commit에서 prepare-commit-msg로 옮겨왔고,
 prepare-commit-msg는 --no-verify로도 건너뛸 수 없다(doc-15). 그래서 마커는 --no-verify
-커밋에서도 항상 써지고, 마커의 부재로 우회를 판정하는 Verify-Bypassed는 **도달 불가능**
-해졌다. 대신 이제는 --no-verify로도 검사가 실제로 돌아 실패하면 커밋이 막힌다(AC #4) —
-아래 두 테스트가 그 앞뒤를 함께 고정한다.
+커밋에서도 항상 써지고, 마커의 부재로 우회를 판정하는 Verify-Bypassed는 **사실상 도달
+불가능**해졌다. 대신 이제는 --no-verify로도 검사가 실제로 돌아 실패하면 커밋이 막힌다
+(AC #4) — 아래 두 테스트가 그 앞뒤를 함께 고정한다.
+
+"사실상"인 이유는 재생 커밋 경로다(GF-126 실측). 면제가 먼저 걸려 마커가 없으니
+post-commit은 그 경로에서 Verify-Bypassed를 여전히 큐에 넣는데, 재생 중에는 amend 자체가
+실패해(archive DRAFT-18) 트레일러가 커밋에 남지 않는다 — 그 경로를 단언으로 고정하지
+않는 것은 지금 동작이 의도된 설계가 아니라 구 post-commit의 미해결 결함이기 때문이다.
 
 이 시점의 한계도 기록해 둔다: --no-verify는 아직 commit-msg를 건너뛰므로 '메시지 검증
 우회'는 여전히 가능하고, 그것을 기록하는 신호는 없다. 검증을 prepare-commit-msg로 옮기는
