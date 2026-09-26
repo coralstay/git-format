@@ -1,7 +1,7 @@
 ---
-id: DRAFT-18
+id: GF-136
 title: README를 최종 커밋 포맷 중심으로 재구성한다
-status: Draft
+status: To Do
 assignee: []
 created_date: '2026-09-26 07:55'
 updated_date: '2026-09-26 07:57'
