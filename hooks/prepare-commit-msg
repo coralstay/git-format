@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # prepare-commit-msg 훅: 커밋 규칙 강제를 훅 하나로 모으는 재설계의 본체다
-# (decision-18). 지금 하는 일은 세 가지다 — 재생·병합 커밋 면제, 에디터 경로 거부,
-# 언어별 lint 실행. 메시지 검증(GF-127)과 트레일러 삽입(GF-128)은 후속 태스크에서
-# 구 훅에서 이 파일로 옮겨온다. 그때까지 commit-msg/post-commit이 그대로 자기 일을
-# 계속한다.
+# (decision-18). 지금 하는 일은 두 가지다 — 재생·병합 커밋 면제, 에디터 경로 거부.
+# 메시지 검증(GF-127)과 트레일러 삽입(GF-128)은 후속 태스크에서 구 훅에서 이 파일로
+# 옮겨온다. 그때까지 commit-msg/post-commit이 그대로 자기 일을 계속한다.
 #
-# lint는 GF-126에서 pre-commit에서 옮겨왔고, 같은 커밋에서 pre-commit을 삭제했다 —
-# 기능만 옮기고 구 훅을 남기면 커밋마다 lint가 두 번 돈다. 옮긴 결과로 **--no-verify가
-# lint를 건너뛸 수 없게** 됐다(doc-15).
+# GF-126에서 언어별 lint를 pre-commit에서 이 파일로 옮겼다가 GF-135에서 그 lint를
+# 통째로 지웠다 — git-format의 범위는 커밋 메시지 형식과 트레일러이고, 언어 lint는
+# 결이 다른 기능이었다(decision-23). 남은 것은 검증마커 기록뿐이고 그 이유는
+# write_verified_marker()의 주석에 있다.
 #
 # 이 훅을 본체로 삼는 근거(실측 절차와 결과는 doc-15): prepare-commit-msg는
 # --no-verify로도 건너뛸 수 없고, 커밋 객체가 만들어지기 전에 돌며, exit 1로 커밋을
@@ -20,14 +20,13 @@
 #
 # template/(GF-9)로 설치된 저장소는 .git/hooks/prepare-commit-msg 자체가 git-format
 # 클론을 가리키는 심볼릭 링크다. 링크가 놓인 .git/hooks/가 아니라 링크가 가리키는
-# 실제 위치를 기준으로 checks/와 gitformat.conf를 찾아야 한다(GF-16) — realpath가
-# 링크 체인을 따라간다.
+# 실제 위치를 기준으로 gitformat.conf를 찾아야 한다(GF-16) — realpath가 링크 체인을
+# 따라간다.
 #
 # 각 판단 단계는 이름 있는 함수로 분해돼 있고(GF-87), 실행 순서는 파일 맨 아래에
 # 나열돼 있다. 다른 훅과 겹치는 블록(자기 위치 해석, conf 읽기 가드)은 공유 모듈로
 # 빼지 않고 파일마다 독립적으로 중복을 유지한다 — 파일 하나만 읽으면 그 훅의 동작을
 # 전부 파악할 수 있어야 한다는 감사 가능성 요구사항이다(decision-16).
-import glob
 import os
 import subprocess
 import sys
@@ -49,11 +48,11 @@ for _stream in (sys.stdout, sys.stderr):
         pass
 
 # post-commit이 트레일러를 붙이려고 도는 `git commit --amend`는 이 훅을 다시 실행시킨다
-# — --no-verify는 prepare-commit-msg를 건너뛰지 못하기 때문이다(doc-15). 그대로 두면 같은
-# 트리를 두 번 lint하고, post-commit이 지운 검증마커를 amend 쪽에서 다시 써서 $GIT_DIR에
-# 남긴다(GF-126 실측: 정상 커밋 뒤에도 마커가 남아 테스트가 잡았다). amend는 메시지만
-# 바꾸므로 검사 결과가 달라질 여지가 없으니, post-commit이 넘기는 가드를 보고 즉시
-# 빠져나간다. 이 가드는 post-commit과 함께 GF-128에서 사라진다.
+# — --no-verify는 prepare-commit-msg를 건너뛰지 못하기 때문이다(doc-15). 그대로 두면
+# post-commit이 지운 검증마커를 amend 쪽에서 다시 써서 $GIT_DIR에 남긴다(GF-126 실측:
+# 정상 커밋 뒤에도 마커가 남아 테스트가 잡았다). amend는 메시지만 바꾸므로 이 훅의
+# 판단이 달라질 여지가 없으니, post-commit이 넘기는 가드를 보고 즉시 빠져나간다.
+# 이 가드는 post-commit과 함께 GF-128에서 사라진다.
 if os.environ.get("_GITFORMAT_AMEND_GUARD") == "1":
     sys.exit(0)
 
@@ -67,12 +66,6 @@ if os.environ.get("_GITFORMAT_AMEND_GUARD") == "1":
 # 설정을 제거할 예정이므로 그 검사는 곧 어디서도 작동하지 않게 된다.
 MSG_FILE = sys.argv[1] if len(sys.argv) > 1 else ""
 SOURCE = sys.argv[2] if len(sys.argv) > 2 else ""
-REPO_ROOT = subprocess.run(
-    ["git", "rev-parse", "--show-toplevel"],
-    stdout=subprocess.PIPE,
-    encoding="utf-8",
-    check=True,
-).stdout.rstrip("\n")
 GIT_DIR = subprocess.run(
     ["git", "rev-parse", "--git-dir"],
     stdout=subprocess.PIPE,
@@ -81,7 +74,6 @@ GIT_DIR = subprocess.run(
 ).stdout.rstrip("\n")
 
 HOOK_DIR = os.path.dirname(os.path.realpath(__file__))
-CHECKS_DIR = os.path.join(HOOK_DIR, "checks")
 CONF = os.path.join(HOOK_DIR, "gitformat.conf")
 # gitformat.conf 자체를 못 읽으면 이후 git config --file 읽기가 하나씩 실패하면서
 # 원인을 알기 어려운 에러로 이어진다. 여기서 미리 검증해 원인을 명확히 알려준다.
@@ -107,33 +99,7 @@ def conf_get(key):
     ).stdout.rstrip("\n")
 
 
-def conf_get_all(key):
-    return [
-        line
-        for line in subprocess.run(
-            ["git", "config", "--file", CONF, "--get-all", key],
-            capture_output=True,
-            encoding="utf-8",
-            check=False,
-        ).stdout.splitlines()
-        if line
-    ]
-
-
 MARKER = os.path.join(GIT_DIR, conf_get("gitformat.markerFile"))
-
-# 언어 감지 마커. 키마다 해석 방식이 다르고 그 비대칭은 의도된 것이다(GF-118,
-# gitformat.conf의 주석과 tests/test_language_detection.py가 고정한다) — 아래
-# run_language_checks()에서 리터럴 키는 os.path.isfile()로, 글롭 키는 glob.glob()
-# 또는 git ls-files 경로명세로 본다. 통일하면 안 된다.
-MARKER_TS = conf_get("gitformat.marker.ts")
-MARKER_PYTHON = conf_get_all("gitformat.marker.python")
-MARKER_JAVA = conf_get("gitformat.marker.java")
-MARKER_JAVA_GRADLE = conf_get("gitformat.marker.javaGradle")
-MARKER_CPP = conf_get("gitformat.marker.cpp")
-MARKER_CPP_MAKE = conf_get("gitformat.marker.cppMake")
-MARKER_SQL = conf_get("gitformat.marker.sql")
-MARKER_SQL_GLOB = conf_get("gitformat.marker.sqlGlob")
 
 
 def fail(*lines):
@@ -207,9 +173,11 @@ def reject_editor_path():
     )
 
 
-# 이전 실행에서 남은 검증마커는 검사 시작 시점에 무효화한다(GF-31). 마커가 "이번 커밋이
-# 검사를 통과했다"는 뜻이어야 하는데, 앞선 커밋이 검사 통과 뒤 다른 이유로 실패해 마커를
-# 남겼으면 그 값이 다음 커밋으로 새어든다.
+# 이전 실행에서 남은 검증마커는 시작 시점에 무효화한다(GF-31). 마커가 "이번 커밋에서
+# 이 훅이 돌았다"는 뜻이어야 하는데, 앞선 커밋이 마커를 쓴 뒤 다른 이유로 실패해 그
+# 마커를 남겼으면 그 값이 다음 커밋으로 새어든다. 마커가 gate로서의 의미를 잃은 뒤에도
+# (아래 write_verified_marker() 참고) 이 무효화는 남는다 — 마커의 나이가 판정에 쓰이지는
+# 않지만, "직전 실행이 남긴 파일"이 그대로 살아 있는 상태를 만들지 않는다.
 def invalidate_stale_marker():
     try:
         os.remove(MARKER)
@@ -217,71 +185,25 @@ def invalidate_stale_marker():
         pass
 
 
-def run_check(script):
-    # 체크 스크립트가 아직 없으면 조용히 건너뛴다. sh 때는 실행 권한(-x)까지
-    # 봤지만 이제 sys.executable로 실행하므로 존재 여부만 본다.
-    if not os.path.isfile(script):
-        return
-    returncode = subprocess.run(
-        [sys.executable, script, REPO_ROOT], encoding="utf-8", check=False
-    ).returncode
-    # 체크가 실패하면 그 종료 코드를 그대로 전파해 커밋을 막는다 - 아래 검증마커
-    # 기록에 도달하지 않는다.
-    if returncode != 0:
-        sys.exit(returncode)
-
-
-def has_tracked(pathspec):
-    return any(
-        line
-        for line in subprocess.run(
-            ["git", "ls-files", "--", pathspec],
-            capture_output=True,
-            encoding="utf-8",
-            check=False,
-        ).stdout.splitlines()
-    )
-
-
-# 언어별 lint 실행(GF-126, AC #1~#3). 마커 파일은 반드시 저장소 루트에서 찾아야 하므로
-# 감지 전에 작업 디렉터리를 루트로 옮긴다(AC #5) — git은 훅을 루트에서 실행하지만, 이
-# 함수가 그 가정에 의존하지 않게 명시한다. 마커가 하나도 없으면 아무 것도 실행하지 않고
-# 무해하게 통과한다.
-def run_language_checks():
-    os.chdir(REPO_ROOT)
-
-    if os.path.isfile(MARKER_TS):
-        run_check(os.path.join(CHECKS_DIR, "ts.py"))
-
-    if any(os.path.isfile(f) for f in MARKER_PYTHON):
-        run_check(os.path.join(CHECKS_DIR, "python.py"))
-
-    # javaGradle은 build.gradle*처럼 글롭이라 리터럴 비교가 아니라 글롭 확장으로 본다.
-    if os.path.isfile(MARKER_JAVA) or glob.glob(MARKER_JAVA_GRADLE):
-        run_check(os.path.join(CHECKS_DIR, "java.py"))
-
-    if os.path.isfile(MARKER_CPP) or os.path.isfile(MARKER_CPP_MAKE):
-        run_check(os.path.join(CHECKS_DIR, "cpp.py"))
-
-    if os.path.isfile(MARKER_SQL) or has_tracked(MARKER_SQL_GLOB):
-        run_check(os.path.join(CHECKS_DIR, "sql.py"))
-
-
-# 검증마커 기록 — **임시 가교다(GF-126). GF-128에서 post-commit과 함께 제거한다.**
+# 검증마커 기록 — **임시 가교다. GF-128에서 post-commit과 함께 제거한다.**
 #
-# post-commit은 이 마커의 **부재**를 --no-verify 우회의 증거로 읽어 Verify-Bypassed:
-# true를 붙인다(decision-3, GF-31). pre-commit이 쓰던 마커를 아무도 쓰지 않게 되면
-# 아직 살아 있는 post-commit이 **모든 커밋에** 그 트레일러를 붙인다 — 이 저장소는 자기
-# 훅으로 커밋하므로 잘못된 footer가 실제 이력에 남는다(doc-18이 경고한 이중 실행 구간의
-# 반대 형태다). 그래서 lint를 옮기고 pre-commit을 지우는 같은 커밋에서 마커 기록도 이
-# 훅으로 옮긴다. 형식과 위치는 기존 계약 그대로 — $GIT_DIR/<gitformat.markerFile>에
+# **이 마커는 더 이상 아무것도 gate하지 않는다.** GF-126까지는 "언어별 lint를 전부
+# 통과했다"는 뜻이었지만 GF-135에서 그 lint를 지웠으므로(decision-23) 지금 남은 뜻은
+# "prepare-commit-msg가 돌았다"뿐이다. 그래서 조건 없이 쓴다 — 통과/실패를 판정할
+# 대상이 없다.
+#
+# 그런데도 계속 써야 하는 이유는 post-commit이다. post-commit은 이 마커의 **부재**를
+# --no-verify 우회의 증거로 읽어 Verify-Bypassed: true를 붙인다(decision-3, GF-31).
+# 아무도 마커를 쓰지 않게 되면 아직 살아 있는 post-commit이 **모든 커밋에** 그 트레일러를
+# 붙인다 — 이 저장소는 자기 훅으로 커밋하므로 잘못된 footer가 실제 이력에 남는다(GF-126
+# 실측). 형식과 위치는 기존 계약 그대로 — $GIT_DIR/<gitformat.markerFile>에
 # "<epoch> <pid>" 한 줄이다. 바꾸면 post-commit의 판정이 깨진다.
 #
-# 한편 lint가 이 훅으로 오면서 --no-verify가 lint를 건너뛸 수 없게 됐으므로 마커는
-# 항상 써지고, 따라서 **Verify-Bypassed는 사실상 도달 불가능해졌다.** 남는 경로는 재생
-# 커밋뿐이다 — 맨 위 면제로 먼저 빠져나가 마커가 없으니 post-commit이 그 트레일러를 여전히
-# 큐에 넣는다. 다만 그 경로에서는 amend 자체가 실패해(archive DRAFT-18) 커밋에 남지 않는다
-# (GF-126 실측). 이 시점에는 commit-msg가 아직 살아 있고 --no-verify가 그것을 건너뛰므로
+# 이 훅은 --no-verify로도 건너뛸 수 없으므로(doc-15) 마커는 항상 써지고, 따라서
+# **Verify-Bypassed는 사실상 도달 불가능하다.** 남는 경로는 재생 커밋뿐이다 — 맨 위
+# 면제로 먼저 빠져나가 마커가 없으니 post-commit이 그 트레일러를 여전히 큐에 넣는다.
+# 다만 그 경로에서는 amend 자체가 실패해(archive DRAFT-18) 커밋에 남지 않는다(GF-126
+# 실측). 이 시점에는 commit-msg가 아직 살아 있고 --no-verify가 그것을 건너뛰므로
 # '메시지 검증 우회'만 기록 없이 남는다 — 검증을 이 훅으로 옮기는 GF-127이 그 한
 # 태스크짜리 과도기를 닫는다.
 def write_verified_marker():
@@ -289,16 +211,15 @@ def write_verified_marker():
         f.write(f"{int(time.time())} {os.getpid()}\n")
 
 
-# 실행 순서(decision-18): 재생·병합 커밋 면제 → 에디터 경로 거부 → 언어별 lint →
-# 검증마커 기록.
+# 실행 순서(decision-18): 재생·병합 커밋 면제 → 에디터 경로 거부 → 검증마커 기록.
 #
 # 면제가 맨 앞인 것은 바꿀 수 없다. 에디터로 여는 병합/revert 커밋은 source가 template이
 # 아니라 merge로 오지만(실측), 앞으로 판단을 더 붙이면서 면제를 뒤로 미루면 사람이
 # 메시지를 고를 수조차 없는 재생 경로가 거부된다.
 #
-# lint가 에디터 거부 뒤인 것도 의도된 순서다(GF-126) — 어차피 거부할 커밋을 위해
-# 검사를 돌릴 이유가 없다. 마커는 lint가 전부 통과한 뒤에만 쓴다. 검사가 실패하면
-# run_check()가 그 종료 코드로 빠져나가므로 마커 기록에 도달하지 않는다.
+# 마커 기록이 맨 뒤인 것은 GF-126의 순서를 그대로 둔 것이다 — 그때는 "lint가 전부
+# 통과한 뒤에만 쓴다"는 뜻이 있었고, GF-135로 그 뜻은 없어졌지만 거부된 커밋에 굳이
+# 파일을 남길 이유도 없다.
 #
 # 파일 맨 위의 amend 가드는 이 순서보다 앞서 돈다 — post-commit의 재진입 차단과 같은
 # 규약이라 그 위치를 유지한다.
@@ -307,7 +228,6 @@ if is_replay_commit():
 
 reject_editor_path()
 invalidate_stale_marker()
-run_language_checks()
 write_verified_marker()
 
 sys.exit(0)

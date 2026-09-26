@@ -22,6 +22,24 @@ class EndToEndCommitTest(IsolatedRepoTestCase):
         self.git_ok("add", "a.txt")
         self.assertRejected(self.commit("이상한 메시지"))
 
+    def test_언어_도구가_거부할_파일도_커밋이_통과한다(self):
+        """[GF-135] 언어별 검사가 제거돼 ruff가 거부할 파일도 커밋을 막지 않는다
+
+        GF-135 전에는 pyproject.toml이 있는 저장소의 `import os`(F401)가
+        checks/python.py의 ruff에 걸려 커밋이 막혔다. 지금은 git-format이 언어
+        도구를 전혀 실행하지 않는다(decision-23) — 이 단언이 없으면 lint가 슬그머니
+        돌아와도 스위트가 똑같이 통과한다.
+        """
+        self.write("pyproject.toml", "")
+        self.write("unused.py", "import os\n")
+        self.git_ok("add", "pyproject.toml", "unused.py")
+
+        result = self.commit("[feat][py] unused import must not block")
+
+        self.assertAccepted(result)
+        self.assertEqual(1, self.commit_count())
+        self.assertNotIn("ruff", result.output)
+
     def test_template_심볼릭_링크_설치에서도_훅이_자기_설정을_찾는다(self):
         """[GF-16 회귀] template/ 심볼릭 링크로 설치된 저장소에서도 훅이 자기 위치를 찾는다
 
