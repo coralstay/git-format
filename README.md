@@ -2,7 +2,7 @@
 
 # 🧬 git-format
 
-**여러 언어 프로젝트를 위한, git 자체 기능만으로 동작하는 커밋 규칙 · 검증 · 이력 정형화 도구**
+**git 자체 기능만으로 동작하는 커밋 메시지 규칙 · 검증 · 이력 정형화 도구**
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Hooks: Python 3](https://img.shields.io/badge/hooks-Python%203-3776ab.svg)](./hooks/)
@@ -24,9 +24,8 @@
 
 ## 🤔 왜 만들었는지 말씀드립니다
 
-여러 언어(TS, C/C++, Java, Python, SQL)로 나뉜 프로젝트들에서 커밋 규칙과 커밋 전
-검사가 저장소마다 제각각이거나 아예 없었고, `git commit --no-verify`로 검사를
-우회해도 아무 흔적이 남지 않는 문제가 있었습니다. 여기에 더해, 사람이 아니라 AI
+여러 저장소에서 커밋 규칙이 제각각이거나 아예 없었고, `git commit --no-verify`로
+검사를 우회해도 아무 흔적이 남지 않는 문제가 있었습니다. 여기에 더해, 사람이 아니라 AI
 코딩 에이전트(특히 Claude Code)가 커밋을 만드는 경우가 늘면서 이 문제가 결정적으로
 중요해졌습니다.
 
@@ -44,15 +43,19 @@
 
 ## 🛠️ 무엇을 만들었는지 말씀드립니다
 
-Python 훅 3개(`hooks/pre-commit`, `hooks/commit-msg`, `hooks/post-commit`) + 설정
-파일 하나(`hooks/gitformat.conf`) + POSIX sh 설치 스크립트(`install.sh`)로 구성된,
-**git 자체 기능만으로 동작하는** 도구를 만들었습니다. `core.hooksPath` ·
-`commit.template` · `init.templateDir` · `git interpret-trailers` 같은 git 내장
+Python 훅 + 설정 파일 하나(`hooks/gitformat.conf`) + POSIX sh 설치
+스크립트(`install.sh`)로 구성된, **git 자체 기능만으로 동작하는** 도구를 만들었습니다.
+`core.hooksPath` · `init.templateDir` · `git interpret-trailers` 같은 git 내장
 메커니즘만 쓰고, 훅은 Python 3 표준 라이브러리만 씁니다(decision-16) — pip/npm으로
 설치할 패키지는 없지만 `python3` 자체는 필요합니다([필요조건](#-필요조건을-말씀드립니다)).
-지원 언어는 TS/Python/Java/C·C++/SQL 5종으로 고정돼 있고 확대 계획은 없습니다.
-언어별 lint 도구(npm/ruff/clang-format/mvn/sqlfluff 등)는 있으면 쓰고 없으면
-조용히 건너뛰도록 만들었습니다.
+
+**다루는 범위는 커밋 메시지 형식과 트레일러입니다.** 언어별 lint는 다루지 않습니다
+(decision-23) — 커밋 형식을 맞추는 도구가 언어 도구를 돌릴 이유가 없고, 그 결합이
+컨슈머에게 npm/ruff/clang-format/mvn/sqlfluff의 존재를 전제하게 만들었기 때문입니다.
+
+> ⚠️ **알려진 한계**: git-format은 `core.hooksPath`를 점유하므로 그 저장소의
+> `.git/hooks/*`는 무시됩니다. 언어 검사가 필요하면 CI에서 돌리시기 바랍니다 —
+> git-format과 자기 훅을 함께 쓰는 지원 방법은 아직 정하지 않았습니다.
 
 ## 🪝 훅을 생애주기별로 정리해 드립니다
 
@@ -96,28 +99,32 @@ git이 공식적으로 제공하는 훅은 총 28개입니다. 이 중 git-forma
 git-format은 push 단계(`pre-push` 이후)와 서버측 훅은 다루지 않습니다 — 커밋
 단계까지만 다룬다는 원칙(decision-11, decision-12) 때문입니다.
 
-`git commit`을 실행하면 연결된 3개 훅이 아래 순서로 개입한다는 점을 이어서
+`git commit`을 실행하면 연결된 훅이 아래 순서로 개입한다는 점을 이어서
 말씀드립니다.
 
-1. **[`pre-commit`](hooks/pre-commit)** — 저장소 루트의 마커 파일로 언어를 감지해(`package.json`/
-   `pyproject.toml`·`requirements.txt`/`pom.xml`·`build.gradle*`/`CMakeLists.txt`·
-   `Makefile`/`.sqlfluff`·추적된 `*.sql`) [`hooks/checks/<lang>.py`](hooks/checks/)로
-   lint/컴파일/포맷 검사를 돌립니다(SQL은 sqlfluff, decision-6). 검사 범위는 도구가
-   허용하는 한 스테이징된 파일로 좁힙니다 — ruff/flake8, clang-format, sqlfluff, tsc는
-   스테이징 파일만 보고, 파일 단위 모드가 없는 mvn/gradle 컴파일과 인자 계약을 알 수
-   없는 `npm run lint`만 프로젝트 전체를 봅니다(GF-115). 통과하면 검증 마커를 남깁니다.
+1. **[`prepare-commit-msg`](hooks/prepare-commit-msg)** — 커밋 객체가 만들어지기
+   **전에** 돌고, `--no-verify`로도 건너뛸 수 없습니다(실측 근거는 doc-15). 그래서
+   커밋 규칙 강제가 이 훅으로 모입니다(decision-18). 지금 하는 일은 재생·병합 커밋
+   면제, 에디터 경로 거부, 검증 마커 기록입니다.
+   - **재생·병합 커밋 면제**: cherry-pick/rebase/revert/merge로 만들어지는 커밋은
+     이미 검증된 커밋의 복제이므로 건드리지 않습니다.
+   - **에디터 경로 거부**: 에디터는 이 훅보다 **뒤에** 열려서 사람이 타이핑한 최종
+     메시지를 훅이 볼 수 없습니다. 그래서 `git commit -m`(또는 `-F`)만 허용합니다 —
+     이렇게 하면 "통과한 커밋은 모두 검증을 거쳤다"가 성립합니다.
 2. **[`commit-msg`](hooks/commit-msg)** — 커밋 메시지가 `[type][subsystem] <description>` 형식인지, 제목
    50자/본문 줄 72자 이내인지, 본문이 있으면 빈 줄이 있는지, 브랜치명에
    Task-Id(`GF-<번호>`, decision-4)가 있는지, (non-Claude-Code AI 도구라면) `AI-Model`이
    화이트리스트에 있는지 검증합니다. 여기서 거부되면 커밋 자체가 만들어지지 않습니다.
-3. **(커밋 생성)** — 둘 다 통과하면 git이 실제로 커밋을 만듭니다.
-4. **[`post-commit`](hooks/post-commit)** — `pre-commit`/`commit-msg`와 달리 `--no-verify`로도 건너뛸 수
-   없고, exit code가 커밋 결과에 영향을 주지도 못한다는 점을 [공식
-   문서](https://git-scm.com/docs/githooks)로도 확인하실 수 있습니다 — git이 항상 실행을
-   보장하는 이 훅에서, `pre-commit`이 남긴 검증 마커가 없으면(= `--no-verify`로 건너뛴
-   경우) `Verify-Bypassed: true`를 `git commit --amend`로 프로그래밍적으로 삽입합니다
-   (decision-3). 그리고 `Task-Id`, `Signed-off-by`(decision-10), `Hooks-Commit`과, AI
-   에이전트가 커밋했다면 아래 AI 귀속/토큰 트레일러를 함께 붙입니다(decision-5).
+3. **(커밋 생성)** — 통과하면 git이 실제로 커밋을 만듭니다.
+4. **[`post-commit`](hooks/post-commit)** — `--no-verify`로도 건너뛸 수 없고, exit code가
+   커밋 결과에 영향을 주지도 못한다는 점을 [공식 문서](https://git-scm.com/docs/githooks)로도
+   확인하실 수 있습니다. 검증 마커가 없으면(= 앞 훅이 돌지 않은 경우)
+   `Verify-Bypassed: true`를 `git commit --amend`로 삽입하고(decision-3), `Task-Id`,
+   `Signed-off-by`(decision-10), `Hooks-Commit`과, AI 에이전트가 커밋했다면 아래 AI
+   귀속/토큰 트레일러를 함께 붙입니다(decision-5).
+
+> 이 구조는 재설계 중입니다(decision-18). 검증과 트레일러 삽입을
+> `prepare-commit-msg`로 옮기는 중이고, `pre-commit`은 이미 삭제됐습니다.
 
 | 트레일러                     | 값                                                                                              | 신뢰 수준                                                    |
 | ----------------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
@@ -149,7 +156,7 @@ git-format은 커밋 단계까지만 다룬다는 점을 말씀드립니다 — 
 ## ✅ 필요조건을 말씀드립니다
 
 - **git**
-- **python3** — 훅 3개와 `hooks/checks/*.py`가 Python 3로 작성돼 있습니다(decision-16).
+- **python3** — 훅이 Python 3로 작성돼 있습니다(decision-16).
   표준 라이브러리만 쓰므로 설치할 패키지는 없지만, **훅이 실행되는 시점의 PATH에서
   `python3`가 잡혀야 합니다.**
 
