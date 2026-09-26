@@ -4,7 +4,7 @@ title: README를 최종 커밋 포맷 중심으로 재구성한다
 status: Draft
 assignee: []
 created_date: '2026-09-26 07:55'
-updated_date: '2026-09-26 07:56'
+updated_date: '2026-09-26 07:57'
 labels:
   - docs
 dependencies: []
@@ -39,11 +39,13 @@ README가 구현 서술 중심이다 — "왜 만들었는지 / 무엇을 만들
 - [ ] #7 새 설명을 보태지 않는다 — 기존 내용의 재배치와 압축만 한다
 - [ ] #8 '언제 만들어지는지'는 현재 사실대로 쓴다 (트레일러 삽입은 post-commit, 메시지 검증은 commit-msg). GF-127/128이 옮기면 갱신해야 한다는 점을 태스크 노트에 남긴다
 - [ ] #9 README 순증 줄 수가 0 이하다 (GF-135 이전 대비)
+- [ ] #10 필드 표에 그 필드를 만드는 git 훅 이름을 명시한다 (prepare-commit-msg / commit-msg / post-commit 중 어느 것인지)
+- [ ] #11 git 커밋 훅 라이프사이클을 문서에 함께 정리한다 — 커밋 한 번에 훅이 도는 순서와 각 단계에서 커밋 객체가 존재하는지 여부
+- [ ] #12 라이프사이클에서 --no-verify가 어느 훅을 건너뛰는지 표시한다 — 어떤 필드가 우회 가능하고 어떤 필드가 불가능한지가 여기서 갈린다
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
 - [ ] #1 python3 -m unittest 스위트 전체 통과
-- [ ] #2 python3 -m unittest 스위트 전체 통과
-- [ ] #3 문서에 적힌 커밋 예시가 실제로 생성되는 footer와 일치하는지 확인
+- [ ] #2 문서에 적힌 커밋 예시가 실제로 생성되는 footer와 일치하는지 확인
 <!-- DOD:END -->
