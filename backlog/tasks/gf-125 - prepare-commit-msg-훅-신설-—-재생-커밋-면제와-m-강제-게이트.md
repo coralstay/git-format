@@ -1,10 +1,10 @@
 ---
 id: GF-125
 title: prepare-commit-msg 훅 신설 — 재생 커밋 면제와 -m 강제 게이트
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-25 19:33'
-updated_date: '2026-09-25 21:43'
+updated_date: '2026-09-26 02:10'
 labels:
   - hooks
 dependencies:
@@ -49,3 +49,21 @@ git-format은 지금 커밋이 만들어진 뒤 post-commit이 --amend로 트레
 - [ ] #2 ruff check 통과
 - [ ] #3 이 저장소 자신의 커밋이 새 훅으로 정상 생성되는지 확인
 <!-- DOD:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: claude
+created: 2026-09-26 02:10
+---
+설계 구멍 발견 (2026-09-26 실측): source 값으로 에디터 경로를 판별하는 방식에 한 가지 빈틈이 있다.
+
+실측 결과 source 값은 -m/-F/-F -가 모두 `message`, 에디터는 `template`(commit.template 설정 여부와 무관), --amend는 `commit`이다.
+
+문제는 `commit`이 모호하다는 점이다 — `git commit --amend --no-edit`은 메시지가 최종이지만, `git commit --amend`는 훅이 돈 뒤에 에디터가 열려 사람이 고친 텍스트가 검증을 받지 않는다. source만으로는 이 둘을 구분할 수 없다.
+
+즉 '통과한 모든 커밋이 검증을 거친 것이 된다'(decision-18)는 --amend 경로에서 완전하지 않다. 이 태스크의 AC #2는 `template` 거부만 규정하므로 그대로 구현하고, 이 빈틈은 GF-127(메시지 검증 이전)에서 어떻게 다룰지 결정한다.
+
+선택지: (a) source=commit에서도 검증해 --no-edit 경우를 커버하고 에디터 편집분은 포기, (b) commit-msg를 검증 전용으로 남겨 완전히 막는다(훅 3개가 된다), (c) --amend를 아예 거부한다.
+---
+<!-- COMMENTS:END -->
