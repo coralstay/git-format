@@ -1,9 +1,12 @@
-"""pre-commit 디스패처가 마커별 체크를 고르고 결과를 전파하는지 본다(구 robustness-dispatch.bats).
+"""lint 디스패처가 마커별 체크를 고르고 결과를 전파하는지 본다(구 robustness-dispatch.bats).
 
 GF-24, decision-8: 표준 인증이 아니라 실제 버그 이력(GF-16, GF-39)에 근거한 실용적
 테스트. 여러 언어 마커가 동시에 있을 때 셋 다 디스패치되는지(페어와이즈), 하나가
 실패하면 커밋 전체가 막히는지, 그리고 template/ 심볼릭 링크로 설치된 저장소에서도
 checks/를 정확히 찾는지(GF-16)를 본다.
+
+디스패처는 GF-126에서 pre-commit에서 prepare-commit-msg로 옮겨왔다 — 판정 로직은 그대로
+옮겼으므로 이 파일의 단언도 그대로다. 달라진 것은 심볼릭 링크를 확인하는 훅 이름뿐이다.
 """
 
 import unittest
@@ -51,7 +54,7 @@ class LintDispatchTest(IsolatedRepoTestCase):
         self.assertIn("python: ruff check", result.output)
 
     def test_template_심볼릭_링크_설치에서도_checks를_찾는다(self):
-        """[GF-16 회귀] template/ 심볼릭 링크로 설치된 새 저장소에서도 pre-commit이 checks/를 정확히 찾는다"""
+        """[GF-16 회귀] template/ 심볼릭 링크로 설치된 새 저장소에서도 훅이 checks/를 정확히 찾는다"""
         # 이 테스트만 HOME을 가짜 디렉터리로 바꾼다. 러너의 HOME은 그대로이므로
         # asdf 버전 해석(isolated_repo.asdf_pins)은 영향을 받지 않는다 — bats 판이
         # asdf_pin_python()을 HOME 교체 전에 불러야 했던 순서 제약이 사라졌다.
@@ -67,10 +70,10 @@ class LintDispatchTest(IsolatedRepoTestCase):
 
         # init.templateDir이 .git/hooks/*를 git-format 클론을 가리키는 심볼릭 링크로
         # 채웠는지부터 확인한다 — 이게 아니면 GF-16 시나리오 자체가 재현 안 된다.
-        linked_hook = new_repo / ".git" / "hooks" / "pre-commit"
+        linked_hook = new_repo / ".git" / "hooks" / "prepare-commit-msg"
         self.assertTrue(linked_hook.is_symlink(), f"{linked_hook}가 심볼릭 링크가 아니다")
         self.assertEqual(
-            str(GITFORMAT_ROOT / "hooks" / "pre-commit"),
+            str(GITFORMAT_ROOT / "hooks" / "prepare-commit-msg"),
             str(linked_hook.readlink()),
         )
 

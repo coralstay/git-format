@@ -91,8 +91,9 @@ class ShellMetacharactersSafeTest(IsolatedRepoTestCase):
         # 이 테스트의 목적은 post-commit의 interpret-trailers 삽입이 매우 긴 라인
         # 앞에서 깨지지 않는지 확인하는 것이지, GF-83의 본문 줄 길이(72자) 검증
         # 자체를 테스트하는 게 아니다 — 20000자 라인은 그 검증에 걸리므로
-        # --no-verify로 commit-msg/pre-commit을 건너뛰고 post-commit(항상 실행됨)
-        # 경로만 검증한다.
+        # --no-verify로 commit-msg를 건너뛰고 post-commit(항상 실행됨) 경로만
+        # 검증한다. --no-verify가 건너뛰지 못하는 prepare-commit-msg의 lint는
+        # 이 저장소에 언어 마커가 없어 아무 것도 실행하지 않는다(GF-126).
         self.git_ok("checkout", "-q", "-b", "GF-4-longline")
         self.stage_one_file()
         long_body = "y" * 20000

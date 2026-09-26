@@ -49,9 +49,20 @@ class LintPythonTest(IsolatedRepoTestCase):
         """이미 커밋된 파일의 린트 에러는 이후 커밋을 막지 않는다 (GF-115)"""
         # 기존 부채를 재현한다 — 검사가 좁아지기 전에 들어온 에러 있는 파일이
         # 무관한 다음 커밋까지 막던 게 GF-115의 false blocking이다.
+        #
+        # 부채를 심을 때 --no-verify를 쓸 수 없다(GF-126) — lint가 prepare-commit-msg로
+        # 옮겨오면서 --no-verify로도 검사가 돌아 이 준비 커밋 자체가 막힌다. 훅을 아예
+        # 떼어내(core.hooksPath를 /dev/null로) 부채만 심는다.
         self.write("legacy.py", "import os\n")
         self.git_ok("add", "pyproject.toml", "legacy.py")
-        self.commit_ok("[feat][py] pre-existing lint debt", "-q", "--no-verify")
+        self.git_ok(
+            "-c",
+            "core.hooksPath=/dev/null",
+            "commit",
+            "-q",
+            "-m",
+            "[feat][py] pre-existing lint debt",
+        )
         self.write("clean.py", "y = 2\n")
         self.git_ok("add", "clean.py")
         self.assertAccepted(self.commit("[feat][py] add unrelated module"))

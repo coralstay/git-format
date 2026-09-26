@@ -39,9 +39,14 @@ class ConfigFileUnreadableTest(IsolatedRepoTestCase):
             self.python(self.hooks_copy / "commit-msg", msg_file)
         )
 
-    def test_pre_commit이_멈춘다(self):
-        """pre-commit(python): conf가 깨지면 명확한 에러로 즉시 멈춘다"""
-        self.assertConfGuardFires(self.python(self.hooks_copy / "pre-commit"))
+    def test_prepare_commit_msg가_멈춘다(self):
+        """prepare-commit-msg(python): conf가 깨지면 명확한 에러로 즉시 멈춘다"""
+        # GF-126에서 lint가 pre-commit에서 이 훅으로 옮겨오고 pre-commit이 삭제됐다 —
+        # conf를 키 단위로 읽는 훅도 그쪽으로 바뀌었으므로 가드 검증 대상도 옮긴다.
+        msg_file = self.write("msgfile", "[feat] test\n")
+        self.assertConfGuardFires(
+            self.python(self.hooks_copy / "prepare-commit-msg", msg_file)
+        )
 
     def test_post_commit이_멈춘다(self):
         """post-commit(python): conf가 깨지면 명확한 에러로 즉시 멈춘다"""

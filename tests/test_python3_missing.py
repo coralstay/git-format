@@ -1,8 +1,9 @@
 """훅이 실행되는 시점의 PATH에 python3이 없을 때의 동작을 본다(구 robustness-python-path.bats).
 
 GF-113, decision-16: sh 시절에는 없던 실패 모드라 "sh/Python 동일성 재검증"이 아니라
-신규 동작 검증이다. 훅마다 결과가 비대칭이라는 README의 서술(pre-commit/commit-msg는
-커밋 차단, post-commit은 트레일러 조용한 누락)이 실제로 그런지 확인하는 것이 목적이다.
+신규 동작 검증이다. 훅마다 결과가 비대칭이라는 README의 서술(커밋 객체를 만들기 전에
+도는 훅은 커밋 차단, post-commit은 트레일러 조용한 누락)이 실제로 그런지 확인하는 것이
+목적이다.
 
 python3은 **자식 프로세스의 환경변수에서만** 지운다 — 러너 자신은 계속 자기 python3로
 돌아간다(GF-124 AC #7). bats 판은 PATH를 셸 변수로 다뤄 같은 효과를 냈지만, 러너와
@@ -26,8 +27,8 @@ class Python3MissingTest(IsolatedRepoTestCase):
 
         git은 앞선 훅이 실패하면 뒤의 훅을 아예 실행하지 않으므로, 검증하려는 훅보다
         앞서 도는 훅을 전부 지워야 그 훅이 실제 검증 대상이 된다. 실행 순서는
-        pre-commit → prepare-commit-msg → commit-msg → post-commit이다 —
-        prepare-commit-msg가 새로 생기면서(GF-125) 앞선 훅 목록이 하나 늘었다.
+        prepare-commit-msg → commit-msg → post-commit이다 — GF-126에서 pre-commit이
+        삭제돼 맨 앞이 prepare-commit-msg가 됐다.
         """
         trimmed = self.copy_hooks(*hooks)
         self.git_ok("config", "core.hooksPath", trimmed)
@@ -39,10 +40,15 @@ class Python3MissingTest(IsolatedRepoTestCase):
         self.commit_ok("[feat] baseline commit")
         return self.head_hash()
 
-    # ── pre-commit/commit-msg: 커밋이 실제로 막힌다 ──────────────────
+    # ── prepare-commit-msg/commit-msg: 커밋이 실제로 막힌다 ─────────
 
-    def test_pre_commit이_실패해_커밋_객체가_안_만들어진다(self):
-        """[GF-113] python3이 없으면 pre-commit이 실패해 커밋 객체가 만들어지지 않는다"""
+    def test_prepare_commit_msg가_실패해_커밋_객체가_안_만들어진다(self):
+        """[GF-113] python3이 없으면 prepare-commit-msg가 실패해 커밋 객체가 만들어지지 않는다
+
+        GF-126까지는 이 자리에서 pre-commit이 먼저 실패했다. pre-commit이 삭제돼
+        맨 앞 훅이 prepare-commit-msg로 바뀌었을 뿐, "커밋 객체가 만들어지지 않는다"는
+        단언은 그대로다.
+        """
         before = self.baseline_commit()
 
         self.write("a.txt", "hi\n")
@@ -57,7 +63,7 @@ class Python3MissingTest(IsolatedRepoTestCase):
 
     def test_commit_msg가_실패해_커밋_객체가_안_만들어진다(self):
         """[GF-113] python3이 없으면 commit-msg가 실패해 커밋 객체가 만들어지지 않는다"""
-        self.use_hooks_without("pre-commit", "prepare-commit-msg")
+        self.use_hooks_without("prepare-commit-msg")
         before = self.baseline_commit()
 
         self.write("a.txt", "hi\n")
@@ -72,7 +78,7 @@ class Python3MissingTest(IsolatedRepoTestCase):
 
     def test_post_commit만_실패해_트레일러가_누락된다(self):
         """[GF-113] python3이 없으면 post-commit만 실패해 커밋은 남고 트레일러가 누락된다"""
-        self.use_hooks_without("pre-commit", "prepare-commit-msg", "commit-msg")
+        self.use_hooks_without("prepare-commit-msg", "commit-msg")
 
         # 같은 설정에서 python3이 보이면 트레일러가 붙는다는 것부터 확인한다 — 이게
         # 없으면 아래 누락이 python3 부재 때문인지 훅 연결이 애초에 안 된 탓인지
