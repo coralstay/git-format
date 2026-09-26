@@ -1,0 +1,124 @@
+#!/usr/bin/env python3
+# prepare-commit-msg 훅: 커밋 규칙 강제를 훅 하나로 모으는 재설계의 골격이다
+# (decision-18). 지금 하는 일은 두 가지뿐이다 — 재생·병합 커밋 면제와 에디터 경로
+# 거부. lint(GF-126), 메시지 검증(GF-127), 트레일러 삽입(GF-128)은 후속 태스크에서
+# 구 훅에서 이 파일로 옮겨온다. 그때까지 pre-commit/commit-msg/post-commit이 그대로
+# 자기 일을 계속한다 — 이 파일은 아직 그 어느 것도 대신하지 않는다.
+#
+# 이 훅을 본체로 삼는 근거(실측 절차와 결과는 doc-15): prepare-commit-msg는
+# --no-verify로도 건너뛸 수 없고, 커밋 객체가 만들어지기 전에 돌며, exit 1로 커밋을
+# 막는다. 대가는 에디터 경로를 포기하는 것이다 — 에디터는 이 훅보다 뒤에 열리므로
+# 사람이 타이핑한 최종 메시지를 이 훅은 볼 수 없다.
+#
+# 훅 인자는 $1=메시지 파일 경로, $2=source, $3=ref다. 이 골격은 판단에 $2만 쓴다.
+#
+# template/(GF-9)로 설치된 저장소는 .git/hooks/prepare-commit-msg 자체가 git-format
+# 클론을 가리키는 심볼릭 링크다. 링크가 놓인 .git/hooks/가 아니라 링크가 가리키는
+# 실제 위치를 기준으로 gitformat.conf를 찾아야 한다(GF-16) — realpath가 링크 체인을
+# 따라간다.
+#
+# 각 판단 단계는 이름 있는 함수로 분해돼 있고(GF-87), 실행 순서는 파일 맨 아래에
+# 나열돼 있다. 다른 훅과 겹치는 블록(자기 위치 해석, conf 읽기 가드)은 공유 모듈로
+# 빼지 않고 파일마다 독립적으로 중복을 유지한다 — 파일 하나만 읽으면 그 훅의 동작을
+# 전부 파악할 수 있어야 한다는 감사 가능성 요구사항이다(decision-16).
+import os
+import subprocess
+import sys
+
+# 로케일이 UTF-8을 제공하지 않는 환경에서는 Python의 stdout 인코딩이 ascii로 떨어져,
+# 이 파일의 한국어 메시지를 출력하는 순간 UnicodeEncodeError로 훅이 죽는다 — "도구가
+# 없어 건너뜀"처럼 무해해야 하는 경로에서도 커밋이 트레이스백과 함께 막힌다(GF-116
+# 실측: LC_ALL=C에 C.UTF-8이 없는 조건을 재현해 확인). sh 시절의 LC_ALL=C.UTF-8
+# 하드코딩(GF-83)은 Python 전환으로 사라졌지만, 같은 위험이 출력 인코딩으로 옮겨온
+# 것이다. 메시지는 UTF-8로 쓰여 있으니 출력 인코딩도 UTF-8로 고정한다 — 터미널이
+# UTF-8을 못 읽으면 글자가 깨져 보이지만, 죽어서 커밋을 막는 것보다 낫다.
+# errors="replace"는 서로게이트 등 인코딩 불가 문자에서도 죽지 않게 하는 보험이다.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError, OSError):
+        pass
+
+# git이 넘기는 source($2). 이 훅은 $1(메시지 파일)에 아직 손대지 않으므로 여기서
+# 읽지 않는다. 인자가 없는 호출은 git에서 오지 않지만, 그때 IndexError로 죽는 대신
+# 빈 값으로 두면 아래 두 판단이 모두 "해당 없음"이 되어 무해하게 통과한다.
+SOURCE = sys.argv[2] if len(sys.argv) > 2 else ""
+GIT_DIR = subprocess.run(
+    ["git", "rev-parse", "--git-dir"],
+    stdout=subprocess.PIPE,
+    encoding="utf-8",
+    check=True,
+).stdout.rstrip("\n")
+
+HOOK_DIR = os.path.dirname(os.path.realpath(__file__))
+CONF = os.path.join(HOOK_DIR, "gitformat.conf")
+# gitformat.conf 자체를 못 읽으면 이후 git config --file 읽기가 하나씩 실패하면서
+# 원인을 알기 어려운 에러로 이어진다. 여기서 미리 검증해 원인을 명확히 알려준다.
+# 이 블록은 CONF를 읽는 다른 파일들에도 byte-identical하게 있다.
+if subprocess.run(
+    ["git", "config", "--file", CONF, "--list"],
+    stdout=subprocess.DEVNULL,
+    stderr=subprocess.DEVNULL,
+    encoding="utf-8",
+    check=False,
+).returncode != 0:
+    print(f"gitformat: gitformat.conf를 읽을 수 없습니다: {CONF}", file=sys.stderr)
+    sys.exit(1)
+
+
+def fail(*lines):
+    for line in lines:
+        print(line, file=sys.stderr)
+    sys.exit(1)
+
+
+# 재생·병합 커밋 면제(decision-18, AC #1). 재생 커밋은 이미 검증된 커밋의 복제다 —
+# 다시 도장을 찍는 것도, 토큰을 다시 세는 것도 틀렸다. rebase 중 post-commit이
+# cherry-pick 도중 amend를 시도해 트레이스백을 냈던 문제(archive DRAFT-18)를 원인
+# 단계에서 없애는 구조적 장치이기도 하다.
+#
+# source와 진행 상태 파일을 OR로 묶는 이유는 어느 한쪽만으로는 판별이 안 되기
+# 때문이다(git 2.54.0 실측, 2026-09-26):
+#   * cherry-pick과 rebase 재생은 source=message다 — CHERRY_PICK_HEAD로만 잡힌다
+#   * MERGE_HEAD가 있는 상태에서 git commit -m 하면 source=message다 — 파일로만 잡힌다
+#   * 충돌로 멈춘 revert를 이어 커밋할 때는 REVERT_HEAD가 있다
+#   * 반대로 SQUASH_MSG만 있는 커밋(squash 병합 뒤 커밋)은 네 파일이 하나도 없고
+#     source=squash로만 잡힌다
+def is_replay_commit():
+    if SOURCE in ("merge", "squash"):
+        return True
+    return any(
+        os.path.isfile(os.path.join(GIT_DIR, name))
+        for name in ("MERGE_HEAD", "CHERRY_PICK_HEAD", "REBASE_HEAD", "REVERT_HEAD")
+    )
+
+
+# 에디터 경로 거부(decision-18, AC #2). source=template은 사람이 에디터에 메시지를
+# 쓰려는 경로다. 에디터는 이 훅이 끝난 뒤에 열리므로 훅이 보는 메시지 파일에는 아직
+# 사람이 쓸 내용이 없다 — 최종 메시지를 검증할 방법이 원리적으로 없다. 거부하면
+# "통과한 커밋은 모두 검증을 거쳤다"가 성립하고, 그것이 검증을 이 훅으로 옮겨올
+# GF-127의 전제다.
+def reject_editor_path():
+    if SOURCE != "template":
+        return
+
+    fail(
+        "prepare-commit-msg: 이 저장소는 git commit -m 으로만 커밋할 수 있습니다.",
+        "  에디터는 이 훅이 끝난 뒤에 열려서, 사람이 타이핑한 최종 메시지를 훅이",
+        "  볼 수 없습니다 — 그래서 에디터 경로는 검증이 불가능합니다(decision-18).",
+        '  예: git commit -m "[feat][hooks] 설명"',
+        "  긴 본문은 파일에 써서 git commit -F <파일>로 넘기세요.",
+    )
+
+
+# 실행 순서(decision-18): 재생·병합 커밋 면제 → 에디터 경로 거부.
+#
+# 이 순서는 바꿀 수 없다. 에디터로 여는 병합/revert 커밋은 source가 template이 아니라
+# merge로 오지만(실측), 앞으로 판단을 더 붙이면서 면제를 뒤로 미루면 사람이 메시지를
+# 고를 수조차 없는 재생 경로가 거부된다 — 면제가 항상 맨 앞이다.
+if is_replay_commit():
+    sys.exit(0)
+
+reject_editor_path()
+
+sys.exit(0)
