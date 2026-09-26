@@ -47,7 +47,7 @@ class EditorCommitRejectedTest(IsolatedRepoTestCase):
         return self.head_hash()
 
     def test_에디터_경로_커밋은_거부된다(self):
-        """[GF-125] -m 없이 커밋하면(source=template) 훅이 거부하고 -m을 안내한다"""
+        """[GF-125] -m 없이 커밋하면 훅이 거부하고 -m을 안내한다 (commit.template 없음)"""
         editor, marker = self.make_editor()
         before = self.baseline_commit()
 
@@ -68,6 +68,42 @@ class EditorCommitRejectedTest(IsolatedRepoTestCase):
         # 종료 코드만 보면 안 된다 — 커밋 객체가 정말 안 생겼는지까지 확인한다.
         self.assertEqual(before, self.head_hash())
         self.assertEqual(1, self.commit_count())
+
+    def test_commit_template이_설정돼_있어도_거부된다(self):
+        """[GF-125 회귀] commit.template 설정 여부와 무관하게 에디터 경로가 거부된다
+
+        source($2)로 판정하면 이 두 경우가 갈린다 - commit.template이 설정된
+        저장소에서만 git이 source=template을 넘기고, 설정이 없으면 source 인자를
+        아예 안 넘긴다. 그래서 source 기반 판정은 개발 기계(전역에
+        commit.template이 있음)에서는 통과하고 CI에서는 실패했다. 이 테스트가
+        두 조건을 모두 고정한다.
+        """
+        template = self.temp_dir(prefix="gitformat-tmpl-") / "template.txt"
+        template.write_text("# 템플릿 안내 주석\n", encoding="utf-8")
+        self.git_ok("config", "commit.template", str(template))
+
+        editor, marker = self.make_editor()
+        before = self.baseline_commit()
+
+        self.write("a.txt", "hi\n")
+        self.git_ok("add", "a.txt")
+        result = self.git("commit", env={"GIT_EDITOR": editor})
+
+        self.assertRejected(result)
+        self.assertIn("git commit -m", result.output)
+        self.assertFalse(marker.exists(), f"에디터가 열렸다:\n{result}")
+        self.assertEqual(before, self.head_hash())
+
+    def test_amend_no_edit는_통과한다(self):
+        """[GF-125] --amend --no-edit은 직전 메시지가 들어 있어 통과한다"""
+        self.baseline_commit()
+        self.write("a.txt", "hi\n")
+        self.git_ok("add", "a.txt")
+
+        result = self.git("commit", "--amend", "--no-edit")
+
+        self.assertAccepted(result)
+        self.assertEqual("[feat] 기준 커밋", self.head_subject())
 
     def test_m_옵션_커밋은_통과한다(self):
         """[GF-125] git commit -m은 그대로 통과한다(source=message)"""

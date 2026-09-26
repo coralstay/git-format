@@ -226,12 +226,32 @@ class IsolatedRepoTestCase(unittest.TestCase):
     def fake_home(self):
         return self.temp_dir(prefix="gitformat-home-")
 
+    def ambient_home(self):
+        """child_env의 기본 HOME. 테스트당 한 번만 만들어 재사용한다.
+
+        setUp을 재정의하고 super()를 부르지 않는 하위 클래스가 있으므로 초기화에
+        의존하지 않고 getattr로 지연 생성한다.
+        """
+        home = getattr(self, "_ambient_home", None)
+        if home is None:
+            home = self.temp_dir(prefix="gitformat-ambient-home-")
+            self._ambient_home = home
+        return home
+
     # ── 자식 프로세스 실행 ───────────────────────────────────────
 
     def child_env(self, cwd, overrides):
         """자식 프로세스에 넘길 환경변수. 러너 자신의 os.environ은 바꾸지 않는다."""
         env = {k: v for k, v in os.environ.items() if k not in _STRIPPED_ENV}
         env.update(asdf_pins())
+        # 실행하는 사람의 전역 git config가 격리 저장소로 새어 들어오지 않게 HOME을
+        # 기본적으로 임시 디렉터리로 돌린다. 이게 없으면 결과가 러너 환경에 따라
+        # 달라진다 - 실제로 개발 기계에는 install.sh --global이 심은
+        # commit.template이 있어서 에디터 커밋이 source=template으로 왔는데, 그
+        # 설정이 없는 CI에서는 git이 source 인자를 아예 넘기지 않아 훅의 에디터
+        # 거부가 통과해버렸다(GF-125). HOME을 명시적으로 넘기는 테스트
+        # (install.sh --global, 트랜스크립트 케이스)는 아래 overrides가 이긴다.
+        env["HOME"] = str(self.ambient_home())
         # 훅의 shell_pwd()는 POSIX 셸과 같이 환경변수 PWD가 현재 디렉터리를 가리킬
         # 때 그 값을 쓴다. 셸을 거치지 않고 실행하면 PWD가 러너의 것으로 남으므로
         # 명시적으로 맞춰준다.
