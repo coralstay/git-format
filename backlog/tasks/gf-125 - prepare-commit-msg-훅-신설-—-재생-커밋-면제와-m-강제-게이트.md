@@ -4,7 +4,7 @@ title: prepare-commit-msg 훅 신설 — 재생 커밋 면제와 -m 강제 게�
 status: Done
 assignee: []
 created_date: '2026-09-25 19:33'
-updated_date: '2026-09-26 02:35'
+updated_date: '2026-09-26 02:46'
 labels:
   - hooks
 dependencies:
@@ -96,4 +96,23 @@ created: 2026-09-26 02:10
 - **GF-127 위험**: clean `git revert --no-edit`은 `source=message`이고 `REVERT_HEAD`가 없어(충돌 시에만 생긴다) 면제되지 않는다. 자동 메시지 `Revert "..."`가 제목 규칙에 맞지 않으므로, 검증을 옮기면 clean revert가 거부된다. GF-127에 선택지 3개와 함께 기록했고 doc-15도 정정했다
 - **--amend 모호성**: `source=commit`이 `--amend --no-edit`(최종)과 `--amend`(뒤에 에디터)를 구분하지 못한다. 이 골격은 일반 경로로 취급한다. GF-127에서 함께 결정
 - doc-15의 revert 행이 미측정 상태였다 → 세 경로(clean/에디터/충돌 후)와 상태 파일을 측정해 정정했고, 측정 함정(훅을 저장소 안에 두면 revert가 훅을 삭제해 '안 돈 것'처럼 보인다)도 적었다
+
+## CI가 잡은 버그 (추가 커밋)
+
+처음 구현은 에디터 경로를 `source == "template"`으로 판정했다. **로컬 138개 통과, CI 실패.** 원인: `commit.template`이 설정돼 있지 않으면 git은 **source 인자를 아예 넘기지 않는다**(실측 `argc=1`). 제 개발 기계에는 `install.sh --global`이 심은 전역 `commit.template`이 있어 `source=template`이 왔고, 그 설정이 없는 CI에서는 빈 값이 되어 에디터 커밋이 조용히 통과했다.
+
+게다가 **GF-132에서 `commit.template`을 제거할 예정**이라 이 검사는 곧 어디서도 작동하지 않게 될 것이었다.
+
+수정: 메시지 파일의 **비주석·비공백 내용 유무**로 판정한다. 템플릿 설정과 무관하고, `--amend --no-edit`(직전 메시지가 들어 있음)도 정확히 통과한다.
+
+| 조건 | source | 비주석 내용 | 판정 |
+| --- | --- | --- | --- |
+| template 있음 + 에디터 | `template` | 0줄 | 거부 |
+| template 없음 + 에디터 | (없음) | 0줄 | 거부 |
+| -m / -F | `message` | 1줄+ | 통과 |
+| --amend --no-edit | `commit` | 1줄+ | 통과 |
+
+**테스트 헬퍼도 고쳤다** — 실제 `~/.gitconfig`가 격리 저장소로 새어 들어오고 있었다. HOME을 기본적으로 임시 디렉터리로 돌려 로컬과 CI 조건을 일치시켰다. 이 누출이 버그를 로컬에서 숨긴 직접 원인이다.
+
+회귀 테스트 3건 추가(138개): template 설정 있는 경우, 없는 경우, `--amend --no-edit`. **변이 테스트로 헛돌지 않음을 확인** — 판정을 source 기반으로 되돌리면 정확히 1건 실패한다.
 <!-- SECTION:FINAL_SUMMARY:END -->
