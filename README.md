@@ -22,136 +22,89 @@
 
 ---
 
-## 🤔 왜 만들었는지 말씀드립니다
+## 📋 완성되는 커밋은 이런 모양입니다
 
-여러 저장소에서 커밋 규칙이 제각각이거나 아예 없었고, `git commit --no-verify`로
-검사를 우회해도 아무 흔적이 남지 않는 문제가 있었습니다. 여기에 더해, 사람이 아니라 AI
-코딩 에이전트(특히 Claude Code)가 커밋을 만드는 경우가 늘면서 이 문제가 결정적으로
-중요해졌습니다.
+```
+[docs][backlog] DRAFT-18을 GF-136으로 승격          ← 사람(또는 에이전트)이 씀
+                                                    ← 빈 줄 (규칙)
+왜 바꿨는지 설명하는 본문. 한 줄 72자 이내.            ← 선택, 사람이 씀
+                                                    ← 빈 줄
+Task-Id: GF-136                                     ↓ 아래는 전부 훅이 자동으로 붙임
+AI-Tool: claude-code
+AI-Tool-Version: 2.1.267
+Co-Authored-By: Claude <noreply@anthropic.com>
+AI-Model: claude-opus-5
+Tokens-Used: 1952818
+Tool-Calls: 2
+Hooks-Commit: c828491
+Signed-off-by: cpu-once <231006716+cpu-once@users.noreply.github.com>
+```
 
-**이 git 커밋 형식을 강제하는 궁극적인 이유는 다음 두 가지라고 말씀드릴 수 있습니다.**
+`git log` 한 번으로 "무엇을, 왜, 누가(사람인지 어떤 모델인지), 얼마를 써서 바꿨는지"가
+읽히게 하는 것이 목표입니다. AI 에이전트가 커밋을 대량으로 남길 때 그 이력을 나중에
+분석할 수 있어야 하고, 동시에 사람이 읽어도 이해되어야 합니다.
 
-1. AI 에이전트가 수많은 커밋을 남겼을 때, 나중에 그 작업 이력을 분석할 수 있게
-   만드는 것입니다.
-2. 그렇게 남은 기록을 여전히 사람이 이해할 수 있는지 검증하는 것입니다.
+## 🧩 각 필드가 무엇이고 언제 만들어지는지
 
-형식이 일관되면 사람도 LLM도 `git log` 한 번으로 "무엇을, 왜, 어떻게 검증하고
-바꿨는지"를 바로 읽어낼 수 있습니다. 커밋별 토큰 소비량(`Tokens-Used`/`Tool-Calls`)을
-남기는 것도 같은 목적의 연장선입니다 — 다만 이 측정 방법론은 아직 실험 단계라는 점을
-말씀드립니다(자세한 내용은 아래 [훅 생애주기](#-훅을-생애주기별로-정리해-드립니다)를
-참고해 주시기 바랍니다).
+**제목과 본문** — 사람(또는 에이전트)이 직접 씁니다. `commit-msg`가 검증합니다.
 
-## 🛠️ 무엇을 만들었는지 말씀드립니다
-
-Python 훅 + 설정 파일 하나(`hooks/gitformat.conf`) + POSIX sh 설치
-스크립트(`install.sh`)로 구성된, **git 자체 기능만으로 동작하는** 도구를 만들었습니다.
-`core.hooksPath` · `init.templateDir` · `git interpret-trailers` 같은 git 내장
-메커니즘만 쓰고, 훅은 Python 3 표준 라이브러리만 씁니다(decision-16) — pip/npm으로
-설치할 패키지는 없지만 `python3` 자체는 필요합니다([필요조건](#-필요조건을-말씀드립니다)).
-
-**다루는 범위는 커밋 메시지 형식과 트레일러입니다.** 언어별 lint는 다루지 않습니다
-(decision-23) — 커밋 형식을 맞추는 도구가 언어 도구를 돌릴 이유가 없고, 그 결합이
-컨슈머에게 npm/ruff/clang-format/mvn/sqlfluff의 존재를 전제하게 만들었기 때문입니다.
-
-> ⚠️ **알려진 한계**: git-format은 `core.hooksPath`를 점유하므로 그 저장소의
-> `.git/hooks/*`는 무시됩니다. 언어 검사가 필요하면 CI에서 돌리시기 바랍니다 —
-> git-format과 자기 훅을 함께 쓰는 지원 방법은 아직 정하지 않았습니다.
-
-## 🪝 훅을 생애주기별로 정리해 드립니다
-
-> 공식 문서: [githooks(5)](https://git-scm.com/docs/githooks)
-
-git이 공식적으로 제공하는 훅은 총 28개입니다. 이 중 git-format이 실제로 구현해
-연결한 것은 커밋 단계의 3개(`pre-commit`/`commit-msg`/`post-commit`)뿐이라는 점을
-표로 정리해 드립니다. 훅 이름을 누르시면 실제 소스 파일로 이동합니다.
-
-| 훅 | 실행 시점 | git-format 연결 |
+| 필드 | 무엇인가 · 왜 필요한가 | 규칙 |
 | --- | --- | --- |
-| `applypatch-msg` | `git am` 패치 적용 전 커밋 메시지 검증/수정 | — |
-| `pre-applypatch` | `git am` 패치 적용 후 커밋 전 작업 트리 검사 | — |
-| `post-applypatch` | `git am` 패치 적용·커밋 완료 후 알림 | — |
-| **`pre-commit`** | `git commit` 커밋 전 코드 검사 | [`hooks/pre-commit`](hooks/pre-commit) |
-| `pre-merge-commit` | `git merge` 완료 후 커밋 메시지 입력 전 | — |
-| `prepare-commit-msg` | 기본 커밋 메시지 준비 후 에디터 시작 전 | — |
-| **`commit-msg`** | 커밋 메시지 형식 검증/수정 | [`hooks/commit-msg`](hooks/commit-msg) |
-| **`post-commit`** | 커밋 완료 후 알림(git이 항상 실행을 보장) | [`hooks/post-commit`](hooks/post-commit) |
-| `pre-rebase` | `git rebase` 전, 특정 브랜치 리베이스 방지 | — |
-| `post-checkout` | `git checkout`/`switch` 후 작업 트리 업데이트 후 | — |
-| `post-merge` | `git merge`/`pull` 완료 후 | — |
-| `pre-push` | `git push` 전, 푸시 거부 가능 | — |
-| `pre-receive` | (서버측) 참조 업데이트 시작 전 | — |
-| `update` | (서버측) 참조별 업데이트 전, 강제 푸시 방지 | — |
-| `proc-receive` | (서버측) 특정 참조 업데이트 처리 | — |
-| `post-receive` | (서버측) 모든 참조 업데이트 완료 후, 알림/배포 | — |
-| `post-update` | (서버측) 모든 참조 업데이트 후, HTTP 정보 갱신 | — |
-| `reference-transaction` | 참조 업데이트 트랜잭션 모니터링 | — |
-| `push-to-checkout` | push가 현재 체크아웃 브랜치를 업데이트할 때 | — |
-| `pre-auto-gc` | `git gc --auto` 전 | — |
-| `post-rewrite` | `commit --amend`/`rebase` 등 커밋 재작성 후 | — |
-| `sendemail-validate` | `git send-email` 발송 전 패치 검증 | — |
-| `fsmonitor-watchman` | watchman 연동 파일 변경 모니터링 | — |
-| `p4-pre-submit` | `git-p4 submit` 전 | — |
-| `p4-prepare-changelist` | p4 기본 체인지리스트 준비 후 | — |
-| `p4-changelist` | p4 체인지리스트 메시지 편집 후 | — |
-| `p4-post-changelist` | p4 제출 완료 후 | — |
-| `post-index-change` | 인덱스 write 시 | — |
+| `type` | 변경의 종류. `git log`를 종류별로 걸러 읽을 수 있게 합니다 | `feat fix docs style refactor perf test build ci chore revert` 중 하나 |
+| `subsystem` | 영향 범위. 어느 부분이 바뀌었는지 제목만 보고 알게 합니다 | 선택. `[a-zA-Z0-9_.-]` |
+| 설명 | 무엇을 했는지 | **50자 이내**(유니코드 코드포인트), 명령형 현재형 |
+| 본문 | **왜** 바꿨는지. 어떻게는 diff가 이미 보여줍니다 | 선택. 한 줄 **72자 이내**, 제목과 빈 줄로 분리 |
 
-git-format은 push 단계(`pre-push` 이후)와 서버측 훅은 다루지 않습니다 — 커밋
-단계까지만 다룬다는 원칙(decision-11, decision-12) 때문입니다.
+**트레일러** — 훅이 자동으로 붙입니다. 사람이 타이핑하지 않습니다.
 
-`git commit`을 실행하면 연결된 훅이 아래 순서로 개입한다는 점을 이어서
-말씀드립니다.
+| 트레일러 | 무엇인가 · 왜 필요한가 | 만드는 훅 · 값의 출처 | 신뢰 수준 |
+| --- | --- | --- | --- |
+| `Task-Id` | 이 커밋이 어느 작업의 일부인지. 커밋과 태스크를 잇습니다 | `post-commit` · 브랜치명의 `<prefix>-<번호>`(decision-4) | 자동 |
+| `AI-Tool`<br>`AI-Tool-Version` | 어떤 도구가 커밋을 만들었는지 | `post-commit` · `AI_AGENT` 환경변수(Claude Code가 하위 프로세스에 주입) | 강제 — LLM이 스스로 만든 값이 아님 |
+| `AI-Model` | 어떤 모델이 썼는지. 모델별 작업 품질을 나중에 비교할 수 있게 합니다 | `post-commit` · Claude Code는 세션 트랜스크립트의 `message.model`, 그 외는 `gitformat.aiModel` 설정값 | Claude Code는 서버 발급 사실 / 그 외는 자가신고 |
+| `Tokens-Used` | 이 커밋에 든 토큰. 작업 비용을 이력에서 읽게 합니다 | `post-commit` · 직전 커밋 이후 세션 구간의 델타(누적 아님) | 서버 발급 사실(Claude Code 한정), **측정 방법론은 실험 단계** |
+| `Tool-Calls` | 같은 구간의 도구 호출 수 | `post-commit` · `tool_use` 블록 개수 | 위와 동일 |
+| `Co-Authored-By` | 공동저자 귀속 | `post-commit` · `AI-Tool`이 `claude-code`일 때만 | 자동 |
+| `Hooks-Commit` | 이 커밋을 검사한 git-format 자체의 버전. 훅에 버그가 있었을 때 어느 커밋들이 그 훅을 거쳤는지 역추적합니다 | `post-commit` · 훅 클론의 `rev-parse --short HEAD` | 완전 자동, 모든 커밋 |
+| `Signed-off-by` | 커미터 정보(DCO 관례) | `post-commit` · `git log -1 --format='%cn <%ce>'` | 완전 자동, 모든 커밋 |
+| `Verify-Bypassed` | `--no-verify`로 검사를 건너뛴 사실. 우회를 막지는 못하니 대신 기록합니다(decision-3) | `post-commit` · `prepare-commit-msg`가 남긴 검증 마커의 **부재** | 자동 |
+| `Fixes` | 이 버그를 만든 커밋 | **사람이 씀**(원인 커밋을 아는 경우만) · `commit-msg`가 해시 실재를 검증 | 검증됨 |
 
-1. **[`prepare-commit-msg`](hooks/prepare-commit-msg)** — 커밋 객체가 만들어지기
-   **전에** 돌고, `--no-verify`로도 건너뛸 수 없습니다(실측 근거는 doc-15). 그래서
-   커밋 규칙 강제가 이 훅으로 모입니다(decision-18). 지금 하는 일은 재생·병합 커밋
-   면제, 에디터 경로 거부, 검증 마커 기록입니다.
-   - **재생·병합 커밋 면제**: cherry-pick/rebase/revert/merge로 만들어지는 커밋은
-     이미 검증된 커밋의 복제이므로 건드리지 않습니다.
-   - **에디터 경로 거부**: 에디터는 이 훅보다 **뒤에** 열려서 사람이 타이핑한 최종
-     메시지를 훅이 볼 수 없습니다. 그래서 `git commit -m`(또는 `-F`)만 허용합니다 —
-     이렇게 하면 "통과한 커밋은 모두 검증을 거쳤다"가 성립합니다.
-2. **[`commit-msg`](hooks/commit-msg)** — 커밋 메시지가 `[type][subsystem] <description>` 형식인지, 제목
-   50자/본문 줄 72자 이내인지, 본문이 있으면 빈 줄이 있는지, 브랜치명에
-   Task-Id(`GF-<번호>`, decision-4)가 있는지, (non-Claude-Code AI 도구라면) `AI-Model`이
-   화이트리스트에 있는지 검증합니다. 여기서 거부되면 커밋 자체가 만들어지지 않습니다.
-3. **(커밋 생성)** — 통과하면 git이 실제로 커밋을 만듭니다.
-4. **[`post-commit`](hooks/post-commit)** — `--no-verify`로도 건너뛸 수 없고, exit code가
-   커밋 결과에 영향을 주지도 못한다는 점을 [공식 문서](https://git-scm.com/docs/githooks)로도
-   확인하실 수 있습니다. 검증 마커가 없으면(= 앞 훅이 돌지 않은 경우)
-   `Verify-Bypassed: true`를 `git commit --amend`로 삽입하고(decision-3), `Task-Id`,
-   `Signed-off-by`(decision-10), `Hooks-Commit`과, AI 에이전트가 커밋했다면 아래 AI
-   귀속/토큰 트레일러를 함께 붙입니다(decision-5).
+`Tokens-Used`/`Tool-Calls`는 측정에 실패하면 사유와 함께 `unavailable (사유)`로 남습니다 —
+`no-session-id`, `transcript-not-found`, `transcript-unreadable`, `transcript-parse-failed`,
+`no-usage-channel`.
 
-> 이 구조는 재설계 중입니다(decision-18). 검증과 트레일러 삽입을
-> `prepare-commit-msg`로 옮기는 중이고, `pre-commit`은 이미 삭제됐습니다.
+## 🪝 커밋 한 번에 훅이 도는 순서
 
-| 트레일러                     | 값                                                                                              | 신뢰 수준                                                    |
-| ----------------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| `AI-Tool`, `AI-Tool-Version` | `AI_AGENT` 환경변수(Claude Code가 하위 프로세스에 주입)                                          | 강제 — LLM이 스스로 만든 값이 아님                           |
-| `AI-Model`                   | Claude Code: 세션 트랜스크립트의 `message.model`(서버 발급) / 그 외 도구: `gitformat.aiModel` 설정값 | Claude Code는 서버 발급 사실 / 그 외는 자가신고              |
-| `Tokens-Used`                | 이전 커밋 이후 세션에서 소비된 토큰 델타(누적 아님) — Claude Code 전용, 실패 시 `unavailable (사유)` | 서버 발급 사실(Claude Code 한정) / 그 외는 실측 채널 없음    |
-| `Tool-Calls`                 | 같은 구간의 `tool_use` 콘텐츠 블록 개수                                                             | 위와 동일                                                    |
-| `Co-Authored-By`             | `AI-Tool`이 `claude-code`일 때만 자동 삽입                                                          | 자동                                                         |
-| `Hooks-Commit`               | 이 git-format 클론 자체의 `git rev-parse --short HEAD`                                             | 완전 자동, 모든 커밋에 적용                                  |
-| `Signed-off-by`              | 커미터 정보(`git log -1 --format='%cn <%ce>'`)                                                     | 완전 자동, 모든 커밋에 적용                                  |
+> 공식 문서: [githooks(5)](https://git-scm.com/docs/githooks). git이 제공하는 훅은 28개지만
+> git-format은 커밋 단계만 다룹니다(decision-11, decision-12) — `git push`는 아무 훅도
+> 거치지 않는 평범한 push입니다.
 
-`Tokens-Used`/`Tool-Calls` 측정에 실패하면 사유 슬러그와 함께 `unavailable (사유)`로
-기록된다는 점을 말씀드립니다 — 사유 슬러그: `no-session-id`, `transcript-not-found`,
-`transcript-unreadable`, `transcript-parse-failed`, `no-usage-channel`입니다.
+| 순서 | 훅 | 커밋 객체가 있는가 | `--no-verify`로 건너뛰나 | git-format이 하는 일 |
+| --- | --- | --- | --- | --- |
+| 1 | [`prepare-commit-msg`](hooks/prepare-commit-msg) | 아직 없음 | **건너뛸 수 없음** | 재생·병합 커밋 면제, 에디터 경로 거부, 검증 마커 기록 |
+| 2 | (에디터) | 아직 없음 | — | 사람이 메시지를 씁니다. 훅보다 **뒤**라서 1번은 최종 메시지를 볼 수 없습니다 |
+| 3 | [`commit-msg`](hooks/commit-msg) | 아직 없음 | 건너뜀 | 제목 형식·길이, 빈 줄, `Fixes` 해시, 브랜치 `Task-Id`, `AI-Model` 화이트리스트 검증 |
+| 4 | (커밋 생성) | **생성됨** | — | git이 커밋 객체를 만듭니다 |
+| 5 | [`post-commit`](hooks/post-commit) | 있음 | 건너뛸 수 없음 | 트레일러를 `git commit --amend`로 삽입. exit code가 커밋 결과에 영향을 주지 못합니다 |
 
-예시를 보여드리면 다음과 같습니다.
+여기서 두 가지가 나옵니다. **에디터가 1번보다 뒤에 열리므로** 최종 메시지 검증은
+`git commit -m`(또는 `-F`)만 가능하고, 그래서 에디터 경로는 거부합니다.
+그리고 **4번에서 커밋이 이미 만들어지므로** `post-commit`은 커밋을 막을 수 없습니다 —
+검사가 아니라 기록만 합니다.
 
-```
-[fix][login] 빈 비밀번호 입력 시 크래시 수정
+## 🎯 다루는 범위
 
-Task-Id: GF-42
-Signed-off-by: Jane Dev <jane@example.com>
-Hooks-Commit: b5bf03a
-```
+커밋 메시지 형식과 트레일러입니다. **언어별 lint는 다루지 않습니다**(decision-23) —
+커밋 형식을 맞추는 도구가 언어 도구를 돌릴 이유가 없고, 그 결합이 컨슈머에게
+npm/ruff/clang-format/mvn/sqlfluff의 존재를 전제하게 만들었습니다. 언어 검사가 필요하면
+CI에서 돌리시기 바랍니다 — git-format이 `core.hooksPath`를 점유하므로 그 저장소의
+`.git/hooks/*`는 무시되고, 자기 훅과 함께 쓰는 방법은 아직 정하지 않았습니다.
 
-git-format은 커밋 단계까지만 다룬다는 점을 말씀드립니다 — `git push`는 아무 훅도
-거치지 않는 평범한 push입니다(decision-12).
+구성은 Python 훅 + 설정 파일 하나(`hooks/gitformat.conf`) + POSIX sh 설치
+스크립트(`install.sh`)입니다. `core.hooksPath` · `init.templateDir` ·
+`git interpret-trailers` 같은 git 내장 메커니즘만 쓰고, 훅은 Python 3 표준 라이브러리만
+씁니다(decision-16).
 
 ## ✅ 필요조건을 말씀드립니다
 
@@ -164,7 +117,7 @@ git-format은 커밋 단계까지만 다룬다는 점을 말씀드립니다 — 
 
 | 훅 | python3가 PATH에 없을 때 |
 | --- | --- |
-| `pre-commit`, `commit-msg` | 훅이 실패하고 git이 커밋을 막습니다 — 에러가 바로 보이는 안전한 실패입니다. |
+| `prepare-commit-msg`, `commit-msg` | 훅이 실패하고 git이 커밋을 막습니다 — 에러가 바로 보이는 안전한 실패입니다. |
 | `post-commit` | 커밋이 이미 만들어진 뒤라 git이 훅의 실패를 반영하지 않습니다 — 커밋은 성공한 것처럼 보이지만 `Task-Id`/`AI-Model`/`Signed-off-by` 같은 트레일러가 조용히 누락됩니다. |
 
 GUI git 클라이언트(SourceTree, GitHub Desktop, IDE 내장 git 패널)는 셸
@@ -203,7 +156,7 @@ cd ~/my-project
 
 - **설치 상세, 커밋 메시지 규칙 전문, AI 귀속 트레일러 표, 커스터마이즈, 저장소 구조,
   주의점·한계**는 `backlog doc list`에서 확인하실 수 있습니다.
-- **설계 배경과 각 결정 이유**(decision-1~16)는 `backlog decision list`에서
+- **설계 배경과 각 결정 이유**는 `backlog decision list`에서
   확인하실 수 있습니다.
 - **작업 단위와 진행 상황**은 `backlog board`에서 확인하실 수 있습니다.
 - **라이선스**는 MIT입니다(전문: [`LICENSE`](./LICENSE)) — 외부 문서를 원문 그대로
