@@ -4,7 +4,7 @@ title: prepare-commit-msg 훅 신설 — 재생 커밋 면제와 -m 강제 게�
 status: Done
 assignee: []
 created_date: '2026-09-25 19:33'
-updated_date: '2026-09-26 02:46'
+updated_date: '2026-09-26 02:50'
 labels:
   - hooks
 dependencies:
@@ -115,4 +115,12 @@ created: 2026-09-26 02:10
 **테스트 헬퍼도 고쳤다** — 실제 `~/.gitconfig`가 격리 저장소로 새어 들어오고 있었다. HOME을 기본적으로 임시 디렉터리로 돌려 로컬과 CI 조건을 일치시켰다. 이 누출이 버그를 로컬에서 숨긴 직접 원인이다.
 
 회귀 테스트 3건 추가(138개): template 설정 있는 경우, 없는 경우, `--amend --no-edit`. **변이 테스트로 헛돌지 않음을 확인** — 판정을 source 기반으로 되돌리면 정확히 1건 실패한다.
+
+## CI가 두 번째로 잡은 것 — 격리 범위
+
+전역 config 누출을 막으려 HOME을 임시 디렉터리로 돌렸는데, **CI가 `pip install`로 sqlfluff/ruff를 실제 HOME 아래 사용자 site-packages에 깔기 때문에** 언어별 검사가 도구를 못 찾아 3건이 실패했다(`ModuleNotFoundError: No module named 'sqlfluff'`). GF-22가 고정한 "실도구가 있어야 한다"는 조건을 제 격리가 깨뜨린 것이다.
+
+수정: HOME은 그대로 두고 **`GIT_CONFIG_GLOBAL`을 빈 파일, `GIT_CONFIG_SYSTEM`을 /dev/null**로 돌려 설정만 격리한다. HOME을 명시적으로 넘긴 테스트는 건드리지 않는다 — `install.sh --global`은 가짜 HOME의 `.gitconfig`에 쓰고 테스트가 그 파일을 읽어 확인하므로, `GIT_CONFIG_GLOBAL`을 씌우면 경로가 어긋난다(이 변수가 HOME보다 우선한다).
+
+세 그룹을 따로 돌려 확인했다 — 에디터 테스트(전역 template 차단됨), SQL lint(도구 찾음), install.sh --global(가짜 HOME 유지) 모두 통과.
 <!-- SECTION:FINAL_SUMMARY:END -->
