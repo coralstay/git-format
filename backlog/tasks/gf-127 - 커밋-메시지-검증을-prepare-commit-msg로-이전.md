@@ -4,7 +4,7 @@ title: 커밋 메시지 검증을 prepare-commit-msg로 이전
 status: To Do
 assignee: []
 created_date: '2026-09-25 19:33'
-updated_date: '2026-09-25 21:43'
+updated_date: '2026-09-26 02:35'
 labels:
   - hooks
   - validation
@@ -50,3 +50,38 @@ type: feature
 - [ ] #2 ruff check 통과
 - [ ] #3 이 저장소 자신의 커밋이 새 훅으로 정상 생성되는지 확인
 <!-- DOD:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: claude
+created: 2026-09-26 02:35
+---
+GF-125에서 발견한 위험 — 이 태스크 착수 전에 방침을 정해야 한다 (2026-09-26 실측, doc-15 정정 반영).
+
+clean `git revert --no-edit`은 면제 조건에 걸리지 않는다:
+- source가 `message`다 (`merge`/`squash` 아님)
+- `REVERT_HEAD`가 **없다** — 이 파일은 revert가 충돌로 멈췄을 때만 생긴다
+- `MERGE_MSG`만 존재한다
+
+실측 로그: `source=[message] MERGE_MSG msg=[Revert "[feat] base commit"]`
+
+즉 prepare-commit-msg의 재생 커밋 면제(GF-125 AC #1)를 통과해 일반 경로로 흘러간다.
+그런데 git이 만드는 메시지 `Revert "[feat] base commit"`은 제목 규칙
+`[type][subsystem] <설명>`에 맞지 않는다.
+
+**지금은 revert 경로에서 commit-msg가 돌지 않아 드러나지 않는다.** 이 태스크가 검증을
+prepare-commit-msg로 옮기는 순간 clean revert가 전부 거부된다. 기존 동작과 달라지는
+회귀이므로 의도적으로 결정해야 한다.
+
+선택지:
+(a) MERGE_MSG 존재를 면제 조건에 추가한다 — 다만 MERGE_MSG는 cherry-pick에도 있어
+    면제 범위가 넓어진다
+(b) `Revert "..."` 형식을 제목 규칙의 예외로 인정한다 — conf의 type 목록에 이미
+    revert가 있으나 git 자동 메시지는 대괄호 형식이 아니다
+(c) revert 시 사용자가 `-m`으로 규칙에 맞는 메시지를 직접 주도록 요구한다
+
+함께 결정할 것: 같은 태스크에 걸린 --amend 모호성(GF-125 코멘트 #1) — source=commit이
+--amend --no-edit(최종 메시지)과 --amend(뒤에 에디터 열림)를 구분하지 못한다.
+---
+<!-- COMMENTS:END -->

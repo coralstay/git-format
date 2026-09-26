@@ -3,7 +3,7 @@ id: doc-15
 title: 훅 실행 경로 실측 (git 2.54.0)
 type: specification
 created_date: '2026-09-25 19:34'
-updated_date: '2026-09-25 19:37'
+updated_date: '2026-09-26 02:34'
 ---
 # 훅 실행 경로 실측 (git 2.54.0)
 
@@ -18,7 +18,9 @@ decision-18의 근거 데이터. 어떤 커밋 경로에서 어떤 훅이 실행
 | `git commit` (에디터) | 실행 | 실행 — **에디터는 그 뒤에 열린다** | 실행 | 실행 | `template` |
 | `git commit --no-verify` | 스킵 | **실행** | 스킵 | 실행 | `message` |
 | `git commit --amend` | 실행 | 실행 | 실행 | 실행 | `commit` |
-| `git revert --no-edit` | 스킵 | **실행** | 스킵 | 실행 | — |
+| `git revert --no-edit` (clean) | 스킵 | **실행** | 스킵 | 실행 | `message` |
+| `git revert` (에디터) | 스킵 | **실행** | 스킵 | 실행 | `merge` |
+| `git revert` 충돌 후 `git commit` | 실행 | 실행 | 실행 | 실행 | `message` |
 | cherry-pick (rebase 재생) | 스킵 | **실행** | 스킵 | 실행 | `message` |
 | **`git am`** | 스킵 | **스킵** | 스킵 | 실행 | — |
 | `git commit-tree` | 스킵 | 스킵 | 스킵 | 스킵 | — |
@@ -72,3 +74,40 @@ GIT_EDITOR=/tmp/realeditor.sh git commit
 **`source` 값 판별**: 훅에서 `$2`를 찍으면 `-m`은 `message`, 에디터는 `template`,
 `--amend`는 `commit`으로 나온다. 비주석 내용 줄 수(`grep -v '^#' "$1" | grep -c '[^[:space:]]'`)로도
 확인할 수 있다 — 에디터 경로는 0이다.
+
+## revert 경로 정정 (2026-09-26 재측정, GF-125)
+
+초판의 `git revert` 행은 `source` 값이 비어 있었다. 재측정 결과 세 경로가 서로 다르고,
+**진행 상태 파일도 예상과 다르다.**
+
+| revert 방식 | `source` | `$GIT_DIR`에 있는 파일 |
+| --- | --- | --- |
+| `--no-edit` (clean) | `message` | `MERGE_MSG` **만** — `REVERT_HEAD` 없음 |
+| 에디터로 열 때 | `merge` | `MERGE_MSG` 만 |
+| 충돌로 멈춘 뒤 `git commit` | `message` | **`REVERT_HEAD`** 존재 |
+
+핵심은 **clean revert에 `REVERT_HEAD`가 없다**는 점이다. `REVERT_HEAD`는 revert가 충돌로
+멈췄을 때만 생긴다. 따라서 `MERGE_HEAD`/`CHERRY_PICK_HEAD`/`REBASE_HEAD`/`REVERT_HEAD`
+네 파일을 검사하는 면제 조건은 **clean revert를 면제하지 않는다** — source도 `message`라
+source 검사로도 걸리지 않는다.
+
+실측 로그:
+
+```
+$ git revert --no-edit HEAD
+source=[message] MERGE_MSG msg=[Revert "[feat] base commit"]
+```
+
+### 측정할 때 빠지기 쉬운 함정
+
+훅 디렉터리를 저장소 **안**에 두고 `git add .`로 커밋하면, 그 커밋을 revert할 때
+**훅 파일 자체가 삭제**되어 훅이 안 돈 것처럼 보인다. `core.hooksPath`를 저장소 밖
+경로로 두고 측정할 것. (초기 측정에서 실제로 이 함정에 걸려 "revert에서는 훅이 안 돈다"고
+잘못 판단했다.)
+
+### 이 사실이 만드는 문제
+
+git이 만드는 revert 메시지는 `Revert "[feat] base commit"`이다. 이 저장소의 제목 규칙은
+`[type][subsystem] <설명>`이므로 **형식에 맞지 않는다.** 지금은 revert 경로에서
+`commit-msg`가 돌지 않아 드러나지 않지만, 메시지 검증이 `prepare-commit-msg`로 옮겨오면
+(GF-127) clean revert가 거부된다. GF-127에서 처리 방침을 정해야 한다.
