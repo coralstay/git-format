@@ -1,10 +1,10 @@
 ---
 id: GF-135
 title: 언어별 lint 제거 — git-format은 커밋 형식만 다룬다
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-26 03:32'
-updated_date: '2026-09-26 03:32'
+updated_date: '2026-09-26 03:36'
 labels:
   - hooks
   - scope
