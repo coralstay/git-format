@@ -278,9 +278,12 @@ def run_language_checks():
 # "<epoch> <pid>" 한 줄이다. 바꾸면 post-commit의 판정이 깨진다.
 #
 # 한편 lint가 이 훅으로 오면서 --no-verify가 lint를 건너뛸 수 없게 됐으므로 마커는
-# 항상 써지고, 따라서 **Verify-Bypassed는 도달 불가능해졌다.** 이 시점에는 commit-msg가
-# 아직 살아 있고 --no-verify가 그것을 건너뛰므로 '메시지 검증 우회'만 기록 없이 남는다 —
-# 검증을 이 훅으로 옮기는 GF-127이 그 한 태스크짜리 과도기를 닫는다.
+# 항상 써지고, 따라서 **Verify-Bypassed는 사실상 도달 불가능해졌다.** 남는 경로는 재생
+# 커밋뿐이다 — 맨 위 면제로 먼저 빠져나가 마커가 없으니 post-commit이 그 트레일러를 여전히
+# 큐에 넣는다. 다만 그 경로에서는 amend 자체가 실패해(archive DRAFT-18) 커밋에 남지 않는다
+# (GF-126 실측). 이 시점에는 commit-msg가 아직 살아 있고 --no-verify가 그것을 건너뛰므로
+# '메시지 검증 우회'만 기록 없이 남는다 — 검증을 이 훅으로 옮기는 GF-127이 그 한
+# 태스크짜리 과도기를 닫는다.
 def write_verified_marker():
     with open(MARKER, "w", encoding="utf-8") as f:
         f.write(f"{int(time.time())} {os.getpid()}\n")
