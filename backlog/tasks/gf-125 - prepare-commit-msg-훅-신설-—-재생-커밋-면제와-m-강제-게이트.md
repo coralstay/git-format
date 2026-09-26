@@ -1,10 +1,10 @@
 ---
 id: GF-125
 title: prepare-commit-msg 훅 신설 — 재생 커밋 면제와 -m 강제 게이트
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-25 19:33'
-updated_date: '2026-09-26 02:10'
+updated_date: '2026-09-26 02:35'
 labels:
   - hooks
 dependencies:
@@ -35,19 +35,19 @@ git-format은 지금 커밋이 만들어진 뒤 post-commit이 --amend로 트레
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 재생·병합 커밋에서는 아무 것도 하지 않고 종료한다 (MERGE_HEAD/CHERRY_PICK_HEAD/REBASE_HEAD/REVERT_HEAD 중 하나가 있거나 source가 merge 또는 squash)
-- [ ] #2 source가 template이면 커밋을 거부하고 git commit -m 사용을 안내한다
-- [ ] #3 훅 파일 위치를 os.path.realpath(__file__)로 해석해 init.templateDir 심볼릭 링크 설치에서도 lint 디렉터리와 설정 파일을 찾는다
-- [ ] #4 설정 파일을 읽을 수 없으면 원인을 밝히는 메시지와 함께 즉시 중단한다
-- [ ] #5 stdout/stderr 인코딩을 UTF-8로 고정해 LC_ALL=C 환경에서도 트레이스백 없이 동작한다
-- [ ] #6 표준 라이브러리만 사용한다
+- [x] #1 재생·병합 커밋에서는 아무 것도 하지 않고 종료한다 (MERGE_HEAD/CHERRY_PICK_HEAD/REBASE_HEAD/REVERT_HEAD 중 하나가 있거나 source가 merge 또는 squash)
+- [x] #2 source가 template이면 커밋을 거부하고 git commit -m 사용을 안내한다
+- [x] #3 훅 파일 위치를 os.path.realpath(__file__)로 해석해 init.templateDir 심볼릭 링크 설치에서도 lint 디렉터리와 설정 파일을 찾는다
+- [x] #4 설정 파일을 읽을 수 없으면 원인을 밝히는 메시지와 함께 즉시 중단한다
+- [x] #5 stdout/stderr 인코딩을 UTF-8로 고정해 LC_ALL=C 환경에서도 트레이스백 없이 동작한다
+- [x] #6 표준 라이브러리만 사용한다
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 python3 -m unittest 스위트 전체 통과 (이관 전이면 bats tests/ 통과)
-- [ ] #2 ruff check 통과
-- [ ] #3 이 저장소 자신의 커밋이 새 훅으로 정상 생성되는지 확인
+- [x] #1 python3 -m unittest 스위트 전체 통과 (이관 전이면 bats tests/ 통과)
+- [x] #2 ruff check 통과
+- [x] #3 이 저장소 자신의 커밋이 새 훅으로 정상 생성되는지 확인
 <!-- DOD:END -->
 
 ## Comments
@@ -67,3 +67,33 @@ created: 2026-09-26 02:10
 선택지: (a) source=commit에서도 검증해 --no-edit 경우를 커버하고 에디터 편집분은 포기, (b) commit-msg를 검증 전용으로 남겨 완전히 막는다(훅 3개가 된다), (c) --amend를 아예 거부한다.
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+`hooks/prepare-commit-msg` 골격(124줄)을 신설했다. 하는 일은 두 가지뿐이다 — 재생·병합 커밋 면제와 에디터 경로 거부. lint/검증/트레일러는 GF-126~128에서 옮겨온다.
+
+## 검증 증거 (직접 실측)
+
+- 범위: `git diff --stat main...HEAD -- hooks/`가 새 파일 1개만 (124줄 추가). 구 훅 3개와 checks/ 무변경
+- 스위트: `Ran 136 tests / OK` (127 → 136, 신규 9개)
+- lint: `ruff check hooks/ tests/` 통과
+- 공유 블록 동일성: 인코딩 preamble과 conf 가드가 pre-commit·commit-msg·post-commit과 **byte-identical** (기계 대조)
+- 심볼릭 링크 경로 해석(AC #3): 링크 설치 저장소에서 conf를 찾음을 확인. **음성 대조**도 했다 — `realpath` 대신 `__file__`을 쓴 사본은 `.git/hooks/gitformat.conf`를 찾다 실패한다. 즉 realpath가 실제로 일을 하고 있다
+
+## 순서가 고정된 이유
+
+면제(Step 0)가 에디터 거부(Step 1)보다 **반드시 먼저**다. 에디터로 여는 revert/merge는 source가 `template`이 아니라 `merge`로 오지만, 앞으로 판단을 더 붙이면서 면제를 뒤로 미루면 사람이 메시지를 고를 수조차 없는 재생 경로가 거부된다.
+
+면제 조건을 source와 상태 파일의 OR로 묶은 것도 실측 결과다 — cherry-pick과 rebase 재생은 `source=message`라 `CHERRY_PICK_HEAD`로만 잡히고, `MERGE_HEAD`가 있는 상태의 `git commit -m`도 `source=message`라 파일로만 잡히며, 반대로 `SQUASH_MSG`만 있는 커밋은 네 파일이 하나도 없어 `source=squash`로만 잡힌다.
+
+## 기존 테스트 1건을 고쳤다 (범위 밖이지만 필요)
+
+`tests/test_python3_missing.py`는 검증 대상 훅보다 앞서 도는 훅을 지워 그 훅을 고립시킨다. 새 훅이 체인에 끼어들면서 `test_post_commit만_실패해...`가 실제로 실패했고(트레일러 누락이 아니라 커밋 차단), `test_commit_msg가_실패해...`는 **조용히 commit-msg가 아닌 새 훅을 검증하고 있었다**. 두 테스트의 생략 목록에 `prepare-commit-msg`를 추가해 각 테스트의 선언된 의도를 복원했다.
+
+## 후속 태스크로 넘긴 것
+
+- **GF-127 위험**: clean `git revert --no-edit`은 `source=message`이고 `REVERT_HEAD`가 없어(충돌 시에만 생긴다) 면제되지 않는다. 자동 메시지 `Revert "..."`가 제목 규칙에 맞지 않으므로, 검증을 옮기면 clean revert가 거부된다. GF-127에 선택지 3개와 함께 기록했고 doc-15도 정정했다
+- **--amend 모호성**: `source=commit`이 `--amend --no-edit`(최종)과 `--amend`(뒤에 에디터)를 구분하지 못한다. 이 골격은 일반 경로로 취급한다. GF-127에서 함께 결정
+- doc-15의 revert 행이 미측정 상태였다 → 세 경로(clean/에디터/충돌 후)와 상태 파일을 측정해 정정했고, 측정 함정(훅을 저장소 안에 두면 revert가 훅을 삭제해 '안 돈 것'처럼 보인다)도 적었다
+<!-- SECTION:FINAL_SUMMARY:END -->
