@@ -5,11 +5,11 @@
 DRAFT-18)를 원인 단계에서 없애는 장치이므로, 재생 경로에서 훅이 조용히 통과하는지를
 고정해 둔다.
 
-**구 훅 3개는 사본에서 지운 뒤 검증한다.** 이 태스크는 prepare-commit-msg 골격만
-세우고 pre-commit/commit-msg/post-commit은 건드리지 않으므로, 구 post-commit이
-cherry-pick 중에 내는 DRAFT-18 트레이스백이 아직 그대로 살아 있다. 그걸 같이 태우면
-이 파일이 새 훅을 검증하는 게 아니라 아직 고치지 않은 구 훅을 검증하게 된다. 구 훅이
-삭제되는 GF-126~128 이후에는 이 사본 구성이 곧 실제 구성이 된다.
+**남은 구 훅은 사본에서 지운 뒤 검증한다.** 구 post-commit이 cherry-pick 중에 내는
+DRAFT-18 트레이스백이 아직 그대로 살아 있어, 그걸 같이 태우면 이 파일이 새 훅을 검증하는
+게 아니라 아직 고치지 않은 구 훅을 검증하게 된다. GF-126에서 pre-commit이 삭제돼 지울
+대상이 2개로 줄었고, commit-msg/post-commit도 삭제되는 GF-127~128 이후에는 이 사본
+구성이 곧 실제 구성이 된다.
 
 source 값과 진행 상태 파일은 git 2.54.0에서 실측했다(2026-09-26). cherry-pick과
 rebase 재생은 `source=message`라 CHERRY_PICK_HEAD 같은 진행 상태 파일로만 잡히고,
@@ -26,7 +26,7 @@ PROGRESS_FILES = ("MERGE_HEAD", "CHERRY_PICK_HEAD", "REBASE_HEAD", "REVERT_HEAD"
 
 class ReplayCommitsUntouchedTest(IsolatedRepoTestCase):
     def setUp(self):
-        self.hooks_copy = self.copy_hooks("pre-commit", "commit-msg", "post-commit")
+        self.hooks_copy = self.copy_hooks("commit-msg", "post-commit")
         self.repo = self.make_repo(hooks_path=self.hooks_copy)
         self.hook = self.hooks_copy / "prepare-commit-msg"
         self.write("base.txt", "base\n")

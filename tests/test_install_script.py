@@ -82,13 +82,13 @@ class InstallScriptTest(IsolatedRepoTestCase):
         # 대한 로컬 설치도 함께 수행한다. 타깃을 생략하면 이 저장소 자신이 대상이
         # 되므로 반드시 격리된 타깃을 넘긴다(GF-123).
         self.run_cmd_ok([INSTALL_SH, "--global", self.repo], env=env)
-        first = (TEMPLATE_DIR / "hooks" / "pre-commit").readlink()
+        first = (TEMPLATE_DIR / "hooks" / "prepare-commit-msg").readlink()
 
         self.run_cmd_ok([INSTALL_SH, "--global", self.repo], env=env)
-        second = (TEMPLATE_DIR / "hooks" / "pre-commit").readlink()
+        second = (TEMPLATE_DIR / "hooks" / "prepare-commit-msg").readlink()
 
         self.assertEqual(first, second)
-        self.assertEqual(HOOKS_DIR / "pre-commit", first)
+        self.assertEqual(HOOKS_DIR / "prepare-commit-msg", first)
         self.assertTrue((TEMPLATE_DIR / "hooks" / "commit-msg").is_symlink())
         self.assertTrue((TEMPLATE_DIR / "hooks" / "post-commit").is_symlink())
 
@@ -110,16 +110,18 @@ class InstallScriptTest(IsolatedRepoTestCase):
         root = self.fake_root()
 
         self.run_cmd_ok([root / "install.sh", "--global", self.repo], env=env)
-        self.assertTrue((root / "template" / "hooks" / "pre-commit").is_symlink())
+        self.assertTrue(
+            (root / "template" / "hooks" / "prepare-commit-msg").is_symlink()
+        )
         self.assertTrue((root / "template" / "hooks" / "commit-msg").is_symlink())
 
         # hooks/에서 파일 하나를 지운다 (GF-86의 hooks/pre-push 삭제 상황 재현).
-        (root / "hooks" / "pre-commit").unlink()
+        (root / "hooks" / "prepare-commit-msg").unlink()
 
         self.run_cmd_ok([root / "install.sh", "--global", self.repo], env=env)
 
         # 삭제된 파일의 심볼릭 링크는 사라져야 한다(깨진 링크로도 남으면 안 된다).
-        stale = root / "template" / "hooks" / "pre-commit"
+        stale = root / "template" / "hooks" / "prepare-commit-msg"
         self.assertFalse(stale.exists())
         self.assertFalse(stale.is_symlink())
 

@@ -22,9 +22,13 @@ class EndToEndCommitTest(IsolatedRepoTestCase):
         self.git_ok("add", "a.txt")
         self.assertRejected(self.commit("이상한 메시지"))
 
-    def test_언어_마커가_없으면_pre_commit이_무해하게_통과한다(self):
-        """언어 마커가 없는 저장소는 pre-commit이 무해하게 통과시킨다"""
-        result = self.python(HOOKS_DIR / "pre-commit")
+    def test_언어_마커가_없으면_lint가_무해하게_통과한다(self):
+        """언어 마커가 없는 저장소는 lint가 무해하게 통과시킨다
+
+        GF-126에서 lint가 pre-commit에서 prepare-commit-msg로 옮겨왔다 — 실행 주체가
+        바뀌었을 뿐 "마커가 없으면 아무 것도 하지 않는다"는 동작은 그대로다.
+        """
+        result = self.python(HOOKS_DIR / "prepare-commit-msg")
         self.assertEqual(0, result.returncode, str(result))
 
 

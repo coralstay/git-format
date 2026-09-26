@@ -20,7 +20,7 @@ GITMESSAGE = GITFORMAT_ROOT / ".gitmessage"
 # gitformat.conf를 키 단위로 읽는 파일들. install.sh는 `--list`로 읽기 가능 여부만
 # 보고 개별 키는 읽지 않으므로 여기 없다.
 CONF_READERS = (
-    HOOKS_DIR / "pre-commit",
+    HOOKS_DIR / "prepare-commit-msg",
     HOOKS_DIR / "commit-msg",
     HOOKS_DIR / "post-commit",
     HOOKS_DIR / "checks" / "cpp.py",
