@@ -24,8 +24,10 @@ class Python3MissingTest(IsolatedRepoTestCase):
     def use_hooks_without(self, *hooks):
         """특정 훅만 남긴 hooks/ 사본으로 core.hooksPath를 돌린다.
 
-        git은 앞선 훅이 실패하면 뒤의 훅을 아예 실행하지 않으므로, pre-commit을
-        지워야 commit-msg가, 둘 다 지워야 post-commit이 실제로 검증 대상이 된다.
+        git은 앞선 훅이 실패하면 뒤의 훅을 아예 실행하지 않으므로, 검증하려는 훅보다
+        앞서 도는 훅을 전부 지워야 그 훅이 실제 검증 대상이 된다. 실행 순서는
+        pre-commit → prepare-commit-msg → commit-msg → post-commit이다 —
+        prepare-commit-msg가 새로 생기면서(GF-125) 앞선 훅 목록이 하나 늘었다.
         """
         trimmed = self.copy_hooks(*hooks)
         self.git_ok("config", "core.hooksPath", trimmed)
@@ -55,7 +57,7 @@ class Python3MissingTest(IsolatedRepoTestCase):
 
     def test_commit_msg가_실패해_커밋_객체가_안_만들어진다(self):
         """[GF-113] python3이 없으면 commit-msg가 실패해 커밋 객체가 만들어지지 않는다"""
-        self.use_hooks_without("pre-commit")
+        self.use_hooks_without("pre-commit", "prepare-commit-msg")
         before = self.baseline_commit()
 
         self.write("a.txt", "hi\n")
@@ -70,7 +72,7 @@ class Python3MissingTest(IsolatedRepoTestCase):
 
     def test_post_commit만_실패해_트레일러가_누락된다(self):
         """[GF-113] python3이 없으면 post-commit만 실패해 커밋은 남고 트레일러가 누락된다"""
-        self.use_hooks_without("pre-commit", "commit-msg")
+        self.use_hooks_without("pre-commit", "prepare-commit-msg", "commit-msg")
 
         # 같은 설정에서 python3이 보이면 트레일러가 붙는다는 것부터 확인한다 — 이게
         # 없으면 아래 누락이 python3 부재 때문인지 훅 연결이 애초에 안 된 탓인지
